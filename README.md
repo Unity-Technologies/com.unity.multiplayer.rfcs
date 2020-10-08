@@ -26,7 +26,13 @@ If you submit a pull request to implement a new feature without going through th
 
 ## Before creating an RFC
 
-_// todo_
+A hastily-proposed RFC can hurt its chances of acceptance. Low quality proposals, proposals for previously-rejected features, or those that don't fit into the near-term roadmap, may be quickly rejected, which can be demotivating for the unprepared contributor. Laying some groundwork ahead of the RFC can make the process smoother.
+
+Although there is no single way to prepare for submitting an RFC, it is generally a good idea to pursue feedback from other project developers beforehand, to ascertain that the RFC may be desirable; having a consistent impact on the project requires concerted effort toward consensus-building.
+
+_// todo: forums, discord, slack and other communication channels here._
+
+As a rule of thumb, receiving encouraging feedback from long-standing project developers, and particularly members of the relevant project's team is a good indication that the RFC is worth pursuing.
 
 ## What the process is
 
