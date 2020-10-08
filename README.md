@@ -10,7 +10,19 @@ The "RFC" (request for comments) process is intended to provide a consistent and
 
 ## When you need to follow this process
 
-_// todo_
+You need to follow this process if you intend to make "substantial" changes to Unity Multiplayer projects, documentation or the RFC process itself. What constitutes a "substantial" change is evolving based on community norms and varies depending on what part of the ecosystem you are proposing to change, but may include the following:
+
+- Example A
+- Example B
+- Example C
+
+Some changes do not require an RFC:
+
+- Example X
+- Example Y
+- Example Z
+
+If you submit a pull request to implement a new feature without going through the RFC process, it may be closed with a polite request to submit an RFC first.
 
 ## Before creating an RFC
 
