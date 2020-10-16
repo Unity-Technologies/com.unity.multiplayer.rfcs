@@ -71,7 +71,11 @@ Unity Multiplayer team makes final decisions about RFCs after the benefits and d
 
 ## Implementing an RFC
 
-_// todo_
+Some accepted RFCs represent vital features that need to be implemented right away. Other accepted RFCs can represent features that can wait until some arbitrary developer feels like doing the work. Every accepted RFC has an associated issue tracking its implementation in the Unity Multiplayer repository; thus that associated issue can be assigned a priority via the triage process that the team uses for all issues in the Unity Multiplayer repository.
+
+The author of an RFC is not obligated to implement it. Of course, the RFC author (like any other developer) is welcome to post an implementation for review after the RFC has been accepted.
+
+If you are interested in working on the implementation for an "active" RFC, but cannot determine if someone else is already working on it, feel free to ask (e.g. by leaving a comment on the associated issue).
 
 ## RFC Postponement
 
