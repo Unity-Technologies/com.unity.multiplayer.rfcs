@@ -20,7 +20,7 @@ Explain the proposal as if it was already included in the Unity Multiplayer and 
 
 - Introducing new named concepts.
 - Explaining the feature largely in terms of examples.
-- Explaining how Unity developers should think about the feature, and how it should impact the way they develop multiplayer projects in Unity. It should explain the impact as concretely as possible.
+- Explaining how Unity developers should _think_ about the feature, and how it should impact the way they develop multiplayer projects in Unity. It should explain the impact as concretely as possible.
 - If applicable, provide sample error messages, deprecation warnings, or migration guidance.
 - If applicable, describe the differences between teaching this to existing Unity developers and new Unity developers.
 
@@ -40,7 +40,7 @@ The section should return to the examples given in the previous section, and exp
 # Drawbacks
 [drawbacks]: #drawbacks
 
-_// todo_
+Why should we _not_ do this?
 
 # Rationale and alternatives
 [rationale-and-alternatives]: #rationale-and-alternatives
