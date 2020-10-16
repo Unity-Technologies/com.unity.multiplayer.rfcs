@@ -65,7 +65,9 @@ In general, once accepted, RFCs should not be substantially changed. Only very m
 
 ## Reviewing RFCs
 
-_// todo_
+While the RFC pull request is up, the Unity Multiplayer team may schedule meetings with the author and/or relevant stakeholders to discuss the issues in greater detail, and in some cases the topic may be discussed at a Unity Multiplayer team meeting. In either case a summary from the meeting will be posted back to the RFC pull request.
+
+Unity Multiplayer team makes final decisions about RFCs after the benefits and drawbacks are well understood. These decisions can be made at any time, but the Unity Multiplayer team will regularly issue decisions. When a decision is made, the RFC pull request will either be merged or closed. In either case, if the reasoning is not clear from the discussion in thread, the Unity Multiplayer team will add a comment describing the rationale for the decision.
 
 ## Implementing an RFC
 
