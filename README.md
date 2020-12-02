@@ -40,6 +40,7 @@ In short, to get a major feature added to Unity Multiplayer, one must first get 
 
 - Fork the RFC repo [RFC repository](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs)
 - Copy `0000-template.md` to `text/0000-my-feature.md` (where "my-feature" is descriptive). Don't assign an RFC number yet; This is going to be the PR number and we'll rename the file accordingly if the RFC is accepted.
+- Please make sure to include the feature proposal document only (`0000-my-feature.md`) in your upcoming PR. Any PRs with additional files will be closed and asked for proposal document only under a  completely new PR. All implementations including POCs, prototypes, demos, either polished or unpolished works are all subject to be reviewed under a different PR on their respective repositories with the links between.
 - Fill in the RFC. Put care into the details: RFCs that do not present convincing motivation, demonstrate lack of understanding of the design's impact, or are disingenuous about the drawbacks or alternatives tend to be poorly-received.
 - Submit a pull request. As a pull request the RFC will receive design feedback from the larger community, and the author should be prepared to revise it in response.
 - Each pull request will be labeled with the most relevant Unity Multiplayer team, which will lead to its being triaged by that team in a future meeting and assigned to a member of the subteam.
