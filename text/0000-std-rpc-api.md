@@ -387,7 +387,7 @@ The section should return to the examples given in the previous section, and exp
 # Drawbacks
 [drawbacks]: #drawbacks
 
-Implementation of this feature will be relying on IL Post-Processing which will increase compile and build time in Unity Editor. However, we will be reducing this overhead significantly once we had [Roslyn Source Generators](https://devblogs.microsoft.com/dotnet/introducing-c-source-generators/) support in Unity Editor.
+Implementation of this feature will be relying on IL Post-Processing which will increase compile and build time in Unity Editor. However, we will explore replacing the IL components if and when [Roslyn Source Generators](https://devblogs.microsoft.com/dotnet/introducing-c-source-generators/) support arrives in Unity Editor.
 
 # Rationale and alternatives
 [rationale-and-alternatives]: #rationale-and-alternatives
