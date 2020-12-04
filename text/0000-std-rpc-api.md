@@ -185,12 +185,12 @@ MyServerRPC(true, 'N', 127, 255, 32767, 65535, 2147483647, 4294967295, 922337203
 
 ### Unity Primitives
 
-Arguments with `Color`, `Vector2`, `Vector3`, `Vector4`, `Quaternion`, `Ray`, `Ray2D` types passed into an RPC method for its parameters will be serialized by built-in serialization code:
+Arguments with `Color`, `Color32`, `Vector2`, `Vector3`, `Vector4`, `Quaternion`, `Ray`, `Ray2D` types passed into an RPC method for its parameters will be serialized by built-in serialization code:
 
 ```cs
 [ClientRPC]
 void MyClientRPC(
-    Color col,
+    Color col, Color32 col32,
     Vector2 vec2, Vector3 vec3, Vector4 vec4,
     Quaternion quat,
     Ray ray, Ray2D ray2d)
@@ -198,7 +198,12 @@ void MyClientRPC(
     // ...
 }
 
-MyClientRPC(Color.red, Vector2.zero, Vector3.zero, Vector4.zero, Quaternion.identity, new Ray(transform.position, transform.forward), new Ray2D(transform.position, transform.forward));
+
+MyClientRPC(
+    new Color(0.3f, 0.4f, 0.6f, 0.3f), new Color32(64, 128, 192, 255),
+    Vector2.zero, Vector3.zero, Vector4.zero,
+    Quaternion.identity,
+    new Ray(transform.position, transform.forward), new Ray2D(transform.position, transform.forward));
 ```
 
 ### Static Arrays and Generic Collections
