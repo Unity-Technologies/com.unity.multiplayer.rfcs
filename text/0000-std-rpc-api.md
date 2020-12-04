@@ -291,11 +291,37 @@ MyServerRPC(framekey, myStruct);
 
 ## Tooling
 
-### Unity Editor
+Tooling is one of the most important parts in overall developer experience, especially when we as framework developers are introducing a brand-new network construct, in this case RPCs.
 
-### Roslyn Analyzers
+### Unity Editor Diagnostics
+
+In short, developers will see error and warning messages in the Unity Editor in Console window if there was a problem with RPC method definition, parameters types on RPC method signature etc.
+
+Some of those messages will be warning messages which will not prevent compile and/or build.
+
+Some of those messages will be error messages which will prevent compile and/or build.
+
+Descriptive messages, message types, when messages should appear and other details are very much dependent on the implementation of this RPC API specification, therefore they will be decided while implementing the feature.
+
+### Roslyn Unity Analyzers
+
+While [Unity Editor Diagnostics](#unity-editor-diagnostics) messages will be covering in-Unity-Editor experience, Roslyn Analyzers will cover in-IDE experience.
+
+[Roslyn Analyzers](https://devblogs.microsoft.com/dotnet/write-better-code-faster-with-roslyn-analyzers/) will help developers to catch issues with their RPC netcode within the IDE without jumping back to Unity Editor, which we believe will improve overall developer experience. Roslyn Analyzers is a compiler feature, Roslyn compiler feature in fact, which will analyze written code and feed back to IDE so that we could see both command-line errors/warnings and in-IDE hints/popups.
+
+There is already an [**Analyzers for Unity** repository owned and maintained by Microsoft](https://github.com/microsoft/Microsoft.Unity.Analyzers) that provides some insights for Unity developers &mdash; we could be influenced by this repository and create a Unity owned one or further extend existing Microsoft owned project by actively collaborating with them.
 
 ### Rider Unity Plugin
+
+Beyond [Unity Editor Diagnostics](#unity-editor-diagnostics) and [Roslyn Analyzers](#roslyn-unity-analyzers), we could also strengthen our tight Rider IDE integration by either contributing to existing [repository owned and maintained by JetBrains](https://github.com/JetBrains/resharper-unity) or create a Unity owned one.
+
+Plugin could recognize RPC API and provide additional hints, checks, visuals and other features to enhance developer experience.
+
+### Strategy
+
+We will be targeting all 3 tooling options but also make them independent from each other.
+
+Unity Editor + Roslyn Compiler + Rider IDE will give developers in-editor, in-IDE, immediate feedback and better visuals &mdash; hopefully that'd make developers' life much easier.
 
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
