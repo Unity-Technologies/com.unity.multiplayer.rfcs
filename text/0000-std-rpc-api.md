@@ -151,7 +151,7 @@ MyClientRPC(Time.frameCount, new ClientRPCOptions {TargetClientIds = new[] {Owne
 
 ### ServerRPCOptions
 
-`ClientRPCOptions` can be put as the last parameter of a `ClientRPC` method signature to gain access to `ClientRPC` network executions options at runtime:
+`ServerRPCOptions` can be put as the last parameter of a `ServerRPC` method signature to gain access to `ServerRPC` network executions options at runtime:
 
 ```cs
 [ServerRPC]
@@ -160,11 +160,88 @@ void MyServerRPC(int framekey, ServerRPCOptions rpcOptions = default) { /* ... *
 
 ## Serialization
 
+Multiplayer framework has built-in serialization support for C# and Unity primitive types out-of-the-box, also with ability to further extend network serialization for user defined types implementing `INetworkSerializable` interface.
+
 ### C# Primitives
+
+Arguments with `bool`, `char`, `sbyte`, `byte`, `short`, `ushort`, `int`, `uint`, `long`, `ulong`, `float`, `double`, `string` types passed into an RPC method for its parameters will be serialized by built-in serialization code:
+
+```cs
+[ServerRPC]
+void MyServerRPC(
+    bool b1, char c8,
+    sbyte i8, byte u8,
+    short i16, ushort u16,
+    int i32, uint u32,
+    long i64, ulong u64,
+    float s32, double d64,
+    string str)
+{
+    // ...
+}
+
+MyServerRPC(true, 'N', 127, 255, 32767, 65535, 2147483647, 4294967295, 9223372036854775807, 18446744073709551615, 123456.789f, 987654321.0, "netcode");
+```
 
 ### Unity Primitives
 
-### Generic Collections
+Arguments with `Color`, `Vector2`, `Vector3`, `Vector4`, `Quaternion`, `Ray`, `Ray2D` types passed into an RPC method for its parameters will be serialized by built-in serialization code:
+
+```cs
+[ClientRPC]
+void MyClientRPC(
+    Color col,
+    Vector2 vec2, Vector3 vec3, Vector4 vec4,
+    Quaternion quat,
+    Ray ray, Ray2D ray2d)
+{
+    // ...
+}
+
+MyClientRPC(Color.red, Vector2.zero, Vector3.zero, Vector4.zero, Quaternion.identity, new Ray(transform.position, transform.forward), new Ray2D(transform.position, transform.forward));
+```
+
+### Static Arrays and Generic Collections
+
+Static arrays and generic collections like `IEnumerable<T>`s and `IEnumerable<KeyValuePair<K, V>>`s will be serialized by built-in serialization code if their underlying type is either serialization supported types (e.g. `Vector3`) or if they implement `INetworkSerializable` interface.
+
+For example, static array of `Vector3` is supported:
+
+```cs
+[ClientRPC]
+void MyClientRPC(Vector3[] startPositions) { /* ... */ }
+```
+
+However, a static array of non-supported and non-`INetworkSerializable` types are not OK:
+
+```cs
+[ClientRPC]
+void MyClientRPC(Material[] skinMaterials) { /* ... */ }
+
+// Not OK! `Material` type has no built-in network serialization code and does not implement `INetworkSerializable`
+```
+
+Beyond that, `IEnumerable<T>` and `IEnumerable<KeyValuePair<K, V>>` will be supported as long as underlying `T`, `K`, and `V` types are supported:
+
+```cs
+[ClientRPC]
+void MyClientRPC(IEnumerable<Vector3> startPositions) { /* ... */ }
+
+
+var startPositions = new List<Vector3>();
+// ...
+MyClientRPC(startPositions);
+```
+
+```cs
+[ClientRPC]
+void MyClientRPC(IEnumerable<KeyValuePair<ulong, Vector3>> startPositionMap) { /* ... */ }
+
+
+var startPositionMap = new Dictionary<ulong, Vector3>();
+// ...
+MyClientRPC(startPositionMap);
+```
 
 ### INetworkSerializable
 
