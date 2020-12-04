@@ -15,7 +15,7 @@ The initial implementation of this standard would be kept minimal and further-ex
 # Motivation
 [motivation]: #motivation
 
-Achieve better performance, unify & standardize RPC API, make RPC API extensible & future-proof and reduce boilerplate.
+Achieve better performance, unify & standardize RPC API, make RPC API extensible & future-proof and reduce boilerplate code.
 
 # Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
@@ -216,7 +216,7 @@ MyClientRPC(
 
 ### Static Arrays and Generic Collections
 
-Static arrays and generic collections like `IEnumerable<T>`s and `IEnumerable<KeyValuePair<K, V>>`s will be serialized by built-in serialization code if their underlying type is either serialization supported types (e.g. `Vector3`) or if they implement `INetworkSerializable` interface.
+Static arrays and generic collections such as `IEnumerable<T>`s and `IEnumerable<KeyValuePair<K, V>>`s will be serialized by built-in serialization code if their underlying type is either serialization supported types (e.g. `Vector3`) or if they implement `INetworkSerializable` interface.
 
 For example, static array of `Vector3` is supported:
 
@@ -230,7 +230,6 @@ However, a static array of non-supported and non-`INetworkSerializable` types ar
 ```cs
 [ClientRPC]
 void MyClientRPC(Material[] skinMaterials) { /* ... */ }
-
 // Not OK! `Material` type has no built-in serialization code and does not implement `INetworkSerializable`
 ```
 
@@ -254,6 +253,40 @@ void MyClientRPC(IEnumerable<KeyValuePair<ulong, Vector3>> startPositionMap) { /
 var startPositionMap = new Dictionary<ulong, Vector3>();
 // ...
 MyClientRPC(startPositionMap);
+```
+
+### Enum Types
+
+A user-defined enum type will be serialized by built-in serialization code (with underlying integer type):
+
+```cs
+enum MySmallEnum : byte
+{
+    A,
+    B,
+    C
+}
+
+enum MyNormalEnum
+{
+    X,
+    Y,
+    Z
+}
+
+enum MyLargeEnum : ulong
+{
+    U,
+    N,
+    F
+}
+
+
+[ServerRPC]
+void MyServerRPC(MySmallEnum smallEnum, MyNormalEnum normalEnum, MyLargeEnum largeEnum) { /* ... */ }
+
+
+MyServerRPC(MySmallEnum.A, MyNormalEnum.X, MyLargeEnum.U);
 ```
 
 ### INetworkSerializable
