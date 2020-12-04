@@ -6,9 +6,9 @@
 # Summary
 [summary]: #summary
 
-Existing MLAPI ["convenience" and "performance" RPCs](https://mlapi.network/wiki/messaging-system/) are sub-optimal in terms of required boilerplate code, API design and runtime performance.
+Existing MLAPI [**Convenience** and **Performance** RPCs](https://mlapi.network/wiki/messaging-system/) are sub-optimal in terms of required boilerplate code, API design and runtime performance.
 
-This RFC proposes a new Standard RPC API that excels at minimal boilerplate, API design/clarity, extensibility (future-proofing) and runtime performance.
+This RFC proposes a new **Standard** RPC API that excels at minimal boilerplate, API design/clarity, extensibility (future-proofing) and runtime performance.
 
 The initial implementation of this standard would be kept minimal and further-extended with additional features down the line as it will also support future extensions and enhancements without changing the standard API necessarily.
 
@@ -20,15 +20,161 @@ Why are we doing this? What use cases does it support? What is the expected outc
 # Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
 
-Explain the proposal as if it was already included in the Unity Multiplayer and you were teaching it to another Unity developer. That generally means:
+Multiplayer framework provides 2 main network constructs ([ServerRPC](#serverrpc) and [ClientRPC](#clientrpc)) to execute logic on either server-side or client-side. This concept often called as [Remote Procedure Call (RPC)](https://en.wikipedia.org/wiki/Remote_procedure_call) and has wide adoption across the industry.
 
-- Introducing new named concepts.
-- Explaining the feature largely in terms of examples.
-- Explaining how Unity developers should _think_ about the feature, and how it should impact the way they develop multiplayer projects in Unity. It should explain the impact as concretely as possible.
-- If applicable, provide sample error messages, deprecation warnings, or migration guidance.
-- If applicable, describe the differences between teaching this to existing Unity developers and new Unity developers.
+## RPC Methods
 
-For implementation-oriented RFCs (e.g. for framework internals), this section should focus on how Unity Multiplayer contributors should think about the change, and give examples of its concrete impact. For policy RFCs, this section should provide an example-driven introduction to the policy, and explain its impact in concrete terms.
+A framework user (Unity developer) can declare multiple RPCs under a `NetworkBehaviour` and inbound/outbound RPC calls will be replicated as a part of its replication in a network frame.
+
+### ServerRPC
+
+A `ServerRPC` can be invoked by a client to be executed on the server.
+
+Developer can declare a `ServerRPC` by marking a method with `[ServerRPC]` attribute and making sure to have `ServerRPC` postfix in the method name:
+
+```cs
+[ServerRPC]
+void PingServerRPC(int framekey) { /* ... */ }
+```
+
+Developer can invoke a `ServerRPC` by making a direct function call with parameters:
+
+```cs
+void Update()
+{
+	if (Input.GetKeyDown(KeyCode.P))
+	{
+		PingServerRPC(Time.frameCount); // Client -> Server
+	}
+}
+```
+
+Marking method with `[ServerRPC]` and putting `ServerRPC` postfix to the method name are required:
+
+```cs
+// Invalid, missing 'ServerRPC' postfix in the method name
+[ServerRPC]
+void Ping(int framekey) { /* ... */ }
+
+// Invalid, missing [ServerRPC] attribute
+void PingServerRPC(int framekey) { /* ... */ }
+```
+
+`[ServerRPC]` attribute and matching `...ServerRPC` postfix in the method name are there to make it crystal clear for RPC call sites to know when they are executing an RPC, it will be replicated and executed on the server-side, without necessarily jumping into original RPC method declaration to find out if it was an RPC, if so whether it is a ServerRPC or ClientRPC:
+
+```cs
+Ping(framekey); // Is this an RPC call?
+
+PingRPC(framekey); // Is this a ServerRPC call or ClientRPC call?
+
+PingServerRPC(framekey); // This is clearly a ServerRPC call
+```
+
+### ClientRPC
+
+A `ClientRPC` can be invoked by the server to be executed on a client.
+
+Developer can declare a `ClientRPC` by marking a method with `[ClientRPC]` attribute and making sure to have `CLientRPC` postfix in the method name:
+
+```cs
+[ClientRPC]
+void PongClientRPC(int framekey) { /* ... */ }
+```
+
+Developer can invoke a `ClientRPC` by making a direct function call with parameters:
+
+```cs
+void Update()
+{
+	if (Input.GetKeyDown(KeyCode.P))
+	{
+		PongClientRPC(Time.frameCount); // Server -> Client
+	}
+}
+```
+
+Marking method with `[ClientRPC]` and putting `ClientRPC` postfix to the method name are required:
+
+```cs
+// Invalid, missing 'ClientRPC' postfix in the method name
+[ClientRPC]
+void Pong(int framekey) { /* ... */ }
+
+// Invalid, missing [ClientRPC] attribute
+void PongClientRPC(int framekey) { /* ... */ }
+```
+
+`[ClientRPC]` attribute and matching `...ClientRPC` postfix in the method name are there to make it crystal clear for RPC call sites to know when they are executing an RPC, it will be replicated and executed on the client-side, without necessarily jumping into original RPC method declaration to find out if it was an RPC, if so whether it is a ServerRPC or ClientRPC:
+
+```cs
+Pong(framekey); // Is this an RPC call?
+
+PongRPC(framekey); // Is this a ServerRPC call or ClientRPC call?
+
+PongClientRPC(framekey); // This is clearly a ClientRPC call
+```
+
+### Execution Table
+
+An RPC function **never** executes its body immediately since it's being a network construct. Even a `ServerRPC` called by a host (an instance that is a client and the server at the same time, aka listen server) will not be executed immediately but follow the regular network frame staging first.
+
+||Server|Client|Host (Server+Client)|
+|-:|:-:|:-:|:-:|
+|ServerRPC Network Send|❌|✅|✅|
+|ServerRPC Network Call|✅|❌|✅|
+|ServerRPC Direct Call|❌|❌|❌|
+|ClientRPC Network Send|✅|❌|✅|
+|ClientRPC Network Call|❌|✅|✅|
+|ClientRPC Direct Call|❌|❌|❌|
+
+## RPC Options
+
+Sometimes developer might want to control RPC's network execution (such as targeting specific subset of clients) and that is why we expose `ClientRPCOptions` and `ServerRPCOptions` structs to give better control over RPC network execution. RPC options will be specified per call basis at runtime (optionally) without touching RPC method signature so that we as framework developers could further extend RPC options in the future without touching the Standard RPC API necessarily which makes extensibility and future-proofing possible, also relatively easier.
+
+### ClientRPCOptions
+
+`ClientRPCOptions` can be put as the last parameter of a `ClientRPC` method signature to gain access to `ClientRPC` network executions options at runtime:
+
+```cs
+[ClientRPC]
+void MyClientRPC(int framekey, ClientRPCOptions rpcOptions = default) { /* ... */ }
+
+// Server -> Client #123, Client #456, Client #789
+var framekey = Time.frameCount;
+var targetClientIds = new ulong[] {123, 456, 789};
+var clientRPCOptions = new ClientRPCOptions{TargetClientIds =  targetClientIds};
+MyClientRPC(framekey, clientRPCOptions);
+
+// Server -> Owner Client
+MyClientRPC(Time.frameCount, new ClientRPCOptions {TargetClientIds = new[] {OwnerClientId}});
+```
+
+### ServerRPCOptions
+
+`ClientRPCOptions` can be put as the last parameter of a `ClientRPC` method signature to gain access to `ClientRPC` network executions options at runtime:
+
+```cs
+[ServerRPC]
+void MyServerRPC(int framekey, ServerRPCOptions rpcOptions = default) { /* ... */ }
+```
+
+## Serialization
+
+### C# Primitives
+
+### Unity Primitives
+
+### Generic Collections
+
+### INetworkSerializable
+
+## Tooling
+
+### Unity Editor
+
+### Roslyn Analyzers
+
+### Rider Unity Plugin
 
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
