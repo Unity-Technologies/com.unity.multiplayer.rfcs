@@ -17,6 +17,21 @@ The initial implementation of this standard would be kept minimal and further-ex
 
 Achieve better performance, unify & standardize RPC API, make RPC API extensible & future-proof and reduce boilerplate code.
 
+Also a simple internal performance benchmark came with these results:
+
+    Local RPC Send Performance Test (524280 calls)
+    Convenience -> 4361.0433ms
+    Performance -> 2607.7266ms
+    Standard -> 2205.043ms
+    Local RPC Recv Performance Test (524280 calls)
+    Convenience -> 9626.3536ms
+    Performance -> 5923.7964ms
+    Standard -> 1935.296ms
+
+We're looking at **up to 5.24x better performance** (compared to convenience API vs standard API receive performance).
+
+Beyond that, on an internal project, we saw roughly **%80 less boilerplate code** compared to performance RPCs and standard RPCs which is also a huge win.
+
 # Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
 
@@ -74,7 +89,7 @@ PingServerRPC(framekey); // This is clearly a ServerRPC call
 
 A `ClientRPC` can be invoked by the server to be executed on a client.
 
-Developer can declare a `ClientRPC` by marking a method with `[ClientRPC]` attribute and making sure to have `CLientRPC` postfix in the method name:
+Developer can declare a `ClientRPC` by marking a method with `[ClientRPC]` attribute and making sure to have `ClientRPC` postfix in the method name:
 
 ```cs
 [ClientRPC]
@@ -378,8 +393,12 @@ Implementation of this feature will be relying on IL Post-Processing which will 
 [rationale-and-alternatives]: #rationale-and-alternatives
 
 - Why is this design the best in the space of possible designs?
+  - Compared to MLAPI's existing templated delegates approach, this RFC proposes much more performant and cleaner API exposed to framework users. This API is also more familiar to [UNET RPC API](https://docs.unity3d.com/Manual/UNetActions.html) which would make existing UNET users' life easier while onboarding.
 - What other designs have been considered and what is the rationale for not choosing them?
+  - There was an ongoing discussion around whether or not to enforce `...ServerRPC` and `...ClientRPC` postfixes on method names tied to `[ServerRPC]` and `[ClientRPC]` attributes but what we are advising here is to also consider RPC call sites and make it obvious even in the call sites that the RPC method is in fact an RPC method and it's either `ClientRPC` or `ServerRPC`. (see [ServerRPC](#serverrpc) and/or [ClientRPC](#clientrpc) sections for futther details and examples).
 - What is the impact of not doing this?
+  - This is an API breaking change. If we were to make this change later, it would be harder to rollout in public. It would require API upgrader, cause some frustrations and issues in customers' codebases.
+  - If we **never** do this change, we're leaving quite a lot of potential goodies on the table (see [Summary](#summary) and [Motivation](#motivation) sections).
 
 # Prior art
 [prior-art]: #prior-art
