@@ -231,7 +231,7 @@ However, a static array of non-supported and non-`INetworkSerializable` types ar
 [ClientRPC]
 void MyClientRPC(Material[] skinMaterials) { /* ... */ }
 
-// Not OK! `Material` type has no built-in network serialization code and does not implement `INetworkSerializable`
+// Not OK! `Material` type has no built-in serialization code and does not implement `INetworkSerializable`
 ```
 
 Beyond that, `IEnumerable<T>` and `IEnumerable<KeyValuePair<K, V>>` will be supported as long as underlying `T`, `K`, and `V` types are supported:
@@ -257,6 +257,37 @@ MyClientRPC(startPositionMap);
 ```
 
 ### INetworkSerializable
+
+Complex user-defined types that implements `INetworkSerializable` interface passed into an RPC method will be serialized by user provided serialization code:
+
+```cs
+struct MyStruct : INetworkSerializable
+{
+    public Vector3 Position;
+    public Quaternion Rotation;
+
+    public void NetworkRead(BitReader reader)
+    {
+        Position = reader.ReadVector3Packed();
+        Rotation = reader.ReadRotationPacked();
+    }
+
+    public void NetworkWrite(BitWriter writer)
+    {
+        writer.WriteVector3Packed(Position);
+        writer.WriteRotationPacked(Rotation);
+    }
+}
+
+
+[ServerRPC]
+void MyServerRPC(int framekey, MyStruct myStruct) { /* ... */ }
+
+
+var framekey = Time.frameCount;
+var myStruct = new MyStruct {Position = transform.position, Rotation = transform.rotation};
+MyServerRPC(framekey, myStruct);
+```
 
 ## Tooling
 
