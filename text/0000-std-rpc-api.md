@@ -323,6 +323,8 @@ We will be targeting all 3 tooling options but also make them independent from e
 
 Unity Editor + Roslyn Compiler + Rider IDE will give developers in-editor, in-IDE, immediate feedback and better visuals &mdash; hopefully that'd make developers' life much easier.
 
+**One important note to plug here is that, [Unity Editor Diagnostics](#unity-editor-diagnostics) are not optional, they are essential and fundamentally checking against invalid RPC code while also providing contextful error/warning messages.**
+
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
 
