@@ -15,7 +15,7 @@ The initial implementation of this standard would be kept minimal and further-ex
 # Motivation
 [motivation]: #motivation
 
-Why are we doing this? What use cases does it support? What is the expected outcome?
+Achieve better performance, unify & standardize RPC API, make RPC API extensible & future-proof and reduce boilerplate.
 
 # Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
@@ -42,10 +42,10 @@ Developer can invoke a `ServerRPC` by making a direct function call with paramet
 ```cs
 void Update()
 {
-	if (Input.GetKeyDown(KeyCode.P))
-	{
-		PingServerRPC(Time.frameCount); // Client -> Server
-	}
+    if (Input.GetKeyDown(KeyCode.P))
+    {
+        PingServerRPC(Time.frameCount); // Client -> Server
+    }
 }
 ```
 
@@ -86,10 +86,10 @@ Developer can invoke a `ClientRPC` by making a direct function call with paramet
 ```cs
 void Update()
 {
-	if (Input.GetKeyDown(KeyCode.P))
-	{
-		PongClientRPC(Time.frameCount); // Server -> Client
-	}
+    if (Input.GetKeyDown(KeyCode.P))
+    {
+        PongClientRPC(Time.frameCount); // Server -> Client
+    }
 }
 ```
 
