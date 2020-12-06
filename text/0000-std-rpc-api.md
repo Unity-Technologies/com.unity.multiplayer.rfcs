@@ -175,7 +175,7 @@ void MyServerRPC(int framekey, ServerRPCOptions rpcOptions = default) { /* ... *
 
 ## Serialization
 
-Arguments passed into RPC method with [Serializable Types (ongoing RFC)](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/2) will be serialized and replicated to remote side.
+Instances of [Serializable Types](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/2) passed into an RPC as parameters will be serialized and replicated to the remote side.
 
 A quick and simple example:
 
@@ -253,16 +253,44 @@ Implementation of this feature will be relying on IL Post-Processing which will 
 # Prior art
 [prior-art]: #prior-art
 
-Discuss prior art, both the good and the bad, in relation to this proposal. A few examples of what this can include are:
+## Unreal RPCs
 
-- For framework, tools, and library proposals: Does this feature exist in other networking stacks and what experience have their community had?
-- For community proposals: Is this done by some other community and what were their experiences with it?
-- For other teams: What lessons can we learn from what other communities have done here?
-- Papers: Are there any published papers or great posts that discuss this? If you have some relevant papers to refer to, this can serve as a more detailed theoretical background.
+Unreal Engine offers similar RPC functionality on Actors ([documentation](https://docs.unrealengine.com/en-US/InteractiveExperiences/Networking/Actors/RPCs/index.html)).
 
-This section is intended to encourage you as an author to think about the lessons from other projects, provide readers of your RFC with a fuller picture. If there is no prior art, that is fine - your ideas are interesting to us whether they are brand new or if it is an adaptation from other projects.
+Macro-based markup needed to generate RPC replication code at compile-time:
 
-Note that while precedent set by other projects is some motivation, it does not on its own motivate an RFC. Please also take into consideration that Unity Multiplayer sometimes intentionally diverges from common multiplayer networking features.
+```cpp
+UFUNCTION(Client)
+void ClientRPCFunction();
+
+UFUNCTION(Server)
+void ServerRPCFunction();
+
+UFUNCTION(NetMulticast)
+void MulticastRPCFunction();
+```
+
+### Validation Before Execution
+
+_// todo_
+
+## Photon RPCs
+
+Photon PUN offers similar RPC functionality ([documentation](https://doc.photonengine.com/en-us/pun/v2/gameplay/rpcsandraiseevent)).
+
+Attribute-based markup needed to register RPCs at runtime:
+
+```cs
+[PunRPC]
+void ChatMessage(string a, string b)
+{
+    Debug.Log(string.Format("ChatMessage {0} {1}", a, b));
+}
+```
+
+### MessageInfo as a Parameter
+
+_// todo_
 
 # Unresolved questions
 [unresolved-questions]: #unresolved-questions
