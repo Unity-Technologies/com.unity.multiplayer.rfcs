@@ -1,4 +1,4 @@
-- Feature Name: `type-serialization`
+- Feature Name: `serialization-support`
 - Start Date: 2020-11-06
 - RFC PR: [Unity-Technologies/com.unity.multiplayer.rfcs#0000](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/0000)
 - Issue: [Unity-Technologies/com.unity.multiplayer#0000](https://github.com/Unity-Technologies/com.unity.multiplayer/issues/0000)
@@ -6,7 +6,7 @@
 # Summary
 [summary]: #summary
 
-_Placeholder RFC for **Type Serialization** (to be updated and properly proposed)_
+_Placeholder RFC for **Serialization Support** (to be updated and properly proposed)_
 
 # Motivation
 [motivation]: #motivation
