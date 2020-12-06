@@ -183,7 +183,7 @@ A quick and simple example:
 [ClientRPC]
 void WelcomeClientRPC(string motd, Vector3 spawnPoint, ClientRPCOptions rpcOptions = default) { /* ... */ }
 
-
+// Server -> Owner Client
 WelcomeClientRPC("Greetings!", Vector3.zero, new ClientRPCOptions {TargetClientIds = new[] {OwnerClientId}});
 ```
 
