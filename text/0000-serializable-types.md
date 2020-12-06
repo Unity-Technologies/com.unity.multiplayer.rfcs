@@ -6,7 +6,7 @@
 # Summary
 [summary]: #summary
 
-_Placeholder RFC for **Serializable Types** (to be updated and properly proposed)_
+_RFC draft for **Serializable Types** (to be updated and properly proposed)_
 
 # Motivation
 [motivation]: #motivation
@@ -62,7 +62,7 @@ struct MyStruct : INetworkSerializable
         writer.WriteVector3Packed(Position);
         writer.WriteRotationPacked(Rotation);
     }
-    // ~// INetworkSerializable
+    // ~INetworkSerializable
 }
 ```
 
