@@ -16,15 +16,55 @@ Why are we doing this? What use cases does it support? What is the expected outc
 # Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
 
-Explain the proposal as if it was already included in the Unity Multiplayer and you were teaching it to another Unity developer. That generally means:
+## Serialization
 
-- Introducing new named concepts.
-- Explaining the feature largely in terms of examples.
-- Explaining how Unity developers should _think_ about the feature, and how it should impact the way they develop multiplayer projects in Unity. It should explain the impact as concretely as possible.
-- If applicable, provide sample error messages, deprecation warnings, or migration guidance.
-- If applicable, describe the differences between teaching this to existing Unity developers and new Unity developers.
+Multiplayer framework has built-in serialization support for C# and Unity primitive types out-of-the-box, also with ability to further extend network serialization for user defined types implementing `INetworkSerializable` interface.
 
-For implementation-oriented RFCs (e.g. for framework internals), this section should focus on how Unity Multiplayer contributors should think about the change, and give examples of its concrete impact. For policy RFCs, this section should provide an example-driven introduction to the policy, and explain its impact in concrete terms.
+### C# Primitives
+
+`bool`, `char`, `sbyte`, `byte`, `short`, `ushort`, `int`, `uint`, `long`, `ulong`, `float`, `double`, `string` types will be serialized by built-in serialization code.
+
+### Unity Primitives
+
+`Color`, `Color32`, `Vector2`, `Vector3`, `Vector4`, `Quaternion`, `Ray`, `Ray2D` types will be serialized by built-in serialization code.
+
+### Enum Types
+
+A user-defined enum type will be serialized by built-in serialization code (with underlying integer type).
+
+### Static Arrays
+
+Static arrays like `int[]` will be serialized by built-in serialization code if their underlying type is either one of serialization supported types (e.g. `Vector3`) or if they implement `INetworkSerializable` interface.
+
+### Generic Collections
+
+Generic collections such as `IEnumerable<T>` and `IEnumerable<KeyValuePair<K, V>>` will be serialized by built-in serialization code if their underlying type is either one of serialization supported types (e.g. `Vector3`) or if they implement `INetworkSerializable` interface.
+
+### INetworkSerializable
+
+Complex user-defined types that implements `INetworkSerializable` interface will be serialized by user provided serialization code:
+
+```cs
+struct MyStruct : INetworkSerializable
+{
+    public Vector3 Position;
+    public Quaternion Rotation;
+
+    // INetworkSerializable
+    public void NetworkRead(BitReader reader)
+    {
+        Position = reader.ReadVector3Packed();
+        Rotation = reader.ReadRotationPacked();
+    }
+
+    public void NetworkWrite(BitWriter writer)
+    {
+        writer.WriteVector3Packed(Position);
+        writer.WriteRotationPacked(Rotation);
+    }
+    // ~// INetworkSerializable
+}
+```
 
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
