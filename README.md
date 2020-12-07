@@ -30,7 +30,7 @@ A hastily-proposed RFC can hurt its chances of acceptance. Low quality proposals
 
 Although there is no single way to prepare for submitting an RFC, it is generally a good idea to pursue feedback from other project developers beforehand, to ascertain that the RFC may be desirable; having a consistent impact on the project requires concerted effort toward consensus-building.
 
-_// todo: forums, discord, slack and other communication channels here._
+Our main communication channel for discussions about RFCs and the development of MLAPI is the [MLAPI Discord](http://discord.mlapi.network/). The `#rfc-discussion` channel can be used to get feedback for RFC ideas or to discuss already existing RFC proposals.
 
 As a rule of thumb, receiving encouraging feedback from long-standing project developers, and particularly members of the relevant project's team is a good indication that the RFC is worth pursuing.
 
@@ -86,13 +86,12 @@ _// todo_
 
 The process is intended to be as lightweight as reasonable for the present circumstances. As usual, we are trying to let the process be driven by consensus and community norms, not impose more structure than necessary.
 
-## Unity Contribution Agreement
+## <a name="cla"></a> Contributor License Agreements
 
-All contributions are subject to the [Unity Contribution Agreement ("UCA")](https://unity3d.com/legal/licenses/Unity_Contribution_Agreement). By making a pull request, you are confirming agreement to the terms and conditions of the UCA, including that your Contributions are your original creation and that you have complete right and authority to make your Contributions.
+When you open a pull request, you will be asked to acknowledge our Contributor License Agreement. We allow both individual contributions and contributions made on behalf of companies. We use an open source tool called CLA assistant. If you have any questions on our CLA, please submit an issue
 
-## License
-
-_// todo_
+### License
+[MIT License](LICENCE)
 
 ---
 
