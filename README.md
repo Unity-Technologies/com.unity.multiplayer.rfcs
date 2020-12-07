@@ -15,7 +15,7 @@ You need to follow this process if you intend to make "substantial" changes to U
 - Any framework API or internal behavior change that is not a bugfix
 - Introducing a new feature and/or deprecating an existing feature
 - Additional built-in features, components and/or extensions
-- A code refactor touching more than a file or type
+- A code refactor touching a large part of the codebase
 
 Some changes do not require an RFC:
 
