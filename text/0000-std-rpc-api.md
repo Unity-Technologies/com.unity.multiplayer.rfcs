@@ -277,8 +277,6 @@ Implementation of this feature will be relying on IL Post-Processing which will 
 
 Unreal Engine offers similar RPC functionality on Actors ([documentation](https://docs.unrealengine.com/en-US/InteractiveExperiences/Networking/Actors/RPCs/index.html)).
 
-Macro-based markup needed to generate RPC replication code at compile-time:
-
 ```cpp
 UFUNCTION(Client)
 void ClientRPCFunction();
@@ -294,11 +292,36 @@ void MulticastRPCFunction();
 
 _// todo_
 
+```cpp
+// Header
+
+UFUNCTION(Server, WithValidation)
+void SomeRPCFunction(int32 AddHealth);
+
+
+// Source
+
+bool SomeRPCFunction_Validate(int32 AddHealth)
+{
+    if (AddHealth > MAX_ADD_HEALTH)
+    {
+        // This will disconnect the caller
+        return false;
+    }
+
+    // This will allow the RPC to be called
+    return true;
+}
+
+void SomeRPCFunction_Implementation(int32 AddHealth)
+{
+    Health += AddHealth;
+}
+```
+
 ## Photon RPCs
 
 Photon PUN offers similar RPC functionality ([documentation](https://doc.photonengine.com/en-us/pun/v2/gameplay/rpcsandraiseevent)).
-
-Attribute-based markup needed to register RPCs at runtime:
 
 ```cs
 [PunRPC]
@@ -311,6 +334,16 @@ void ChatMessage(string a, string b)
 ### MessageInfo as a Parameter
 
 _// todo_
+
+```cs
+[PunRPC]
+void ChatMessage(string a, string b, PhotonMessageInfo info)
+{
+    // the photonView.RPC() call is the same as without the info parameter.
+    // the info.Sender is the player who called the RPC.
+    Debug.LogFormat("Info: {0} {1} {2}", info.Sender, info.photonView, info.SentServerTime);
+}
+```
 
 # Unresolved questions
 [unresolved-questions]: #unresolved-questions
