@@ -35,162 +35,162 @@ Beyond that, on an internal project, we saw roughly **%80 less boilerplate code*
 # Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
 
-Multiplayer framework provides 2 main network constructs ([ServerRPC](#serverrpc) and [ClientRPC](#clientrpc)) to execute logic on either server-side or client-side. This concept often called as [Remote Procedure Call (RPC)](https://en.wikipedia.org/wiki/Remote_procedure_call) and has wide adoption across the industry.
+Multiplayer framework provides 2 main network constructs ([ServerRpc](#serverrpc) and [ClientRpc](#clientrpc)) to execute logic on either server-side or client-side. This concept often called as [Remote Procedure Call (RPC)](https://en.wikipedia.org/wiki/Remote_procedure_call) and has wide adoption across the industry.
 
 ## RPC Methods
 
 A framework user (Unity developer) can declare multiple RPCs under a `NetworkBehaviour` and inbound/outbound RPC calls will be replicated as a part of its replication in a network frame.
 
-### ServerRPC
+### ServerRpc
 
-A `ServerRPC` can be invoked by a client to be executed on the server.
+A `ServerRpc` can be invoked by a client to be executed on the server.
 
-Developer can declare a `ServerRPC` by marking a method with `[ServerRPC]` attribute and making sure to have `ServerRPC` postfix in the method name:
+Developer can declare a `ServerRpc` by marking a method with `[ServerRpc]` attribute and making sure to have `ServerRpc` postfix in the method name:
 
 ```cs
-[ServerRPC]
-void PingServerRPC(int framekey) { /* ... */ }
+[ServerRpc]
+void PingServerRpc(int framekey) { /* ... */ }
 ```
 
-Developer can invoke a `ServerRPC` by making a direct function call with parameters:
+Developer can invoke a `ServerRpc` by making a direct function call with parameters:
 
 ```cs
 void Update()
 {
     if (Input.GetKeyDown(KeyCode.P))
     {
-        PingServerRPC(Time.frameCount); // Client -> Server
+        PingServerRpc(Time.frameCount); // Client -> Server
     }
 }
 ```
 
-Marking method with `[ServerRPC]` and putting `ServerRPC` postfix to the method name are required:
+Marking method with `[ServerRpc]` and putting `ServerRpc` postfix to the method name are required:
 
 ```cs
-// Invalid, missing 'ServerRPC' postfix in the method name
-[ServerRPC]
+// Invalid, missing 'ServerRpc' postfix in the method name
+[ServerRpc]
 void Ping(int framekey) { /* ... */ }
 
-// Invalid, missing [ServerRPC] attribute
-void PingServerRPC(int framekey) { /* ... */ }
+// Invalid, missing [ServerRpc] attribute
+void PingServerRpc(int framekey) { /* ... */ }
 ```
 
-`[ServerRPC]` attribute and matching `...ServerRPC` postfix in the method name are there to make it crystal clear for RPC call sites to know when they are executing an RPC, it will be replicated and executed on the server-side, without necessarily jumping into original RPC method declaration to find out if it was an RPC, if so whether it is a ServerRPC or ClientRPC:
+`[ServerRpc]` attribute and matching `...ServerRpc` postfix in the method name are there to make it crystal clear for RPC call sites to know when they are executing an RPC, it will be replicated and executed on the server-side, without necessarily jumping into original RPC method declaration to find out if it was an RPC, if so whether it is a ServerRpc or ClientRpc:
 
 ```cs
 Ping(framekey); // Is this an RPC call?
 
-PingRPC(framekey); // Is this a ServerRPC call or ClientRPC call?
+PingRPC(framekey); // Is this a ServerRpc call or ClientRpc call?
 
-PingServerRPC(framekey); // This is clearly a ServerRPC call
+PingServerRpc(framekey); // This is clearly a ServerRpc call
 ```
 
-### ClientRPC
+### ClientRpc
 
-A `ClientRPC` can be invoked by the server to be executed on a client.
+A `ClientRpc` can be invoked by the server to be executed on a client.
 
-Developer can declare a `ClientRPC` by marking a method with `[ClientRPC]` attribute and making sure to have `ClientRPC` postfix in the method name:
+Developer can declare a `ClientRpc` by marking a method with `[ClientRpc]` attribute and making sure to have `ClientRpc` postfix in the method name:
 
 ```cs
-[ClientRPC]
-void PongClientRPC(int framekey) { /* ... */ }
+[ClientRpc]
+void PongClientRpc(int framekey) { /* ... */ }
 ```
 
-Developer can invoke a `ClientRPC` by making a direct function call with parameters:
+Developer can invoke a `ClientRpc` by making a direct function call with parameters:
 
 ```cs
 void Update()
 {
     if (Input.GetKeyDown(KeyCode.P))
     {
-        PongClientRPC(Time.frameCount); // Server -> Client
+        PongClientRpc(Time.frameCount); // Server -> Client
     }
 }
 ```
 
-Marking method with `[ClientRPC]` and putting `ClientRPC` postfix to the method name are required:
+Marking method with `[ClientRpc]` and putting `ClientRpc` postfix to the method name are required:
 
 ```cs
-// Invalid, missing 'ClientRPC' postfix in the method name
-[ClientRPC]
+// Invalid, missing 'ClientRpc' postfix in the method name
+[ClientRpc]
 void Pong(int framekey) { /* ... */ }
 
-// Invalid, missing [ClientRPC] attribute
-void PongClientRPC(int framekey) { /* ... */ }
+// Invalid, missing [ClientRpc] attribute
+void PongClientRpc(int framekey) { /* ... */ }
 ```
 
-`[ClientRPC]` attribute and matching `...ClientRPC` postfix in the method name are there to make it crystal clear for RPC call sites to know when they are executing an RPC, it will be replicated and executed on the client-side, without necessarily jumping into original RPC method declaration to find out if it was an RPC, if so whether it is a ServerRPC or ClientRPC:
+`[ClientRpc]` attribute and matching `...ClientRpc` postfix in the method name are there to make it crystal clear for RPC call sites to know when they are executing an RPC, it will be replicated and executed on the client-side, without necessarily jumping into original RPC method declaration to find out if it was an RPC, if so whether it is a ServerRpc or ClientRpc:
 
 ```cs
 Pong(framekey); // Is this an RPC call?
 
-PongRPC(framekey); // Is this a ServerRPC call or ClientRPC call?
+PongRPC(framekey); // Is this a ServerRpc call or ClientRpc call?
 
-PongClientRPC(framekey); // This is clearly a ClientRPC call
+PongClientRpc(framekey); // This is clearly a ClientRpc call
 ```
 
 ### Reliability
 
 RPCs are reliable by default which means they are guaranteed to be executed on the remote side. However, sometimes developer might want to opt-out reliability, which is often the case for non-critical events such as particle effects, sounds effects etc.
 
-Reliability configuration can be specified for both `ServerRPC` and `ClientRPC` methods at compile time:
+Reliability configuration can be specified for both `ServerRpc` and `ClientRpc` methods at compile time:
 
 ```cs
-[ServerRPC]
-void MyReliableServerRPC() { /* ... */ }
+[ServerRpc]
+void MyReliableServerRpc() { /* ... */ }
 
-[ServerRPC(IsReliable = false)]
-void MyUnreliableServerRPC() { /* ... */ }
+[ServerRpc(IsReliable = false)]
+void MyUnreliableServerRpc() { /* ... */ }
 
-[ClientRPC]
-void MyReliableClientRPC() { /* ... */ }
+[ClientRpc]
+void MyReliableClientRpc() { /* ... */ }
 
-[ClientRPC(IsReliable = false)]
-void MyUnreliableClientRPC() { /* ... */ }
+[ClientRpc(IsReliable = false)]
+void MyUnreliableClientRpc() { /* ... */ }
 ```
 
 ### Execution Table
 
-An RPC function **never** executes its body immediately since it's being a network construct. Even a `ServerRPC` called by a host (an instance that is a client and the server at the same time, aka listen server) will not be executed immediately but follow the regular network frame staging first.
+An RPC function **never** executes its body immediately since it's being a network construct. Even a `ServerRpc` called by a host (an instance that is a client and the server at the same time, aka listen server) will not be executed immediately but follow the regular network frame staging first.
 
 ||Server|Client|Host (Server+Client)|
 |-:|:-:|:-:|:-:|
-|ServerRPC Network Send|❌|✅|✅|
-|ServerRPC Network Call|✅|❌|✅|
-|ServerRPC Direct Call|❌|❌|❌|
-|ClientRPC Network Send|✅|❌|✅|
-|ClientRPC Network Call|❌|✅|✅|
-|ClientRPC Direct Call|❌|❌|❌|
+|ServerRpc Network Send|❌|✅|✅|
+|ServerRpc Network Call|✅|❌|✅|
+|ServerRpc Direct Call|❌|❌|❌|
+|ClientRpc Network Send|✅|❌|✅|
+|ClientRpc Network Call|❌|✅|✅|
+|ClientRpc Direct Call|❌|❌|❌|
 
 ## RPC Options
 
-Sometimes developer might want to control RPC's network execution (such as targeting specific subset of clients) and that is why we expose `ClientRPCOptions` and `ServerRPCOptions` structs to give better control over RPC network execution. RPC options will be specified per call basis at runtime (optionally) without touching RPC method signature so that we as framework developers could further extend RPC options in the future without touching the Standard RPC API necessarily which makes extensibility and future-proofing possible, also relatively easier.
+Sometimes developer might want to control RPC's network execution (such as targeting specific subset of clients) and that is why we expose `ClientRpcOptions` and `ServerRpcOptions` structs to give better control over RPC network execution. RPC options will be specified per call basis at runtime (optionally) without touching RPC method signature so that we as framework developers could further extend RPC options in the future without touching the Standard RPC API necessarily which makes extensibility and future-proofing possible, also relatively easier.
 
-### ClientRPCOptions
+### ClientRpcOptions
 
-`ClientRPCOptions` can be put as the last parameter of a `ClientRPC` method signature to gain access to `ClientRPC` network executions options at runtime:
+`ClientRpcOptions` can be put as the last parameter of a `ClientRpc` method signature to gain access to `ClientRpc` network executions options at runtime:
 
 ```cs
-[ClientRPC]
-void MyClientRPC(int framekey, ClientRPCOptions rpcOptions = default) { /* ... */ }
+[ClientRpc]
+void MyClientRpc(int framekey, ClientRpcOptions rpcOptions = default) { /* ... */ }
 
 // Server -> Client #123, Client #456, Client #789
 var framekey = Time.frameCount;
 var targetClientIds = new ulong[] {123, 456, 789};
-var clientRPCOptions = new ClientRPCOptions{TargetClientIds =  targetClientIds};
-MyClientRPC(framekey, clientRPCOptions);
+var clientRpcOptions = new ClientRpcOptions{TargetClientIds =  targetClientIds};
+MyClientRpc(framekey, clientRpcOptions);
 
 // Server -> Owner Client
-MyClientRPC(Time.frameCount, new ClientRPCOptions {TargetClientIds = new[] {OwnerClientId}});
+MyClientRpc(Time.frameCount, new ClientRpcOptions {TargetClientIds = new[] {OwnerClientId}});
 ```
 
-### ServerRPCOptions
+### ServerRpcOptions
 
-`ServerRPCOptions` can be put as the last parameter of a `ServerRPC` method signature to gain access to `ServerRPC` network executions options at runtime:
+`ServerRpcOptions` can be put as the last parameter of a `ServerRpc` method signature to gain access to `ServerRpc` network executions options at runtime:
 
 ```cs
-[ServerRPC]
-void MyServerRPC(int framekey, ServerRPCOptions rpcOptions = default) { /* ... */ }
+[ServerRpc]
+void MyServerRpc(int framekey, ServerRpcOptions rpcOptions = default) { /* ... */ }
 ```
 
 ## Serialization
@@ -200,11 +200,11 @@ Instances of [Serializable Types](https://github.com/Unity-Technologies/com.unit
 A quick and simple example:
 
 ```cs
-[ClientRPC]
-void WelcomeClientRPC(string motd, Vector3 spawnPoint, ClientRPCOptions rpcOptions = default) { /* ... */ }
+[ClientRpc]
+void WelcomeClientRpc(string motd, Vector3 spawnPoint, ClientRpcOptions rpcOptions = default) { /* ... */ }
 
 // Server -> Owner Client
-WelcomeClientRPC("Greetings!", Vector3.zero, new ClientRPCOptions {TargetClientIds = new[] {OwnerClientId}});
+WelcomeClientRpc("Greetings!", Vector3.zero, new ClientRpcOptions {TargetClientIds = new[] {OwnerClientId}});
 ```
 
 ## Tooling
@@ -265,7 +265,7 @@ Implementation of this feature will be relying on IL Post-Processing which will 
 - Why is this design the best in the space of possible designs?
   - Compared to MLAPI's existing templated delegates approach, this RFC proposes much more performant and cleaner API exposed to framework users. This API is also more familiar to [UNET RPC API](https://docs.unity3d.com/Manual/UNetActions.html) which would make existing UNET users' life easier while onboarding.
 - What other designs have been considered and what is the rationale for not choosing them?
-  - There was an ongoing discussion around whether or not to enforce `...ServerRPC` and `...ClientRPC` postfixes on method names tied to `[ServerRPC]` and `[ClientRPC]` attributes but what we are advising here is to also consider RPC call sites and make it obvious even in the call sites that the RPC method is in fact an RPC method and it's either `ClientRPC` or `ServerRPC` (see [ServerRPC](#serverrpc) and/or [ClientRPC](#clientrpc) sections for further details and examples). This approach also realized by [UNET Remote Actions](https://docs.unity3d.com/Manual/UNetActions.html) in the past but had its own issues with naming (`Command`, `ClientRpc`, `TargetRpc` names are confusing and ambiguous). We could weaken this enforcement by case-insensitive naming so that both `MyServerRPC` and `MyServerRpc` would be OK (open discussion). However, both call-site clarity and existing UNET API gave us more confidence towards this approach at the end.
+  - There was an ongoing discussion around whether or not to enforce `...ServerRpc` and `...ClientRpc` postfixes on method names tied to `[ServerRpc]` and `[ClientRpc]` attributes but what we are advising here is to also consider RPC call sites and make it obvious even in the call sites that the RPC method is in fact an RPC method and it's either `ClientRpc` or `ServerRpc` (see [ServerRpc](#serverrpc) and/or [ClientRpc](#clientrpc) sections for further details and examples). This approach also realized by [UNET Remote Actions](https://docs.unity3d.com/Manual/UNetActions.html) in the past but had its own issues with naming (`Command`, `ClientRpc`, `TargetRpc` names are confusing and ambiguous). We could weaken this enforcement by case-insensitive naming so that both `MyServerRpc` and `MyServerRPC` would be OK (open discussion). However, both call-site clarity and existing UNET API gave us more confidence towards this approach at the end.
 - What is the impact of not doing this?
   - This is an API breaking change. If we were to make this change later, it would be harder to rollout in public. It would require API upgrader, cause some frustrations and issues in customers' codebases.
   - If we **never** do this change, we're leaving quite a lot of potential goodies on the table (see [Summary](#summary) and [Motivation](#motivation) sections).
@@ -333,7 +333,7 @@ void ChatMessage(string a, string b)
 
 ### MessageInfo as a Parameter
 
-Photon provides `PhotonMessageInfo` over RPCs to give more context in the executing RPC body. This could be very useful for [`ServerRPC`](#serverrpc)s when multiple clients want to execute the same RPC on the server. Server &rarr; Clients is clear, server executes the RPC on the client but in the Clients &rarr; Server scenario, ServerRPC body can't tell who was the instigator. There is still a chance to provide RPC context information via a protected member on `NetworkBehaviour` which gets set/unset before/after RPC execution but direct access to that information on the method callstack would be better approach (IMHO). We could discover similar approach and repurpose our existing magical last parameter `XXXRPCOption` _(what if we abstract that magical last parameter to be either RPC option or RPC info based on the execution context?)_.
+Photon provides `PhotonMessageInfo` over RPCs to give more context in the executing RPC body. This could be very useful for [`ServerRpc`](#serverrpc)s when multiple clients want to execute the same RPC on the server. Server &rarr; Clients is clear, server executes the RPC on the client but in the Clients &rarr; Server scenario, ServerRpc body can't tell who was the instigator. There is still a chance to provide RPC context information via a protected member on `NetworkBehaviour` which gets set/unset before/after RPC execution but direct access to that information on the method callstack would be better approach (IMHO). We could discover similar approach and repurpose our existing magical last parameter `XXXRPCOption` _(what if we abstract that magical last parameter to be either RPC option or RPC info based on the execution context?)_.
 
 ```cs
 [PunRPC]
