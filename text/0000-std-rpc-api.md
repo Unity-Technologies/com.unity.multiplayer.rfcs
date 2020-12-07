@@ -129,6 +129,26 @@ PongRPC(framekey); // Is this a ServerRPC call or ClientRPC call?
 PongClientRPC(framekey); // This is clearly a ClientRPC call
 ```
 
+### Reliability
+
+RPCs are reliable by default which means they are guaranteed to be executed on the remote side. However, sometimes developer might want to opt-out reliability, which is often the case for non-critical events such as particle effects, sounds effects etc.
+
+Reliability configuration can be specified for both `ServerRPC` and `ClientRPC` methods at compile time:
+
+```cs
+[ServerRPC]
+void MyReliableServerRPC() { /* ... */ }
+
+[ServerRPC(IsReliable = false)]
+void MyUnreliableServerRPC() { /* ... */ }
+
+[ClientRPC]
+void MyReliableClientRPC() { /* ... */ }
+
+[ClientRPC(IsReliable = false)]
+void MyUnreliableClientRPC() { /* ... */ }
+```
+
 ### Execution Table
 
 An RPC function **never** executes its body immediately since it's being a network construct. Even a `ServerRPC` called by a host (an instance that is a client and the server at the same time, aka listen server) will not be executed immediately but follow the regular network frame staging first.
