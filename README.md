@@ -91,7 +91,7 @@ The process is intended to be as lightweight as reasonable for the present circu
 When you open a pull request, you will be asked to acknowledge our Contributor License Agreement. We allow both individual contributions and contributions made on behalf of companies. We use an open source tool called CLA assistant. If you have any questions on our CLA, please submit an issue
 
 ### License
-[MIT License](LICENCE)
+[MIT License](LICENSE)
 
 ---
 
