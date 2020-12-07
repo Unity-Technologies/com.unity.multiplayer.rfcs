@@ -80,7 +80,7 @@ void PingServerRpc(int framekey) { /* ... */ }
 ```cs
 Ping(framekey); // Is this an RPC call?
 
-PingRPC(framekey); // Is this a ServerRpc call or ClientRpc call?
+PingRpc(framekey); // Is this a ServerRpc call or ClientRpc call?
 
 PingServerRpc(framekey); // This is clearly a ServerRpc call
 ```
@@ -124,7 +124,7 @@ void PongClientRpc(int framekey) { /* ... */ }
 ```cs
 Pong(framekey); // Is this an RPC call?
 
-PongRPC(framekey); // Is this a ServerRpc call or ClientRpc call?
+PongRpc(framekey); // Is this a ServerRpc call or ClientRpc call?
 
 PongClientRpc(framekey); // This is clearly a ClientRpc call
 ```
@@ -162,35 +162,68 @@ An RPC function **never** executes its body immediately since it's being a netwo
 |ClientRpc Network Call|❌|✅|✅|
 |ClientRpc Direct Call|❌|❌|❌|
 
-## RPC Options
+## RPC Params
 
-Sometimes developer might want to control RPC's network execution (such as targeting specific subset of clients) and that is why we expose `ClientRpcOptions` and `ServerRpcOptions` structs to give better control over RPC network execution. RPC options will be specified per call basis at runtime (optionally) without touching RPC method signature so that we as framework developers could further extend RPC options in the future without touching the Standard RPC API necessarily which makes extensibility and future-proofing possible, also relatively easier.
-
-### ClientRpcOptions
-
-`ClientRpcOptions` can be put as the last parameter of a `ClientRpc` method signature to gain access to `ClientRpc` network executions options at runtime:
+### ServerRpc Params
 
 ```cs
-[ClientRpc]
-void MyClientRpc(int framekey, ClientRpcOptions rpcOptions = default) { /* ... */ }
+struct ServerRpcSendParams
+{
+}
 
-// Server -> Client #123, Client #456, Client #789
-var framekey = Time.frameCount;
-var targetClientIds = new ulong[] {123, 456, 789};
-var clientRpcOptions = new ClientRpcOptions{TargetClientIds =  targetClientIds};
-MyClientRpc(framekey, clientRpcOptions);
+struct ServerRpcReceiveParams
+{
+	ulong SenderId;
+}
 
-// Server -> Owner Client
-MyClientRpc(Time.frameCount, new ClientRpcOptions {TargetClientIds = new[] {OwnerClientId}});
+struct ServerRpcSendReceiveParams
+{
+	ServerRpcSendParams Send;
+	ServerRpcReceiveParams Receive;
+}
+
+[ServerRpc]
+void TestServerRpc(int framekey) { /* ... */ }
+
+[ServerRpc]
+void XyzwServerRpc(int framekey, ServerRpcSendParams sendParams = default) { /* ... */ }
+
+[ServerRpc]
+void RbgaServerRpc(int framekey, ServerRpcReceiveParams receiveParams = default) { /* ... */ }
+
+[ServerRpc]
+void AbcdServerRpc(int framekey, ServerRpcSendReceiveParams sendReceiveParams = default) { /* ... */ }
 ```
 
-### ServerRpcOptions
-
-`ServerRpcOptions` can be put as the last parameter of a `ServerRpc` method signature to gain access to `ServerRpc` network executions options at runtime:
+### ClientRpc Params
 
 ```cs
-[ServerRpc]
-void MyServerRpc(int framekey, ServerRpcOptions rpcOptions = default) { /* ... */ }
+struct ClientRpcSendParams
+{
+	ulong[] TargetClientIds;
+}
+
+struct ClientRpcReceiveParams
+{
+}
+
+struct ClientRpcSendReceiveParams
+{
+	ClientRpcSendParams Send;
+	ClientRpcReceiveParams Receive;
+}
+
+[ClientRpc]
+void TestClientRpc(int framekey) { /* ... */ }
+
+[ClientRpc]
+void XyzwClientRpc(int framekey, ClientRpcSendParams sendParams = default) { /* ... */ }
+
+[ClientRpc]
+void RbgaClientRpc(int framekey, ClientRpcReceiveParams receiveParams = default) { /* ... */ }
+
+[ClientRpc]
+void AbcdClientRpc(int framekey, ClientRpcSendReceiveParams sendReceiveParams = default) { /* ... */ }
 ```
 
 ## Serialization
