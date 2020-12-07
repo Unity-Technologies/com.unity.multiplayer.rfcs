@@ -290,7 +290,7 @@ void MulticastRPCFunction();
 
 ### Validation Before Execution
 
-_// todo_
+Unreal provides a way to check RPC being executed before its execution, and it disconnects the caller immediately if validation fails. This approach might be useful to catch very basic cheats and packet attacks but might also perceived as a very strong punishment. However, it could still give us an idea and impression to discover ways to implement validation checks programmatically.
 
 ```cpp
 // Header
@@ -333,7 +333,7 @@ void ChatMessage(string a, string b)
 
 ### MessageInfo as a Parameter
 
-_// todo_
+Photon provides `PhotonMessageInfo` over RPCs to give more context in the executing RPC body. This could be very useful for [`ServerRPC`](#serverrpc)s when multiple clients want to execute the same RPC on the server. Server &rarr; Clients is clear, server executes the RPC on the client but in the Clients &rarr; Server scenario, ServerRPC body can't tell who was the instigator. There is still a chance to provide RPC context information via a protected member on `NetworkBehaviour` which gets set/unset before/after RPC execution but direct access to that information on the method callstack would be better approach (IMHO). We could discover similar approach and repurpose our existing magical last parameter `XXXRPCOption` _(what if we abstract that magical last parameter to be either RPC option or RPC info based on the execution context?)_.
 
 ```cs
 [PunRPC]
