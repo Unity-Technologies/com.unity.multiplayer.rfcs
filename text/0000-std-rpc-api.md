@@ -64,14 +64,14 @@ void Update()
 }
 ```
 
-Marking method with `[ServerRpc]` and putting `ServerRpc` postfix to the method name are required:
+Marking method with `[ServerRpc]` and putting `ServerRpc` postfix to the method name are required, otherwise it will prompt error messages:
 
 ```cs
-// Invalid, missing 'ServerRpc' postfix in the method name
+// Error: Invalid, missing 'ServerRpc' postfix in the method name
 [ServerRpc]
 void Ping(int framekey) { /* ... */ }
 
-// Invalid, missing [ServerRpc] attribute
+// Error: Invalid, missing [ServerRpc] attribute on the method
 void PingServerRpc(int framekey) { /* ... */ }
 ```
 
@@ -108,14 +108,14 @@ void Update()
 }
 ```
 
-Marking method with `[ClientRpc]` and putting `ClientRpc` postfix to the method name are required:
+Marking method with `[ClientRpc]` and putting `ClientRpc` postfix to the method name are required, otherwise it will prompt error messages:
 
 ```cs
-// Invalid, missing 'ClientRpc' postfix in the method name
+// Error: Invalid, missing 'ClientRpc' postfix in the method name
 [ClientRpc]
 void Pong(int framekey) { /* ... */ }
 
-// Invalid, missing [ClientRpc] attribute
+// Error: Invalid, missing [ClientRpc] attribute on the method
 void PongClientRpc(int framekey) { /* ... */ }
 ```
 
