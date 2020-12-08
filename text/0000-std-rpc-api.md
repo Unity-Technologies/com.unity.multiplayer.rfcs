@@ -41,11 +41,13 @@ Multiplayer framework provides 2 main network constructs ([ServerRpc](#serverrpc
 
 A framework user (Unity developer) can declare multiple RPCs under a `NetworkBehaviour` and inbound/outbound RPC calls will be replicated as a part of its replication in a network frame.
 
+A method turned into an RPC is no longer a regular method, it will have its  own implications on direct calls and in the network pipeline (see [Execution Table](#execution-table)).
+
 ### ServerRpc
 
 A `ServerRpc` can be invoked by a client to be executed on the server.
 
-Developer can declare a `ServerRpc` by marking a method with `[ServerRpc]` attribute and making sure to have `ServerRpc` postfix in the method name.
+Developer can declare a `ServerRpc` by marking a method with `[ServerRpc]` attribute and making sure to have `ServerRpc` suffix in the method name.
 
 ```cs
 [ServerRpc]
@@ -64,10 +66,10 @@ void Update()
 }
 ```
 
-Marking method with `[ServerRpc]` and putting `ServerRpc` postfix to the method name are required, otherwise it will prompt error messages:
+Marking method with `[ServerRpc]` and putting `ServerRpc` suffix to the method name are required, otherwise it will prompt error messages:
 
 ```cs
-// Error: Invalid, missing 'ServerRpc' postfix in the method name
+// Error: Invalid, missing 'ServerRpc' suffix in the method name
 [ServerRpc]
 void Ping(int framekey) { /* ... */ }
 
@@ -75,7 +77,7 @@ void Ping(int framekey) { /* ... */ }
 void PingServerRpc(int framekey) { /* ... */ }
 ```
 
-`[ServerRpc]` attribute and matching `...ServerRpc` postfix in the method name are there to make it crystal clear for RPC call sites to know when they are executing an RPC, it will be replicated and executed on the server-side, without necessarily jumping into original RPC method declaration to find out if it was an RPC, if so whether it is a ServerRpc or ClientRpc:
+`[ServerRpc]` attribute and matching `...ServerRpc` suffix in the method name are there to make it crystal clear for RPC call sites to know when they are executing an RPC, it will be replicated and executed on the server-side, without necessarily jumping into original RPC method declaration to find out if it was an RPC, if so whether it is a ServerRpc or ClientRpc:
 
 ```cs
 Ping(framekey); // Is this an RPC call?
@@ -89,7 +91,7 @@ PingServerRpc(framekey); // This is clearly a ServerRpc call
 
 A `ClientRpc` can be invoked by the server to be executed on a client.
 
-Developer can declare a `ClientRpc` by marking a method with `[ClientRpc]` attribute and making sure to have `ClientRpc` postfix in the method name.
+Developer can declare a `ClientRpc` by marking a method with `[ClientRpc]` attribute and making sure to have `ClientRpc` suffix in the method name.
 
 ```cs
 [ClientRpc]
@@ -108,10 +110,10 @@ void Update()
 }
 ```
 
-Marking method with `[ClientRpc]` and putting `ClientRpc` postfix to the method name are required, otherwise it will prompt error messages:
+Marking method with `[ClientRpc]` and putting `ClientRpc` suffix to the method name are required, otherwise it will prompt error messages:
 
 ```cs
-// Error: Invalid, missing 'ClientRpc' postfix in the method name
+// Error: Invalid, missing 'ClientRpc' suffix in the method name
 [ClientRpc]
 void Pong(int framekey) { /* ... */ }
 
@@ -119,7 +121,7 @@ void Pong(int framekey) { /* ... */ }
 void PongClientRpc(int framekey) { /* ... */ }
 ```
 
-`[ClientRpc]` attribute and matching `...ClientRpc` postfix in the method name are there to make it crystal clear for RPC call sites to know when they are executing an RPC, it will be replicated and executed on the client-side, without necessarily jumping into original RPC method declaration to find out if it was an RPC, if so whether it is a ServerRpc or ClientRpc:
+`[ClientRpc]` attribute and matching `...ClientRpc` suffix in the method name are there to make it crystal clear for RPC call sites to know when they are executing an RPC, it will be replicated and executed on the client-side, without necessarily jumping into original RPC method declaration to find out if it was an RPC, if so whether it is a ServerRpc or ClientRpc:
 
 ```cs
 Pong(framekey); // Is this an RPC call?
@@ -286,7 +288,7 @@ Implementation of this feature will be relying on IL Post-Processing which will 
 - Why is this design the best in the space of possible designs?
   - Compared to MLAPI's existing templated delegates approach, this RFC proposes much more performant and cleaner API exposed to framework users. This API is also more familiar to [UNET RPC API](https://docs.unity3d.com/Manual/UNetActions.html) which would make existing UNET users' life easier while onboarding.
 - What other designs have been considered and what is the rationale for not choosing them?
-  - There was an ongoing discussion around whether or not to enforce `...ServerRpc` and `...ClientRpc` postfixes on method names tied to `[ServerRpc]` and `[ClientRpc]` attributes but what we are advising here is to also consider RPC call sites and make it obvious even in the call sites that the RPC method is in fact an RPC method and it's either `ClientRpc` or `ServerRpc` (see [ServerRpc](#serverrpc) and/or [ClientRpc](#clientrpc) sections for further details and examples). This approach also realized by [UNET Remote Actions](https://docs.unity3d.com/Manual/UNetActions.html) in the past but had its own issues with naming (`Command`, `ClientRpc`, `TargetRpc` names are confusing and ambiguous). We could weaken this enforcement by case-insensitive naming so that both `MyServerRpc` and `MyServerRPC` would be OK (open discussion). However, both call-site clarity and existing UNET API gave us more confidence towards this approach at the end.
+  - There was an ongoing discussion around whether or not to enforce `...ServerRpc` and `...ClientRpc` suffixes on method names tied to `[ServerRpc]` and `[ClientRpc]` attributes but what we are advising here is to also consider RPC call sites and make it obvious even in the call sites that the RPC method is in fact an RPC method and it's either `ClientRpc` or `ServerRpc` (see [ServerRpc](#serverrpc) and/or [ClientRpc](#clientrpc) sections for further details and examples). This approach also realized by [UNET Remote Actions](https://docs.unity3d.com/Manual/UNetActions.html) in the past but had its own issues with naming (`Command`, `ClientRpc`, `TargetRpc` names are confusing and ambiguous). We could weaken this enforcement by case-insensitive naming so that both `MyServerRpc` and `MyServerRPC` would be OK (open discussion). However, both call-site clarity and existing UNET API gave us more confidence towards this approach at the end.
 - What is the impact of not doing this?
   - This is an API breaking change. If we were to make this change later, it would be harder to rollout in public. It would require API upgrader, cause some frustrations and issues in customers' codebases.
   - If we **never** do this change, we're leaving quite a lot of potential goodies on the table (see [Summary](#summary) and [Motivation](#motivation) sections).
