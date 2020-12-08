@@ -151,6 +151,8 @@ void MyReliableClientRpc() { /* ... */ }
 void MyUnreliableClientRpc() { /* ... */ }
 ```
 
+An RPC call made without active connection will be dropped and will not be queued for send automatically. Both reliable and unreliable RPC calls have to be made when there is an active network connection established between a client and the server. Also reliable RPC calls made during connection will be dropped on disconnect as well.
+
 ### Execution Table
 
 An RPC function **never** executes its body immediately since it's being a network construct. Even a `ServerRpc` called by a host (an instance that is a client and the server at the same time, aka listen server) will not be executed immediately but follow the regular network frame staging first.
