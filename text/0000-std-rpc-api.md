@@ -35,7 +35,7 @@ Beyond that, on an internal project, we saw roughly **%80 less boilerplate code*
 # Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
 
-Multiplayer framework provides 2 main network constructs ([ServerRpc](#serverrpc) and [ClientRpc](#clientrpc)) to execute logic on either server-side or client-side. This concept often called as [Remote Procedure Call (RPC)](https://en.wikipedia.org/wiki/Remote_procedure_call) and has wide adoption across the industry.
+The multiplayer framework provides 2 main network constructs ([ServerRpc](#serverrpc) and [ClientRpc](#clientrpc)) to execute logic on either server-side or client-side. This concept is often called [Remote Procedure Call (RPC)](https://en.wikipedia.org/wiki/Remote_procedure_call) and has wide adoption across the industry.
 
 ## RPC Methods
 
@@ -168,6 +168,8 @@ An RPC function **never** executes its body immediately since it's being a netwo
 
 ## RPC Params
 
+// todo: descriptions needed below
+
 ### ServerRpc Params
 
 ```cs
@@ -177,7 +179,8 @@ struct ServerRpcSendParams
 
 struct ServerRpcReceiveParams
 {
-    ulong SenderId;
+    // who sent the RPC?
+    ulong SenderClientId;
 }
 
 struct ServerRpcParams
@@ -198,6 +201,7 @@ void XyzwServerRpc(int framekey, ServerRpcParams rpcParams = default) { /* ... *
 ```cs
 struct ClientRpcSendParams
 {
+    // who are the target clients?
     ulong[] TargetClientIds;
 }
 
