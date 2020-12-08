@@ -20,13 +20,13 @@ Achieve better performance, unify & standardize RPC API, make RPC API extensible
 Also a simple internal performance benchmark came with these results:
 
     Local RPC Send Performance Test (524280 calls)
-    Convenience -> 4361.0433ms
-    Performance -> 2607.7266ms
-    Standard -> 2205.043ms
+    Convenience -> 4361ms
+    Performance -> 2607ms
+    Standard -> 2205ms
     Local RPC Recv Performance Test (524280 calls)
-    Convenience -> 9626.3536ms
-    Performance -> 5923.7964ms
-    Standard -> 1935.296ms
+    Convenience -> 9626ms
+    Performance -> 5923ms
+    Standard -> 1935ms
 
 We're looking at **up to 5.24x better performance** (compared to convenience API vs standard API receive performance).
 
@@ -45,7 +45,7 @@ A framework user (Unity developer) can declare multiple RPCs under a `NetworkBeh
 
 A `ServerRpc` can be invoked by a client to be executed on the server.
 
-Developer can declare a `ServerRpc` by marking a method with `[ServerRpc]` attribute and making sure to have `ServerRpc` postfix in the method name:
+Developer can declare a `ServerRpc` by marking a method with `[ServerRpc]` attribute and making sure to have `ServerRpc` postfix in the method name.
 
 ```cs
 [ServerRpc]
@@ -89,7 +89,7 @@ PingServerRpc(framekey); // This is clearly a ServerRpc call
 
 A `ClientRpc` can be invoked by the server to be executed on a client.
 
-Developer can declare a `ClientRpc` by marking a method with `[ClientRpc]` attribute and making sure to have `ClientRpc` postfix in the method name:
+Developer can declare a `ClientRpc` by marking a method with `[ClientRpc]` attribute and making sure to have `ClientRpc` postfix in the method name.
 
 ```cs
 [ClientRpc]
@@ -173,26 +173,20 @@ struct ServerRpcSendParams
 
 struct ServerRpcReceiveParams
 {
-	ulong SenderId;
+    ulong SenderId;
 }
 
-struct ServerRpcSendReceiveParams
+struct ServerRpcParams
 {
-	ServerRpcSendParams Send;
-	ServerRpcReceiveParams Receive;
+    ServerRpcSendParams Send;
+    ServerRpcReceiveParams Receive;
 }
 
 [ServerRpc]
-void TestServerRpc(int framekey) { /* ... */ }
+void AbcdServerRpc(int framekey) { /* ... */ }
 
 [ServerRpc]
-void XyzwServerRpc(int framekey, ServerRpcSendParams sendParams = default) { /* ... */ }
-
-[ServerRpc]
-void RbgaServerRpc(int framekey, ServerRpcReceiveParams receiveParams = default) { /* ... */ }
-
-[ServerRpc]
-void AbcdServerRpc(int framekey, ServerRpcSendReceiveParams sendReceiveParams = default) { /* ... */ }
+void XyzwServerRpc(int framekey, ServerRpcParams rpcParams = default) { /* ... */ }
 ```
 
 ### ClientRpc Params
@@ -200,30 +194,24 @@ void AbcdServerRpc(int framekey, ServerRpcSendReceiveParams sendReceiveParams = 
 ```cs
 struct ClientRpcSendParams
 {
-	ulong[] TargetClientIds;
+    ulong[] TargetClientIds;
 }
 
 struct ClientRpcReceiveParams
 {
 }
 
-struct ClientRpcSendReceiveParams
+struct ClientRpcParams
 {
-	ClientRpcSendParams Send;
-	ClientRpcReceiveParams Receive;
+    ClientRpcSendParams Send;
+    ClientRpcReceiveParams Receive;
 }
 
 [ClientRpc]
-void TestClientRpc(int framekey) { /* ... */ }
+void AbcdClientRpc(int framekey) { /* ... */ }
 
 [ClientRpc]
-void XyzwClientRpc(int framekey, ClientRpcSendParams sendParams = default) { /* ... */ }
-
-[ClientRpc]
-void RbgaClientRpc(int framekey, ClientRpcReceiveParams receiveParams = default) { /* ... */ }
-
-[ClientRpc]
-void AbcdClientRpc(int framekey, ClientRpcSendReceiveParams sendReceiveParams = default) { /* ... */ }
+void XyzwClientRpc(int framekey, ClientRpcParams rpcParams = default) { /* ... */ }
 ```
 
 ## Serialization
