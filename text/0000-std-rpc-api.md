@@ -238,6 +238,18 @@ void WelcomeClientRpc(string motd, Vector3 spawnPoint, ClientRpcOptions rpcOptio
 WelcomeClientRpc("Greetings!", Vector3.zero, new ClientRpcOptions {TargetClientIds = new[] {OwnerClientId}});
 ```
 
+## Backward-Compatibility
+
+// todo
+
+## Cross-Compatibility
+
+// todo
+
+## Deprecation of Return Values
+
+// todo
+
 ## Tooling
 
 Tooling is one of the most important parts in overall developer experience, especially when we as framework developers are introducing a brand-new network construct, in this case RPCs.
