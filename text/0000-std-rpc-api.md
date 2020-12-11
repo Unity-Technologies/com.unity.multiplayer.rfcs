@@ -39,7 +39,7 @@ The multiplayer framework provides 2 main network constructs ([ServerRpc](#serve
 
 ## RPC Methods
 
-A framework user (Unity developer) can declare multiple RPCs under a `NetworkBehaviour` and inbound/outbound RPC calls will be replicated as a part of its replication in a network frame.
+A typical framework user (Unity developer) can declare multiple RPCs under a `NetworkBehaviour` and inbound/outbound RPC calls will be replicated as a part of its replication in a network frame.
 
 A method turned into an RPC is no longer a regular method, it will have its  own implications on direct calls and in the network pipeline (see [Execution Table](#execution-table)).
 
@@ -47,95 +47,95 @@ A method turned into an RPC is no longer a regular method, it will have its  own
 
 A `ServerRpc` can be invoked by a client to be executed on the server.
 
-Developer can declare a `ServerRpc` by marking a method with `[ServerRpc]` attribute and making sure to have `ServerRpc` suffix in the method name.
+Developers can declare a `ServerRpc` by marking a method with `[ServerRpc]` attribute and making sure to have `ServerRpc` suffix in the method name.
 
 ```cs
 [ServerRpc]
-void PingServerRpc(int framekey) { /* ... */ }
+void PingServerRpc(int somenumber, string sometext) { /* ... */ }
 ```
 
-Developer can invoke a `ServerRpc` by making a direct function call with parameters:
+Developers can invoke a `ServerRpc` by making a direct function call with parameters:
 
 ```cs
 void Update()
 {
     if (Input.GetKeyDown(KeyCode.P))
     {
-        PingServerRpc(Time.frameCount); // Client -> Server
+        PingServerRpc(Time.frameCount, "hello, world"); // Client -> Server
     }
 }
 ```
 
-Marking method with `[ServerRpc]` and putting `ServerRpc` suffix to the method name are required, otherwise it will prompt error messages:
+Marking method with `[ServerRpc]` attribute and putting `ServerRpc` suffix to the method name are required, otherwise it will prompt error messages:
 
 ```cs
 // Error: Invalid, missing 'ServerRpc' suffix in the method name
 [ServerRpc]
-void Ping(int framekey) { /* ... */ }
+void Ping(int somenumber, string sometext) { /* ... */ }
 
 // Error: Invalid, missing [ServerRpc] attribute on the method
-void PingServerRpc(int framekey) { /* ... */ }
+void PingServerRpc(int somenumber, string sometext) { /* ... */ }
 ```
 
 `[ServerRpc]` attribute and matching `...ServerRpc` suffix in the method name are there to make it crystal clear for RPC call sites to know when they are executing an RPC, it will be replicated and executed on the server-side, without necessarily jumping into original RPC method declaration to find out if it was an RPC, if so whether it is a ServerRpc or ClientRpc:
 
 ```cs
-Ping(framekey); // Is this an RPC call?
+Ping(somenumber, sometext); // Is this an RPC call?
 
-PingRpc(framekey); // Is this a ServerRpc call or ClientRpc call?
+PingRpc(somenumber, sometext); // Is this a ServerRpc call or ClientRpc call?
 
-PingServerRpc(framekey); // This is clearly a ServerRpc call
+PingServerRpc(somenumber, sometext); // This is clearly a ServerRpc call
 ```
 
 ### ClientRpc
 
 A `ClientRpc` can be invoked by the server to be executed on a client.
 
-Developer can declare a `ClientRpc` by marking a method with `[ClientRpc]` attribute and making sure to have `ClientRpc` suffix in the method name.
+Developers can declare a `ClientRpc` by marking a method with `[ClientRpc]` attribute and making sure to have `ClientRpc` suffix in the method name.
 
 ```cs
 [ClientRpc]
-void PongClientRpc(int framekey) { /* ... */ }
+void PongClientRpc(int somenumber, string sometext) { /* ... */ }
 ```
 
-Developer can invoke a `ClientRpc` by making a direct function call with parameters:
+Developers can invoke a `ClientRpc` by making a direct function call with parameters:
 
 ```cs
 void Update()
 {
     if (Input.GetKeyDown(KeyCode.P))
     {
-        PongClientRpc(Time.frameCount); // Server -> Client
+        PongClientRpc(Time.frameCount, "hello, world"); // Server -> Client
     }
 }
 ```
 
-Marking method with `[ClientRpc]` and putting `ClientRpc` suffix to the method name are required, otherwise it will prompt error messages:
+Marking method with `[ClientRpc]` attribute and putting `ClientRpc` suffix to the method name are required, otherwise it will prompt error messages:
 
 ```cs
 // Error: Invalid, missing 'ClientRpc' suffix in the method name
 [ClientRpc]
-void Pong(int framekey) { /* ... */ }
+void Pong(int somenumber, string sometext) { /* ... */ }
 
 // Error: Invalid, missing [ClientRpc] attribute on the method
-void PongClientRpc(int framekey) { /* ... */ }
+void PongClientRpc(int somenumber, string sometext) { /* ... */ }
 ```
 
 `[ClientRpc]` attribute and matching `...ClientRpc` suffix in the method name are there to make it crystal clear for RPC call sites to know when they are executing an RPC, it will be replicated and executed on the client-side, without necessarily jumping into original RPC method declaration to find out if it was an RPC, if so whether it is a ServerRpc or ClientRpc:
 
 ```cs
-Pong(framekey); // Is this an RPC call?
+Pong(somenumber, sometext); // Is this an RPC call?
 
-PongRpc(framekey); // Is this a ServerRpc call or ClientRpc call?
+PongRpc(somenumber, sometext); // Is this a ServerRpc call or ClientRpc call?
 
-PongClientRpc(framekey); // This is clearly a ClientRpc call
+PongClientRpc(somenumber, sometext); // This is clearly a ClientRpc call
 ```
 
 ### Reliability
 
-RPCs are reliable by default which means they are guaranteed to be executed on the remote side. However, sometimes developer might want to opt-out reliability, which is often the case for non-critical events such as particle effects, sounds effects etc.
+RPCs are reliable by default which means they are guaranteed to be executed on the remote side. However, sometimes developers might want to opt-out reliability, which is often the case for non-critical events such as particle effects, sounds effects etc.
 
-Reliability configuration can be specified for both `ServerRpc` and `ClientRpc` methods at compile time:
+Reliability configuration can be specified for both `ServerRpc` and `ClientRpc` methods at compile-time:
 
 ```cs
 [ServerRpc]
@@ -151,7 +151,7 @@ void MyReliableClientRpc() { /* ... */ }
 void MyUnreliableClientRpc() { /* ... */ }
 ```
 
-Reliable RPCs will be received on the remote end in the same order as they are fired but this in-order guarantee only applied to RPCs on the same `NetworkObject`. Different `NetworkObject`s might have reliable RPCs called but executed out of order compared to each other. To put more simply, in-order reliable RPC execution is guaranteed per `NetworkObject` basis only.
+Reliable RPCs will be received on the remote end in the same order as they are fired but this in-order guarantee only applies to RPCs on the same `NetworkObject`. Different `NetworkObject`s might have reliable RPCs called but executed in different order compared to each other. To put more simply, in-order reliable RPC execution is guaranteed per `NetworkObject` basis only.
 
 An RPC call made without active connection will be dropped and will not be queued for send automatically. Both reliable and unreliable RPC calls have to be made when there is an active network connection established between a client and the server. Also reliable RPC calls made during connection will be dropped on disconnect as well.
 
@@ -192,10 +192,10 @@ struct ServerRpcParams
 }
 
 [ServerRpc]
-void AbcdServerRpc(int framekey) { /* ... */ }
+void AbcdServerRpc(int somenumber) { /* ... */ }
 
 [ServerRpc]
-void XyzwServerRpc(int framekey, ServerRpcParams rpcParams = default) { /* ... */ }
+void XyzwServerRpc(int somenumber, ServerRpcParams rpcParams = default) { /* ... */ }
 ```
 
 ### ClientRpc Params
@@ -226,23 +226,27 @@ void XyzwClientRpc(int framekey, ClientRpcParams rpcParams = default) { /* ... *
 
 ## Serialization
 
-Instances of [Serializable Types](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/2) passed into an RPC as parameters will be serialized and replicated to the remote side.
-
-A quick and simple example:
-
-```cs
-[ClientRpc]
-void WelcomeClientRpc(string motd, Vector3 spawnPoint, ClientRpcOptions rpcOptions = default) { /* ... */ }
-
-// Server -> Owner Client
-WelcomeClientRpc("Greetings!", Vector3.zero, new ClientRpcOptions {TargetClientIds = new[] {OwnerClientId}});
-```
+Instances of [Serializable Types (RFC &nearr;)](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/2) passed into an RPC as parameters will be serialized and replicated to the remote side.
 
 ## Backward-Compatibility
 
-// todo
+This API change is not backward compatible but future iterations over this API will be backward compatible most of the time as we will be using existing `XXXRpcSendParams` and `XXXRpcReceiveParams` for future additions. One of the main goals with this RPC API is also making it as future-proof as possible and prevent from continuous API breaking changes.
+
+Framework registers RPC methods statically by their deterministic [method signature](https://docs.microsoft.com/en-us/dotnet/csharp/programming-guide/classes-and-structs/methods#method-signatures) hash which means as long as method signature stays the same, backward-compatibility will be possible but if method signature changes, same method with the same name under same namespace and type will not be compatible with its predecessor.
 
 ## Cross-Compatibility
+
+// todo
+
+### Cross-Build Compatibility
+
+// todo
+
+### Cross-Version Compatibility
+
+// todo
+
+### Cross-Project Compatibility
 
 // todo
 
@@ -359,32 +363,6 @@ bool SomeRPCFunction_Validate(int32 AddHealth)
 void SomeRPCFunction_Implementation(int32 AddHealth)
 {
     Health += AddHealth;
-}
-```
-
-## Photon RPCs
-
-Photon PUN offers similar RPC functionality ([documentation](https://doc.photonengine.com/en-us/pun/v2/gameplay/rpcsandraiseevent)).
-
-```cs
-[PunRPC]
-void ChatMessage(string a, string b)
-{
-    Debug.Log(string.Format("ChatMessage {0} {1}", a, b));
-}
-```
-
-### MessageInfo as a Parameter
-
-Photon provides `PhotonMessageInfo` over RPCs to give more context in the executing RPC body. This could be very useful for [`ServerRpc`](#serverrpc)s when multiple clients want to execute the same RPC on the server. Server &rarr; Clients is clear, server executes the RPC on the client but in the Clients &rarr; Server scenario, ServerRpc body can't tell who was the instigator. There is still a chance to provide RPC context information via a protected member on `NetworkBehaviour` which gets set/unset before/after RPC execution but direct access to that information on the method callstack would be better approach (IMHO). We could discover similar approach and repurpose our existing magical last parameter `XXXRPCOption` _(what if we abstract that magical last parameter to be either RPC option or RPC info based on the execution context?)_.
-
-```cs
-[PunRPC]
-void ChatMessage(string a, string b, PhotonMessageInfo info)
-{
-    // the photonView.RPC() call is the same as without the info parameter.
-    // the info.Sender is the player who called the RPC.
-    Debug.LogFormat("Info: {0} {1} {2}", info.Sender, info.photonView, info.SentServerTime);
 }
 ```
 
