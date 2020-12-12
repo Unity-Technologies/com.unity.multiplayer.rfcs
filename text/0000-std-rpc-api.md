@@ -226,7 +226,7 @@ void XyzwClientRpc(int framekey, ClientRpcParams rpcParams = default) { /* ... *
 
 ## Serialization
 
-Instances of [Serializable Types (RFC &nearr;)](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/2) passed into an RPC as parameters will be serialized and replicated to the remote side.
+Instances of [Serializable Types (RFC &rarr;)](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/2) passed into an RPC as parameters will be serialized and replicated to the remote side.
 
 ## Backward-Compatibility
 
@@ -236,17 +236,40 @@ Framework registers RPC methods statically by their deterministic [method signat
 
 ## Cross-Compatibility
 
+In this section, we will be focusing on the Standard RPC API's cross-compatibility only, not the framework as a whole.
+
+A method marked as RPC will be statically registered with its assembly-scoped method signature hash.
+
+A typical assembly-scoped method signature sample:
+
+```
+Game.dll / System.Void Shooter::PingServerRpc(System.Int32,MLAPI.Messaging.ServerRpcParams)
+```
+
+- `Game.dll` &rarr; Assembly
+- ` / ` &rarr; Separator
+- `System.Void Shooter::PingServerRpc(System.Int32,MLAPI.Messaging.ServerRpcParams)` &rarr; Method signature
+  - `System.Void` &rarr; Return type
+  - `Shooter` &rarr; Enclosing type
+  - `::` &rarr; Scope resolution operator
+  - `PingServerRpc` &rarr; Method name
+  - `(System.Int32,MLAPI.Messaging.ServerRpcParams)` &rarr; Params with types (no param names)
+
+An RPC signature will be turned into 32-bit integer using [xxHash](http://xxhash.com) (XXH32) non-cryptographic hash algorithm.
+
+As expected, RPC signature therefore its hash will be changed if assembly, return type, enclosing type, method name and/or any method param type changes (but names of method parameters can be changed as they are not a part of method signature).
+
+A change in the RPC signature will lead into different send/receive codepath with different serialization code and execute a different method body. Previous version of the RPC method will not be executed by the new RPC method with new signature.
+
+### Cross-Build Compatibility ✅
+
 // todo
 
-### Cross-Build Compatibility
+### Cross-Version Compatibility ✅
 
 // todo
 
-### Cross-Version Compatibility
-
-// todo
-
-### Cross-Project Compatibility
+### Cross-Project Compatibility ❌
 
 // todo
 
