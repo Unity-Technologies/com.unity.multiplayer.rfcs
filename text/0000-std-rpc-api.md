@@ -170,7 +170,11 @@ An RPC function **never** executes its body immediately since it's being a netwo
 
 ## RPC Params
 
-// todo: descriptions needed below
+Both `ServerRpc` and `ClientRpc` methods can be configured either by `[ServerRpc]`/`[ClientRpc]` attributes at compile-time and/or `ServerRpcParams`/`ClientRpcParams` at runtime.
+
+Developers can put `ServerRpcParams`/`ClientRpcParams` as the last parameter (optionally) and they could be used for a consolidated space for `XXXRpcReceiveParams` and `XXXRpcSendParams`.
+
+The network framework will inject `XXXRpcReceiveParams` when invoked by network receive handling (framework code) and will consume `XXXRpcSendParams` when invoked by RPC send call (user code).
 
 ### ServerRpc Params
 
@@ -190,6 +194,9 @@ struct ServerRpcParams
     ServerRpcSendParams Send;
     ServerRpcReceiveParams Receive;
 }
+
+
+// Both ServerRPC methods below are fine, `ServerRpcParams` is completely optional
 
 [ServerRpc]
 void AbcdServerRpc(int somenumber) { /* ... */ }
@@ -216,6 +223,9 @@ struct ClientRpcParams
     ClientRpcSendParams Send;
     ClientRpcReceiveParams Receive;
 }
+
+
+// Both ClientRPC methods below are fine, `ClientRpcParams` is completely optional
 
 [ClientRpc]
 void AbcdClientRpc(int framekey) { /* ... */ }
