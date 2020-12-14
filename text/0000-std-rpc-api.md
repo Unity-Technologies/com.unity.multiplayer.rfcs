@@ -257,21 +257,21 @@ Game.dll / System.Void Shooter::PingServerRpc(System.Int32,MLAPI.Messaging.Serve
 
 An RPC signature will be turned into 32-bit integer using [xxHash](http://xxhash.com) (XXH32) non-cryptographic hash algorithm.
 
-As expected, RPC signature therefore its hash will be changed if assembly, return type, enclosing type, method name and/or any method param type changes (but names of method parameters can be changed as they are not a part of method signature).
+As expected, RPC signature therefore its hash will be changed if assembly, return type, enclosing type, method name and/or any method param type changes (but names of method parameters can be changed as they are not a part of the method signature).
 
-A change in the RPC signature will lead into different send/receive codepath with different serialization code and execute a different method body. Previous version of the RPC method will not be executed by the new RPC method with new signature.
+A change in the RPC signature will lead into different send/receive codepath with different serialization code and execute a different method body. Previous version of the RPC method will not be executed by the new RPC method with the new signature.
 
 ### Cross-Build Compatibility ✅
 
-// todo
+As long as RPC method signature kept the same, it will be compatible between different builds.
 
 ### Cross-Version Compatibility ✅
 
-// todo
+As long as RPC method signature kept the same, it will be compatible between different versions.
 
 ### Cross-Project Compatibility ❌
 
-// todo
+Since project name or any project-specific token is not being a part of RPC signature, it is possible to have the exact same RPC method signature defined in different builds and they are not necessarily going to be compatible with each other.
 
 ## Deprecation of Return Values
 
