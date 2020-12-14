@@ -480,9 +480,18 @@ void SomeRPCFunction_Implementation(int32 AddHealth)
 # Unresolved questions
 [unresolved-questions]: #unresolved-questions
 
-- What parts of the design do you expect to resolve through the RFC process before this gets merged?
-- What parts of the design do you expect to resolve through the implementation of this feature before stabilization?
 - What related issues do you consider out of scope for this RFC that could be addressed in the future independently of the solution that comes out of this RFC?
+  - Multi-project (cross-project) setup support
+    - Sharing a common library between projects?
+    - Using weakly-types `string` names to invoke RPCs?
+    - Implementing CrossProject RPC component just for this purpose?
+  - Weakening `...ServerRpc`/`...ClientRpc` suffix enforcement
+    - Should they really be hard compile errors or just soft warnings?
+    - Should we allow suffix syntax configuration?
+    - Should we allow suffix, prefix or none configuration?
+  - Instantiation of complex types on RPC receive
+    - Should we allow framework users to pool instances? (object-pool)
+    - Should we allow non-default constructable types? (class-factory)
 
 # Future possibilities
 [future-possibilities]: #future-possibilities
