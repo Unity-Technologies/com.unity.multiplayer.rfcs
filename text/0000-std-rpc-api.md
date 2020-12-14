@@ -369,13 +369,48 @@ In an ideal world, one might have Unity Editor + Roslyn Compiler + Rider IDE too
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
 
-This is the technical portion of the RFC. Explain the design in sufficient detail that:
+Since we already covered lots of high-level details above in the [Guide-level explanation](#guide-level-explanation) section, we'll cover just a few concepts which are a little bit subtle when it comes down to implementing this RFC.
 
-- Its interaction with other features is clear.
-- It is reasonably clear how the feature would be implemented.
-- Corner cases are dissected by example.
+## RPC vs non-RPC methods
 
-The section should return to the examples given in the previous section, and explain more fully how the detailed proposal makes those examples work.
+When an RPC method is invoked via direct method call, it'll be making 2 main decisions:
+
+1. Should it replicate RPC call with parameters?
+2. Should it execute RPC body or return early?
+
+These check blocks will be injected into method body right before every other instructions in the body. You can have a quick look at [Execution Table](#execution-table) section to have a rough idea about execution flow.
+
+A non-RPC method would just execute the body without having anything before its first instruction.
+
+## RPC is just a middleware
+
+Currently, an RPC is a part of its enclosing `NetworkBehaviour` and it'll be replicated as a part of it.
+
+An RPC call would not begin/end network frame and/or begin/end network buffer. RPC will be asking its `NetworkBehaviour` to give it something to write into then write into it (e.g. `BeginSendServerRpc` &rarr; RPC write &rarr; `EndSendServerRpc`) which means it has its own RPC method signature hash written but no other header or footer before/after network buffer. Managing network buffer, stream, writer etc. is entirely up to `NetworkBehaviour` itself and implementation should comply with this approach to give full control and flexibility over to `NetworkBehaviour`. In fact, that would allow us to queue, batch, filter (...) RPCs on the `NetworkBehaviour` side when an RPC invoke happens.
+
+Basically, RPC is just a middleware that wants to write into its `NetworkBehaviour` network buffer when invoked.
+
+## Managing ILPP overhead (today)
+
+ILPP is not free in the Unity Editor, it will increase compile and build time for Unity users, therefore we need to implement ILPP as minimal and clever as possible to reduce ILPP processing time overhead.
+
+Previously, UNET tried to replace all RPC call-sites via ILPP which meant that it had to iterate over every single methods to check potential RPC call sites, traversing entire assembly from top to bottom. That's not an optimal and clever way of doing it, also it doesn't scale well. 1000 RPCs meant 1000 iterations over the entire assembly, which as you mighht expect, doesn't scale up well, scales exponentially.
+
+Current implementation of this RFC however, finds RPC methods via reflection metadata by searching for methods with either `[ServerRpc]` or `[ClientRpc]` attributes, then inject extra ILPP-gen'd blocks into the RPC method body itself without touching call sites at all. This approach scales linearly and better compared to UNET's approach.
+
+One other crucial topic to mention here is that we do not IL-gen brand-new stub method for RPCs because we still want people to be able to have a fairly standard debugging experience. We also rewrite PDBs too which makes debugger to not break, developers are going to be able to put breakpoints in the method body, see local variables etc., we are not changing method call context at all.
+
+## RPCs will be registered statically
+
+There is no API or support for dynamic RPC registration being proposed with this RFC (that could be a separate RFC on itself if wanted and justified). Currently, all RPC methods will be registered on their enclosing `NetworkBehaviour` derived types' static constructor.
+
+## RPC signatures (and hashes) must be stable
+
+We do not want to break cross-version, cross-build compatibility so that we are proposing to have deterministic and stable RPC method signatures and hashes (see [Cross-Compatibility](#cross-compatibility) section for more).
+
+This will even also allow deeper debugging options where you could match RPC signature hashes between different builds, network packets etc. and/or use framework's RPC signature hashing code to reverse-engineer unknown RPC IDs by brute-forcing based on RPC method's previous revisions.
+
+In simple terms, let's try not to break consistency, determinism and debuggability if we can.
 
 # Drawbacks
 [drawbacks]: #drawbacks
