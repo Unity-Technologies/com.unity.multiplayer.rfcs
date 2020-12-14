@@ -153,7 +153,7 @@ void MyUnreliableClientRpc() { /* ... */ }
 
 Reliable RPCs will be received on the remote end in the same order as they are fired but this in-order guarantee only applies to RPCs on the same `NetworkObject`. Different `NetworkObject`s might have reliable RPCs called but executed in different order compared to each other. To put more simply, in-order reliable RPC execution is guaranteed per `NetworkObject` basis only.
 
-An RPC call made without active connection will be dropped and will not be queued for send automatically. Both reliable and unreliable RPC calls have to be made when there is an active network connection established between a client and the server. Also reliable RPC calls made during connection will be dropped on disconnect as well.
+An RPC call made without an active connection will be dropped and will not be queued for send automatically. Both reliable and unreliable RPC calls have to be made when there is an active network connection established between a client and the server. Also reliable RPC calls made during connection will be dropped on disconnect as well.
 
 ### Execution Table
 
@@ -265,19 +265,19 @@ Game.dll / System.Void Shooter::PingServerRpc(System.Int32,MLAPI.Messaging.Serve
   - `PingServerRpc` &rarr; Method name
   - `(System.Int32,MLAPI.Messaging.ServerRpcParams)` &rarr; Params with types (no param names)
 
-An RPC signature will be turned into 32-bit integer using [xxHash](http://xxhash.com) (XXH32) non-cryptographic hash algorithm.
+An RPC signature will be turned into a 32-bit integer using [xxHash](http://xxhash.com) (XXH32) non-cryptographic hash algorithm.
 
 As expected, RPC signature therefore its hash will be changed if assembly, return type, enclosing type, method name and/or any method param type changes (but names of method parameters can be changed as they are not a part of the method signature).
 
-A change in the RPC signature will lead into different send/receive codepath with different serialization code and execute a different method body. Previous version of the RPC method will not be executed by the new RPC method with the new signature.
+A change in the RPC signature will lead into a different send/receive codepath with different serialization code and execute a different method body. Previous versions of the RPC method will not be executed by the new RPC method with the new signature.
 
 ### Cross-Build Compatibility ✅
 
-As long as RPC method signature kept the same, it will be compatible between different builds.
+As long as the RPC method signature is kept the same, it will be compatible between different builds.
 
 ### Cross-Version Compatibility ✅
 
-As long as RPC method signature kept the same, it will be compatible between different versions.
+As long as the RPC method signature is kept the same, it will be compatible between different versions.
 
 ### Cross-Project Compatibility ❌
 
@@ -336,7 +336,7 @@ Tooling is one of the most important parts in overall developer experience, espe
 
 ### Unity Editor Diagnostics
 
-In short, developers will see error and warning messages in the Unity Editor in Console window if there was a problem with RPC method definition, parameters types on RPC method signature etc.
+In short, developers will see error and warning messages in the Unity Editor in the Console window if there was a problem with RPC method definition, parameters types on RPC method signature etc.
 
 Some of those messages will be warning messages which will not prevent compile and/or build.
 
@@ -364,7 +364,7 @@ We will be committed to deliver [Unity Editor Diagnostics](#unity-editor-diagnos
 
 In an ideal world, one might have Unity Editor + Roslyn Compiler + Rider IDE tools that gives in-Editor and in-IDE feedback and better visuals &mdash; hopefully that'd make everybody's life much easier.
 
-**One important note to plug here is that, [Unity Editor Diagnostics](#unity-editor-diagnostics) are not optional, they are essential and fundamentally checking against invalid RPC code and prevent builds while also providing contextful error/warning messages.**
+**One important note to plug here is that, [Unity Editor Diagnostics](#unity-editor-diagnostics) are not optional, they are essential and fundamentally checking against invalid RPC code and prevent builds while also providing contextual error/warning messages.**
 
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
@@ -375,10 +375,10 @@ Since we already covered lots of high-level details above in the [Guide-level ex
 
 When an RPC method is invoked via direct method call, it'll be making 2 main decisions:
 
-1. Should it replicate RPC call with parameters?
-2. Should it execute RPC body or return early?
+1. Should it replicate the RPC call with parameters?
+2. Should it execute the RPC body or return early?
 
-These check blocks will be injected into method body right before every other instructions in the body. You can have a quick look at [Execution Table](#execution-table) section to have a rough idea about execution flow.
+These check blocks will be injected into the method body right before every other instructions in the body. You can have a quick look at [Execution Table](#execution-table) section to have a rough idea about execution flow.
 
 A non-RPC method would just execute the body without having anything before its first instruction.
 
@@ -386,7 +386,7 @@ A non-RPC method would just execute the body without having anything before its 
 
 Currently, an RPC is a part of its enclosing `NetworkBehaviour` and it'll be replicated as a part of it.
 
-An RPC call would not begin/end network frame and/or begin/end network buffer. RPC will be asking its `NetworkBehaviour` to give it something to write into then write into it (e.g. `BeginSendServerRpc` &rarr; RPC write &rarr; `EndSendServerRpc`) which means it has its own RPC method signature hash written but no other header or footer before/after network buffer. Managing network buffer, stream, writer etc. is entirely up to `NetworkBehaviour` itself and implementation should comply with this approach to give full control and flexibility over to `NetworkBehaviour`. In fact, that would allow us to queue, batch, filter (...) RPCs on the `NetworkBehaviour` side when an RPC invoke happens.
+An RPC call would not begin/end network frame and/or begin/end network buffer. RPC will be asking its `NetworkBehaviour` to give it something to write into then write into it (e.g. `BeginSendServerRpc` &rarr; RPC write &rarr; `EndSendServerRpc`) which means it has its own RPC method signature hash written but no other header or footer before/after network buffer. Managing network buffer, stream, writer etc. is entirely up to `NetworkBehaviour` itself and implementation should comply with this approach to give full control and flexibility over to `NetworkBehaviour`. In fact, that would allow us to queue, batch, filter (...) RPCs on the `NetworkBehaviour` side when an RPC invocation happens.
 
 Basically, RPC is just a middleware that wants to write into its `NetworkBehaviour` network buffer when invoked.
 
@@ -394,11 +394,11 @@ Basically, RPC is just a middleware that wants to write into its `NetworkBehavio
 
 ILPP is not free in the Unity Editor, it will increase compile and build time for Unity users, therefore we need to implement ILPP as minimal and clever as possible to reduce ILPP processing time overhead.
 
-Previously, UNET tried to replace all RPC call-sites via ILPP which meant that it had to iterate over every single methods to check potential RPC call sites, traversing entire assembly from top to bottom. That's not an optimal and clever way of doing it, also it doesn't scale well. 1000 RPCs meant 1000 iterations over the entire assembly, which as you mighht expect, doesn't scale up well, scales exponentially.
+Previously, UNET tried to replace all RPC call-sites via ILPP which meant that it had to iterate over every single method to check potential RPC call sites, traversing the entire assembly from top to bottom. That's not an optimal and clever way of doing it, also it doesn't scale well. 1000 RPCs meant 1000 iterations over the entire assembly, which as you might expect, doesn't scale up well, it scales exponentially.
 
 Current implementation of this RFC however, finds RPC methods via reflection metadata by searching for methods with either `[ServerRpc]` or `[ClientRpc]` attributes, then inject extra ILPP-gen'd blocks into the RPC method body itself without touching call sites at all. This approach scales linearly and better compared to UNET's approach.
 
-One other crucial topic to mention here is that we do not IL-gen brand-new stub method for RPCs because we still want people to be able to have a fairly standard debugging experience. We also rewrite PDBs too which makes debugger to not break, developers are going to be able to put breakpoints in the method body, see local variables etc., we are not changing method call context at all.
+One other crucial topic to mention here is that we do not IL-gen brand-new stub methods for RPCs because we still want people to be able to have a fairly standard debugging experience. We also rewrite PDBs too which makes debugger to not break, developers are going to be able to put breakpoints in the method body, see local variables etc., we are not changing method call context at all.
 
 ## RPCs will be registered statically
 
@@ -421,7 +421,7 @@ Implementation of this feature will be relying on IL Post-Processing which will 
 [rationale-and-alternatives]: #rationale-and-alternatives
 
 - Why is this design the best in the space of possible designs?
-  - Compared to MLAPI's existing templated delegates approach, this RFC proposes much more performant and cleaner API exposed to framework users. This API is also more familiar to [UNET RPC API](https://docs.unity3d.com/Manual/UNetActions.html) which would make existing UNET users' life easier while onboarding.
+  - Compared to MLAPI's existing templated delegates approach, this RFC proposes much a more performant and cleaner API exposed to framework users. This API is also more familiar to [UNET RPC API](https://docs.unity3d.com/Manual/UNetActions.html) which would make existing UNET users' life easier while onboarding.
 - What other designs have been considered and what is the rationale for not choosing them?
   - There was an ongoing discussion around whether or not to enforce `...ServerRpc` and `...ClientRpc` suffixes on method names tied to `[ServerRpc]` and `[ClientRpc]` attributes but what we are advising here is to also consider RPC call sites and make it obvious even in the call sites that the RPC method is in fact an RPC method and it's either `ClientRpc` or `ServerRpc` (see [ServerRpc](#serverrpc) and/or [ClientRpc](#clientrpc) sections for further details and examples). This approach also realized by [UNET Remote Actions](https://docs.unity3d.com/Manual/UNetActions.html) in the past but had its own issues with naming (`Command`, `ClientRpc`, `TargetRpc` names are confusing and ambiguous). We could weaken this enforcement by case-insensitive naming so that both `MyServerRpc` and `MyServerRPC` would be OK (open discussion). However, both call-site clarity and existing UNET API gave us more confidence towards this approach at the end.
 - What is the impact of not doing this?
@@ -448,7 +448,7 @@ void MulticastRPCFunction();
 
 ### Validation Before Execution
 
-Unreal provides a way to check RPC being executed before its execution, and it disconnects the caller immediately if validation fails. This approach might be useful to catch very basic cheats and packet attacks but might also perceived as a very strong punishment. However, it could still give us an idea and impression to discover ways to implement validation checks programmatically.
+Unreal provides a way to check RPC being executed before its execution, and it disconnects the caller immediately if validation fails. This approach might be useful to catch very basic cheats and packet attacks but might also be perceived as a very strong punishment. However, it could still give us an idea and impression to discover ways to implement validation checks programmatically.
 
 ```cpp
 // Header
@@ -491,12 +491,12 @@ void SomeRPCFunction_Implementation(int32 AddHealth)
     - Should we allow suffix, prefix or none configuration?
   - Instantiation of complex types on RPC receive
     - Should we allow framework users to pool instances? (object-pool)
-    - Should we allow non-default constructable types? (class-factory)
+    - Should we allow non-default constructible types? (class-factory)
 
 # Future possibilities
 [future-possibilities]: #future-possibilities
 
-- We might want to have RPCs indendent from `NetworkBehaviour`s (free-standing RPC functions/events)
+- We might want to have RPCs independent from `NetworkBehaviour`s (free-standing RPC functions/events)
 - We might follow-up on [Unresolved questions](#unresolved-questions) to address with further implementations
 - We will probably follow-up with more RPC Send/Recv params fields (AOI filtering etc.)
 - With more and more [Serializable Types](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/2), RPC API will be more an more convenient and pleasing to use
