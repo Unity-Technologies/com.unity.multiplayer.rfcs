@@ -496,10 +496,8 @@ void SomeRPCFunction_Implementation(int32 AddHealth)
 # Future possibilities
 [future-possibilities]: #future-possibilities
 
-Think about what the natural extension and evolution of your proposal would be and how it would affect the Unity Multiplayer as a whole in a holistic way. Try to use this section as a tool to more fully consider all possible interactions with the Unity Multiplayer in your proposal. Also consider how the this all fits into the roadmap for the project and the team.
-
-This is also a good place to "dump ideas", if they are out of scope for the RFC you are writing but otherwise related.
-
-If you have tried and cannot think of any future possibilities, you may simply state that you cannot think of anything.
-
-Note that having something written down in the future-possibilities section is not a reason to accept the current or a future RFC; such notes should be in the section on motivation or rationale in this or subsequent RFCs. The section merely provides additional information.
+- We might want to have RPCs indendent from `NetworkBehaviour`s (free-standing RPC functions/events)
+- We might follow-up on [Unresolved questions](#unresolved-questions) to address with further implementations
+- We will probably follow-up with more RPC Send/Recv params fields (AOI filtering etc.)
+- With more and more [Serializable Types](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/2), RPC API will be more an more convenient and pleasing to use
+- RPC batching, queuing, filtering and other framework internals would be implemented without API-breaking changes
