@@ -157,7 +157,7 @@ An RPC call made without an active connection will be dropped and will not be qu
 
 ### Execution Table
 
-An RPC function **never** executes its body immediately since it's being a network construct. Even a `ServerRpc` called by a host (an instance that is a client and the server at the same time, aka listen server) will not be executed immediately but follow the regular network frame staging first.
+An RPC function **never** executes its body immediately since the function call really is a stand-in for a network transmission. Even a `ServerRpc` called by a host (an instance that is a client and the server at the same time, aka listen server) will not be executed immediately but follow the regular network frame staging first.
 
 ||Server|Client|Host (Server+Client)|
 |-:|:-:|:-:|:-:|
@@ -168,13 +168,47 @@ An RPC function **never** executes its body immediately since it's being a netwo
 |ClientRpc Network Call|❌|✅|✅|
 |ClientRpc Direct Call|❌|❌|❌|
 
+A pseudo-code of a ServerRpc:
+
+```cs
+[ServerRpc]
+void MyServerRpc(int somenumber, string somestring)
+{
+    // --- begin: injected code
+    if (NetworkSend())
+    {
+        // this block will be executed if:
+        //   - called from user-code on client
+        //   - called from user-code on host
+
+        var writer = NetworkCreateWriter();
+        writer.WriteInt32(1234567890); // RPC method signature hash
+        writer.WriteInt32(somenumber);
+        writer.WriteChars(somestring);
+        NetworkSendRpc(writer);
+    }
+
+    if (NetworkReturn())
+    {
+        // this block will be executed if:
+        //   - called from user-code
+        //   - called from framework-code on client
+
+        return;
+    }
+    // --- end: injected code
+
+    print($"MyServerRpc: {somenumber}");
+}
+```
+
 ## RPC Params
 
 Both `ServerRpc` and `ClientRpc` methods can be configured either by `[ServerRpc]`/`[ClientRpc]` attributes at compile-time and/or `ServerRpcParams`/`ClientRpcParams` at runtime.
 
 Developers can put `ServerRpcParams`/`ClientRpcParams` as the last parameter (optionally) and they could be used for a consolidated space for `XXXRpcReceiveParams` and `XXXRpcSendParams`.
 
-The network framework will inject `XXXRpcReceiveParams` when invoked by network receive handling (framework code) and will consume `XXXRpcSendParams` when invoked by RPC send call (user code).
+The network framework will inject the corresponding `XXXRpcReceiveParams` to what the user had declared in code when invoked by network receive handling (framework code) and will consume `XXXRpcSendParams` when invoked by RPC send call (user code).
 
 ### ServerRpc Params
 
