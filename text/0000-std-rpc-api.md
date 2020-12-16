@@ -157,24 +157,34 @@ An RPC call made without an active connection will be dropped and will not be qu
 
 ### Execution Table
 
-An RPC function **never** executes its body immediately since the function call really is a stand-in for a network transmission. Even a `ServerRpc` called by a host (an instance that is a client and the server at the same time, aka listen server) will not be executed immediately but follow the regular network frame staging first.
-
 ||Server|Client|Host (Server+Client)|
 |-:|:-:|:-:|:-:|
-|ServerRpc Network Send|❌|✅|✅|
-|ServerRpc Network Call|✅|❌|✅|
-|ServerRpc Direct Call|❌|❌|❌|
-|ClientRpc Network Send|✅|❌|✅|
-|ClientRpc Network Call|❌|✅|✅|
-|ClientRpc Direct Call|❌|❌|❌|
+|ServerRpc Send|❌|✅|✅|
+|ServerRpc Execute|✅|❌|✅|
+|ClientRpc Send|✅|❌|✅|
+|ClientRpc Execute|❌|✅|✅|
 
-A pseudo-code of a ServerRpc:
+An RPC function **never** executes its body immediately since the function call really is a stand-in for a network transmission. Even a `ServerRpc` called by a host (an instance that is a client and the server at the same time, aka listen-server) will not be executed immediately but instead, follow the regular network frame staging first and queued-up to be executed locally in the next network frame.
+
+Structure of a typical ServerRpc:
 
 ```cs
 [ServerRpc]
 void MyServerRpc(int somenumber, string somestring)
 {
-    // --- begin: injected code
+    // Network Send Block (framework-code)
+    // Network Return Block (framework-code)
+    // RPC Method Body (user-code)
+}
+```
+
+Pseudo-code sample of a ServerRpc:
+
+```cs
+[ServerRpc]
+void MyServerRpc(int somenumber, string somestring)
+{
+    // --- begin: injected framework-code
     if (NetworkSend())
     {
         // this block will be executed if:
@@ -196,7 +206,7 @@ void MyServerRpc(int somenumber, string somestring)
 
         return;
     }
-    // --- end: injected code
+    // --- end: injected framework-code
 
     print($"MyServerRpc: {somenumber}");
 }
