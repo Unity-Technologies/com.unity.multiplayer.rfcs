@@ -14,37 +14,32 @@ Ingress and egress data flow in netcode architectures frequently include synchro
 There are several advantages to a queue based architecture vs writing directly to the OS network stack every time a section of game logic/code determines it should send some form of data (whether RPCs, state updates, etc).
 
 1. Unifying outbound transmission allows us to feed RPCs, variable syncs, etc. through a unified interest management pipeline (including AOI)
-
 2. Unifying outbound transmission helps developers keep state changes from different mechanisms in sync.  For example, in MLAPI today RPCs are sent immediately, but network variables update on a heartbeat.  According toit is not uncommon for MLAPI devs to employ workarounds to sew up this situation.
-
 3. There are opportunities for consolidation / batching when messages go out as a group
-
 4. Within the game loop process, directly sending messages at the time they are created can create an abundance of processing overhead ([Foong et al.](http://www.nanogrids.org/jaidev/papers/ispass03.pdf)) which can eat into the game developers’ precious game loop processing time (16ms) which should be allocated towards the developer(s) game logic and not the processing of network packets. However, there is also a balance between performance when it comes to large packets and latency between packets.   Larger packets that can consist of several fragmented packets within a reliable transmission protocol framework often have a slower point to point delivery time than smaller packets.  As such, there is a need (in netcode game development) to provide a mechanism for controlling when network messages are transmitted.  This control can result in the coalescing of specific network messages into groups where it can be determined when and how a network message is going to be delivered.
-
 5. Providing a queue for inbound messages provides an alternate level of control over when the message will be processed and in the case of RPCs provides the ability to synchronize RPC oriented messages that rely upon any tickrate based synchronization methodologies/implementations.
 
 # Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
 
-**RPC Queue Use Cases**
+### RPC Queue Use Cases
+
 Currently, the RPC Queue’s primary purpose is to provide additional control over when RPC messages are sent and upon being received when they are invoked (near future feature RPC Invocation Stage).  Additionally, RPC Queues provide the opportunity to place multiple RPC messages into a single outbound packet (near future feature RPC Message Batching) that reduces the total packets received and sent.
 
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
 
-**Outbound RPC Data Flow Pipeline**
-![](https://docs.google.com/uc?export=view&id=1-6h7NfGizAn3uxjCI9Khzgsv_SFw0lAz)
+### Outbound RPC Data Flow Pipeline
+![](0000-rpc-queue/OutboundDataFlowPipeline.png)
 
-**Inbound RPC Data Flow Pipeline**
-![](https://docs.google.com/uc?export=view&id=1-48jszCglLbK2Hx4FYkOAT7EYYzlh_Xb)
+### Inbound RPC Data Flow Pipeline
+![](0000-rpc-queue/InboundDataFlowPipeline.png)
 
-**RPC Queue Classes**
-![](https://docs.google.com/uc?export=view&id=1-9gQU4m9sgwtloTZwce44TKrHK6ky6cF)
+### RPC Queue Classes
+![](0000-rpc-queue/RPCQueueClasses.png)
 
-* **RPCQueueManager:** Manages inbound and outbound RPC queues.  Both inbound and outbound queues are byte arrays exposed as streams (i.e. currently BitStreams) and contained within a QueueHistoryFrame.  The number of QueueHistoryFrames is defined by calling the Initialize method and passing the maximum number of history frames.  The total number of frames is MaxFrameHistory + 1, where the additional frame is considered the “current frame” (i.e. it will always maintain the exact number of frames in history).
-
-* **RPCQueueProcessing:** Currently, this class is instantiated by the RPCQueueManager during its initialization.  It is highly probable that this class will get absorbed into the RPCQueueManager.
-* **QueueHistoryFrame:** Container class for handling the management of an RPC queue.  One QueueHistoryFrame instance per data flow pipeline (i.e. inbound and outbound yields two QueueHistoryFrames).
+- **RPCQueueManager:** Manages inbound and outbound RPC queues.  Both inbound and outbound queues are byte arrays exposed as streams (i.e. currently BitStreams) and contained within a QueueHistoryFrame.  The number of QueueHistoryFrames is defined by calling the Initialize method and passing the maximum number of history frames.  The total number of frames is MaxFrameHistory + 1, where the additional frame is considered the “current frame” (i.e. it will always maintain the exact number of frames in history).
+- **RPCQueueProcessing:** Currently, this class is instantiated by the RPCQueueManager during its initialization.  It is highly probable that this class will get absorbed into the RPCQueueManager.- **QueueHistoryFrame:** Container class for handling the management of an RPC queue.  One QueueHistoryFrame instance per data flow pipeline (i.e. inbound and outbound yields two QueueHistoryFrames).
 
 # Drawbacks
 [drawbacks]: #drawbacks
