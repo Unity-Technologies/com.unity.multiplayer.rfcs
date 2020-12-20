@@ -39,7 +39,8 @@ Currently, the RPC Queue’s primary purpose is to provide additional control ov
 ![](0000-rpc-queue/RPCQueueClasses.png)
 
 - **RPCQueueManager:** Manages inbound and outbound RPC queues.  Both inbound and outbound queues are byte arrays exposed as streams (i.e. currently BitStreams) and contained within a QueueHistoryFrame.  The number of QueueHistoryFrames is defined by calling the Initialize method and passing the maximum number of history frames.  The total number of frames is MaxFrameHistory + 1, where the additional frame is considered the “current frame” (i.e. it will always maintain the exact number of frames in history).
-- **RPCQueueProcessing:** Currently, this class is instantiated by the RPCQueueManager during its initialization.  It is highly probable that this class will get absorbed into the RPCQueueManager.- **QueueHistoryFrame:** Container class for handling the management of an RPC queue.  One QueueHistoryFrame instance per data flow pipeline (i.e. inbound and outbound yields two QueueHistoryFrames).
+- **RPCQueueProcessing:** Currently, this class is instantiated by the RPCQueueManager during its initialization.  It is highly probable that this class will get absorbed into the RPCQueueManager.
+- **QueueHistoryFrame:** Container class for handling the management of an RPC queue.  One QueueHistoryFrame instance per data flow pipeline (i.e. inbound and outbound yields two QueueHistoryFrames).
 
 # Drawbacks
 [drawbacks]: #drawbacks
