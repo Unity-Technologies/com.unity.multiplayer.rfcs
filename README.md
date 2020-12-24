@@ -39,9 +39,10 @@ As a rule of thumb, receiving encouraging feedback from long-standing project de
 
 In short, to get a major feature added to Unity Multiplayer, one must first get the RFC merged into the RFC repository as a markdown file. At that point the RFC is "active" and may be implemented with the goal of eventual inclusion into Unity Multiplayer.
 
-- Fork the RFC repo [RFC repository](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs)
+- Fork the RFC repo [RFC repository](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs).
 - Copy `0000-template.md` to `text/0000-my-feature.md` (where "my-feature" is descriptive). Don't assign an RFC number yet; This is going to be the PR number and we'll rename the file accordingly if the RFC is accepted.
-- Please make sure to include the feature proposal document only (`0000-my-feature.md`) in your upcoming PR. Any PRs with additional files will be closed and asked for proposal document only under a  completely new PR. All implementations including POCs, prototypes, demos, either polished or unpolished works are all subject to be reviewed under a different PR on their respective repositories with the links between.
+- Make sure to put all relevant materials (if any) such as images, PDFs etc. under a folder named exactly as markdown document filename without extension (e.g. markdown document: `text/0000-my-feature.md` and materials folder: `text/0000-my-feature/`) in your upcoming PR.
+- Do not include implementations including POCs, prototypes, demos, either polished or unpolished works. They are all subject to be reviewed under a different PR on their respective repositories with the links between.
 - Fill in the RFC. Put care into the details: RFCs that do not present convincing motivation, demonstrate lack of understanding of the design's impact, or are disingenuous about the drawbacks or alternatives tend to be poorly-received.
 - Submit a pull request. As a pull request the RFC will receive design feedback from the larger community, and the author should be prepared to revise it in response.
 - Each pull request will be labeled with the most relevant Unity Multiplayer team, which will lead to its being triaged by that team in a future meeting and assigned to a member of the subteam.
@@ -89,7 +90,7 @@ The process is intended to be as lightweight as reasonable for the present circu
 
 ## <a name="cla"></a> Contributor License Agreements
 
-When you open a pull request, you will be asked to acknowledge our Contributor License Agreement. We allow both individual contributions and contributions made on behalf of companies. We use an open source tool called CLA assistant. If you have any questions on our CLA, please submit an issue
+When you open a pull request, you will be asked to acknowledge our Contributor License Agreement. We allow both individual contributions and contributions made on behalf of companies. We use an open source tool called CLA assistant. If you have any questions on our CLA, please submit an issue.
 
 ### License
 [MIT License](LICENSE)
