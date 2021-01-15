@@ -40,16 +40,16 @@ Static arrays like `int[]` will be serialized by built-in serialization code if 
 
 `NetworkObject` and `NetworkBehaviour` instances will be serialized by built-in serialization code if instances are not `null` and `.IsSpawned == true`. Ids of spawned `NetworkObject` and `NetworkBehaviour` instances will be resolved by actively running `NetworkManager` therefore those ids will be the links between local and remote instances. Also, those ids will be used when serializing `NetworkObject` and `NetworkBehaviour` instances as a part of an RPC call.
 
-### INetworkSerializable & BitBuffer
+### INetworkSerializable & BitSerializer
 
 Complex user-defined types that implements `INetworkSerializable` interface will be serialized by user provided serialization code.
 
-An instance of `BitBuffer` in reading or writing mode will be passed into `INetworkSerializable::NetworkSerialize(BitBuffer)` method which can be used to easily serialize fields by reference.
+An instance of `BitSerializer` in reading or writing mode will be passed into `INetworkSerializable::NetworkSerialize(BitSerializer)` method which can be used to easily serialize fields by reference.
 
-All types supporting serialization will also be supported by `BitBuffer` with `BitBuffer::Serialize(ref int value)` variant methods and templated `BitBuffer::Serialize<T>(ref T value) where T : INetSerializable` method.
+All types supporting serialization will also be supported by `BitSerializer` with `BitSerializer::Serialize(ref int value)` variant methods and templated `BitSerializer::Serialize<T>(ref T value) where T : INetSerializable` method.
 
 ```cs
-class BitBuffer
+class BitSerializer
 {
     bool IsReading { get; }
 
@@ -61,7 +61,7 @@ class BitBuffer
 
 interface INetworkSerializable
 {
-    void NetworkSerialize(BitBuffer bitBuffer);
+    void NetworkSerialize(BitSerializer bitSerializer);
 }
 
 struct MyComplexStruct : INetworkSerializable
@@ -70,10 +70,10 @@ struct MyComplexStruct : INetworkSerializable
     public Quaternion Rotation;
 
     // INetworkSerializable
-    public NetworkSerialize(BitBuffer bitBuffer)
+    public NetworkSerialize(BitSerializer bitSerializer)
     {
-        bitBuffer.Serialize(ref Position);
-        bitBuffer.Serialize(ref Rotation);
+        bitSerializer.Serialize(ref Position);
+        bitSerializer.Serialize(ref Rotation);
     }
     // ~INetworkSerializable
 }
