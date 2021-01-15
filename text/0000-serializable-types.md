@@ -18,15 +18,41 @@ Why are we doing this? What use cases does it support? What is the expected outc
 
 ## Serialization
 
-Multiplayer framework has built-in serialization support for C# and Unity primitive types out-of-the-box, also with ability to further extend network serialization for user defined types implementing `INetworkSerializable` interface.
+Multiplayer framework has built-in serialization support for C# and Unity primitive types out-of-the-box, also with ability to further extend network serialization for user-defined types implementing `INetworkSerializable` interface.
 
 ### C# Primitives
 
 `bool`, `char`, `sbyte`, `byte`, `short`, `ushort`, `int`, `uint`, `long`, `ulong`, `float`, `double`, `string` types will be serialized by built-in serialization code.
 
+```cs
+[ServerRpc]
+void FooServerRpc(int somenumber, string sometext) { /* ... */ }
+
+void Update()
+{
+    if (Input.GetKeyDown(KeyCode.P))
+    {
+        FooServerRpc(Time.frameCount, "hello, world"); // Client -> Server
+    }
+}
+```
+
 ### Unity Primitives
 
 `Color`, `Color32`, `Vector2`, `Vector3`, `Vector4`, `Quaternion`, `Ray`, `Ray2D` types will be serialized by built-in serialization code.
+
+```cs
+[ClientRpc]
+void BarClientRpc(Color somecolor) { /* ... */ }
+
+void Update()
+{
+    if (Input.GetKeyDown(KeyCode.P))
+    {
+        BarClientRpc(Color.red); // Server -> Client
+    }
+}
+```
 
 ### Enum Types
 
