@@ -58,6 +58,33 @@ void Update()
 
 A user-defined enum type will be serialized by built-in serialization code (with underlying integer type).
 
+```cs
+enum SmallEnum : byte
+{
+    A,
+    B,
+    C
+}
+
+enum NormalEnum // default -> int
+{
+    X,
+    Y,
+    Z
+}
+
+[ServerRpc]
+void ConfigServerRpc(SmallEnum smallEnum, NormalEnum normalEnum) { /* ... */ }
+
+void Update()
+{
+    if (Input.GetKeyDown(KeyCode.P))
+    {
+        ConfigServerRpc(SmallEnum.A, NormalEnum.X); // Client -> Server
+    }
+}
+```
+
 ### Static Arrays
 
 Static arrays like `int[]` will be serialized by built-in serialization code if their underlying type is either one of serialization supported types (e.g. `Vector3`) or if they implement `INetworkSerializable` interface.
