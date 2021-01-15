@@ -118,7 +118,7 @@ void Update()
 
 Complex user-defined types that implements `INetworkSerializable` interface will be serialized by user provided serialization code.
 
-An instance of `BitSerializer` in reading or writing mode will be passed into `INetworkSerializable::NetworkSerialize(BitSerializer)` method which can be used to easily serialize fields by reference.
+An instance of `BitSerializer` will be passed into `INetworkSerializable::NetworkSerialize(BitSerializer)` method which can be used to easily serialize fields by reference.
 
 All types supporting serialization will also be supported by `BitSerializer` with `BitSerializer::Serialize(ref int value)` variant methods and templated `BitSerializer::Serialize<T>(ref T value) where T : INetSerializable` method.
 
@@ -150,6 +150,17 @@ struct MyComplexStruct : INetworkSerializable
         bitSerializer.Serialize(ref Rotation);
     }
     // ~INetworkSerializable
+}
+
+[ServerRpc]
+void MyServerRpc(MyComplexStruct myStruct) { /* ... */ }
+
+void Update()
+{
+    if (Input.GetKeyDown(KeyCode.P))
+    {
+        MyServerRpc(new MyComplexStruct{Position = transform.position, Rotation = transform.rotation}); // Client -> Server
+    }
 }
 ```
 
