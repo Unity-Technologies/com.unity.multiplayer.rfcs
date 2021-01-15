@@ -159,7 +159,12 @@ void Update()
 {
     if (Input.GetKeyDown(KeyCode.P))
     {
-        MyServerRpc(new MyComplexStruct{Position = transform.position, Rotation = transform.rotation}); // Client -> Server
+        MyServerRpc(
+            new MyComplexStruct
+            {
+                Position = transform.position,
+                Rotation = transform.rotation
+            }); // Client -> Server
     }
 }
 ```
