@@ -40,27 +40,40 @@ Static arrays like `int[]` will be serialized by built-in serialization code if 
 
 `NetworkObject` and `NetworkBehaviour` instances will be serialized by built-in serialization code if instances are not `null` and `.IsSpawned == true`. Ids of spawned `NetworkObject` and `NetworkBehaviour` instances will be resolved by actively running `NetworkManager` therefore those ids will be the links between local and remote instances. Also, those ids will be used when serializing `NetworkObject` and `NetworkBehaviour` instances as a part of an RPC call.
 
-### INetworkSerializable
+### INetworkSerializable & BitBuffer
 
-Complex user-defined types that implements `INetworkSerializable` interface will be serialized by user provided serialization code:
+Complex user-defined types that implements `INetworkSerializable` interface will be serialized by user provided serialization code.
+
+An instance of `BitBuffer` in reading or writing mode will be passed into `INetworkSerializable::NetworkSerialize(BitBuffer)` method which can be used to easily serialize fields by reference.
+
+All types supporting serialization will also be supported by `BitBuffer` with `BitBuffer::Serialize(ref int value)` variant methods and templated `BitBuffer::Serialize<T>(ref T value) where T : INetSerializable` method.
 
 ```cs
-struct MyStruct : INetworkSerializable
+class BitBuffer
+{
+    bool IsReading { get; }
+
+    void Serialize(ref int value) { /* ... */ }
+    void Serialize(ref float value) { /* ... */ }
+    // ...
+    void Serialize<T>(ref T value) where T : INetSerializable { /* ... */ }
+}
+
+interface INetworkSerializable
+{
+    void NetworkSerialize(BitBuffer bitBuffer);
+}
+
+struct MyComplexStruct : INetworkSerializable
 {
     public Vector3 Position;
     public Quaternion Rotation;
 
     // INetworkSerializable
-    public void NetworkRead(BitReader reader)
+    public NetworkSerialize(BitBuffer bitBuffer)
     {
-        Position = reader.ReadVector3Packed();
-        Rotation = reader.ReadRotationPacked();
-    }
-
-    public void NetworkWrite(BitWriter writer)
-    {
-        writer.WriteVector3Packed(Position);
-        writer.WriteRotationPacked(Rotation);
+        bitBuffer.Serialize(ref Position);
+        bitBuffer.Serialize(ref Rotation);
     }
     // ~INetworkSerializable
 }
