@@ -89,6 +89,14 @@ void Update()
 
 Static arrays like `int[]` will be serialized by built-in serialization code if their underlying type is either one of serialization supported types (e.g. `Vector3`) or if they implement `INetworkSerializable` interface.
 
+```cs
+[ServerRpc]
+void HelloServerRpc(int[] scores, Color[] colors) { /* ... */ }
+
+[ClientRpc]
+void WorldClientRpc(MyComplexType[] values) { /* ... */ }
+```
+
 ### NetworkObject & NetworkBehaviour
 
 `NetworkObject` and `NetworkBehaviour` instances will be serialized by built-in serialization code if instances are not `null` and `.IsSpawned == true`. Ids of spawned `NetworkObject` and `NetworkBehaviour` instances will be resolved by actively running `NetworkManager` therefore those ids will be the links between local and remote instances. Also, those ids will be used when serializing `NetworkObject` and `NetworkBehaviour` instances as a part of an RPC call.
