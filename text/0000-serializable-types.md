@@ -36,10 +36,6 @@ A user-defined enum type will be serialized by built-in serialization code (with
 
 Static arrays like `int[]` will be serialized by built-in serialization code if their underlying type is either one of serialization supported types (e.g. `Vector3`) or if they implement `INetworkSerializable` interface.
 
-### Generic Collections
-
-Generic collections such as `IEnumerable<T>` and `IEnumerable<KeyValuePair<K, V>>` will be serialized by built-in serialization code if their underlying type is either one of serialization supported types (e.g. `Vector3`) or if they implement `INetworkSerializable` interface.
-
 ### INetworkSerializable
 
 Complex user-defined types that implements `INetworkSerializable` interface will be serialized by user provided serialization code:
