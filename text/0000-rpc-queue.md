@@ -26,6 +26,22 @@ There are several advantages to a queue based architecture vs writing directly t
 
 Currently, the RPC Queue’s primary purpose is to provide additional control over when RPC messages are sent and upon being received when they are invoked (near future feature RPC Invocation Stage).  Additionally, RPC Queues provide the opportunity to place multiple RPC messages into a single outbound packet (near future feature RPC Message Batching) that reduces the total packets received and sent.
 
+![](0000-rpc-queue/RCPQueueOutboundHigh.png)
+1. A user defined RPC within a NetworkedBehaviour derived child is initiated.
+2. The ILPP generated code invokes the BeginSendXXXXRpc ( XXXX could be either Server or Client )
+3. RPCQueueContainer initializes a new RPC entry in the current QueueHistoryFrame.  It then returns the stream writer to the ILPP generated code
+4. RPC ILPP generated code writes serialized parameters of the RPC via the stream writer
+5. RPC ILPP generated code invokes EndSendXXXXRpc method where the writer used to write serialized parameters is returned back to the RPCQueueContainer
+6. The RPCQueueContainer finalizes the serialized RPC Queue entry
+7. Later in the player loop (game update loop) the RPCQueueContainer processes through all outbound RPCs via RPCQueueProcessing and they are sent individually or batched.
+
+
+
+![](0000-rpc-queue/RCPQueueINboundHigh.png)
+
+1. The NetworkingManager enumerates through all current transport events (in the case of UNET) and adds any received RPC messages to the current inbound QueueHistoryFrame via the RPCQueueContainer (Network PreUpdate Stage).
+2. Later in the PlayerLoop (Network FixedUpdate stage) the RpcQueueContainer enumerates through all inbound RPCs and as long as they are valid will invoke each RPC, NetworkedObject relative, within the associated NetworkedBehaviour component instance initiated by the sender.
+
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
 
@@ -38,8 +54,8 @@ Currently, the RPC Queue’s primary purpose is to provide additional control ov
 ### RPC Queue Classes
 ![](0000-rpc-queue/RPCQueueClasses.png)
 
-- **RPCQueueManager:** Manages inbound and outbound RPC queues.  Both inbound and outbound queues are byte arrays exposed as streams (i.e. currently BitStreams) and contained within a QueueHistoryFrame.  The number of QueueHistoryFrames is defined by calling the Initialize method and passing the maximum number of history frames.  The total number of frames is MaxFrameHistory + 1, where the additional frame is considered the “current frame” (i.e. it will always maintain the exact number of frames in history).
-- **RPCQueueProcessing:** Currently, this class is instantiated by the RPCQueueManager during its initialization.  It is highly probable that this class will get absorbed into the RPCQueueManager.
+- **RPCQueueContainer:** Manages inbound and outbound RPC queues.  Both inbound and outbound queues are byte arrays exposed as streams (i.e. currently BitStreams) and contained within a QueueHistoryFrame.  The number of QueueHistoryFrames is defined by calling the Initialize method and passing the maximum number of history frames.  The total number of frames is MaxFrameHistory + 1, where the additional frame is considered the “current frame” (i.e. it will always maintain the exact number of frames in history).
+- **RPCQueueProcessing:** Currently, this class is instantiated by the RPCQueueContainer during its initialization.  It is highly probable that this class will get absorbed into the RPCQueueContainer.
 - **QueueHistoryFrame:** Container class for handling the management of an RPC queue.  One QueueHistoryFrame instance per data flow pipeline (i.e. inbound and outbound yields two QueueHistoryFrames).
 
 # Drawbacks
