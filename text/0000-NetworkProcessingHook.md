@@ -6,12 +6,12 @@
 # Summary
 [summary]: #summary
 
-Often there is a need to update specific netcode related systems at intervals outside of the traditional Unity MonoBehavior defined updates (FixedUpdate, Update, and LateUpdate).  It is proposed that a new set of updates are provided to netcode related systems in order to assure tasks that require a specific order of operations are executed prior to or after game logic (MonoBehavior) related code is executed.  As such, it is proposed that a new method for registering and invoking actions that can occur outside of the traditional MonoBehavior updates is implemented.
+Often there is a need to update specific netcode related systems at intervals outside of the traditional Unity ```MonoBehavior``` defined updates (FixedUpdate, Update, and LateUpdate).  It is proposed that a new set of updates are provided to netcode related systems in order to assure tasks that require a specific order of operations are executed prior to or after game logic (```MonoBehaviour```) related code is executed.  As such, it is proposed that a new method for registering and invoking actions that can occur outside of the traditional ```MonoBehaviour``` updates is implemented.
 
 # Motivation
 [motivation]: #motivation
 
-While a MonoBehavior derived class provides three different options of when to handle updates (FixedUpdate, Update, and LateUpdate), there is a need to provide an alternate set of updates, that exist outside of the MonoBehavior realm, for current and future MLAPI systems.  The UnityEngine.LowLevel.PlayerLoop class provides the ability to register new PlayerLoopSystems to be invoked at alternate engine-level update stages (i.e. PlayerLoopSystems) that can occur prior to, during, or after all of the standard update stages offered by a MonoBehavior derived class.  This proposal is meant to further explore the potential opportunity to provide a new set of update stages within MLAPI as well as offer users the additional flexibility to provide their own set of network update logic and/or update actions  through the registration of an alternate network update engine.
+While a ```MonoBehavior``` derived class provides three different options of when to handle updates, there is a need to provide an alternate set of updates, that exist outside of the MonoBehavior realm, for current and future MLAPI systems.  The ```UnityEngine.LowLevel.PlayerLoop``` class provides the ability to register new ```PlayerLoopSystems``` to be invoked at alternate engine-level update stages (i.e. ```PlayerLoopSystem```) that can occur prior to, during, or after all of the standard update stages offered by a ```MonoBehavior``` derived class.  This proposal is meant to further explore the potential opportunity to provide a new set of update stages within MLAPI as well as offer users the additional flexibility to provide their own set of network update logic and/or update actions  through the registration of an alternate network update engine.
 
 # Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
@@ -20,9 +20,9 @@ The Network Game Update Loop diagram below shows a comparison of the various upd
 
 (*Network*) **PreUpdate**: Things like network tickrate, transport event polling (if supported), and typically anything that requires “beginning of the frame” processing would be invoked at this stage.
 
-(*Network*) **FixedUpdate:** Anything that needs to update before any MonoBehaviour.FixedUpdate call is made would occur at this stage (i.e. updating values of rigid bodies could happen here).
+(*Network*) **FixedUpdate:** Anything that needs to update before any ```MonoBehaviour.FixedUpdate``` call is made would occur at this stage (i.e. updating values of rigid bodies could happen here).
 
-(*Network*) **Update**:  Anything that needs to be updated/processed before any MonoBehavior.Update call is made would occur at this stage (i.e. updating values to systems that might be used prior to any system dependent MonoBehaviour child is updated).
+(*Network*) **Update**:  Anything that needs to be updated/processed before any ```MonoBehavior.Update``` call is made would occur at this stage (i.e. updating values to systems that might be used prior to any system dependent MonoBehaviour child is updated).
 
 (*Network*) **PostUpdate**: Things like sending out queued messages, getting the results of a batched job (i.e. snapshots or the like) would occur here.
 
