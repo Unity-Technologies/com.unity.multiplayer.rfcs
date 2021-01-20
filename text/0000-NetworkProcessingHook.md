@@ -58,9 +58,11 @@ Currently, the NetworkingManager and the RpcQueueContainer derive from two prede
 
 **Invoking RPCs at specific Network Update Loop Stages:**
 While there are many future possibilities for this new feature, one of the several driving purposes for this added capability was to provide an intuitive way to invoke RPCs at specific stages during runtime (i.e. dynamically).  In order to accomplish this, the network update loop registration process needed to be enhanced (as explained above) and some minor adjustments to the RPC send parameters were needed.
+
 ![](0000-NetworkProcessingHook/SendParamsNULS.png)
 
 In order to specify what network update stage one might want an RPC to be invoked, adding the ServerRpcParams or ClientRpcParams as the last RPC method’s parameter and setting the UpdateStage is all that is needed:
+
 ![](0000-NetworkProcessingHook/SendParamsNULSExample.png)
 
 The above code snippet shows that the ServerRpc, UpdateMyRigidBodyPosition, will be invoked during the network FixedUpdate stage when invoked on the receiver side (in this case the server).  The class containing the Rpc method itself does not need to be registered with the NetworkUpdateManager as the RpcQueueContainer handles this portion of the RPC invocation process.
