@@ -1,42 +1,69 @@
-- Feature Name: (fill me in with a unique ident, `my_awesome_feature`)
-- Start Date: (fill me in with today's date, YYYY-MM-DD)
+- Feature Name: Network Update Loop System
+- Start Date: 1-19-2021
 - RFC PR: [Unity-Technologies/com.unity.multiplayer.rfcs#0000](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/0000)
 - Issue: [Unity-Technologies/com.unity.multiplayer#0000](https://github.com/Unity-Technologies/com.unity.multiplayer/issues/0000)
 
 # Summary
 [summary]: #summary
 
-One paragraph explanation of the feature.
+Often there is a need to update specific netcode related systems at intervals outside of the traditional Unity MonoBehavior defined updates (FixedUpdate, Update, and LateUpdate).  It is proposed that a new set of updates are provided to netcode related systems in order to assure tasks that require a specific order of operations are executed prior to or after game logic (MonoBehavior) related code is executed.  As such, it is proposed that a new method for registering and invoking actions that can occur outside of the traditional MonoBehavior updates is implemented.
 
 # Motivation
 [motivation]: #motivation
 
-Why are we doing this? What use cases does it support? What is the expected outcome?
+While a MonoBehavior derived class provides three different options of when to handle updates (FixedUpdate, Update, and LateUpdate), there is a need to provide an alternate set of updates, that exist outside of the MonoBehavior realm, for current and future MLAPI systems.  The UnityEngine.LowLevel.PlayerLoop class provides the ability to register new PlayerLoopSystems to be invoked at alternate engine-level update stages (i.e. PlayerLoopSystems) that can occur prior to, during, or after all of the standard update stages offered by a MonoBehavior derived class.  This proposal is meant to further explore the potential opportunity to provide a new set of update stages within MLAPI as well as offer users the additional flexibility to provide their own set of network update logic and/or update actions  through the registration of an alternate network update engine.
 
 # Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
 
-Explain the proposal as if it was already included in the Unity Multiplayer and you were teaching it to another Unity developer. That generally means:
+The [Network Game Update Loop diagram](#Network-Game-Update-Loop-diagram) shows a comparison of the various update stages between PlayerLoop (full game loop), Network Updates (all network specific updates), and MonoBehavior (updates exposed to MonoBehavior children).  The proposed additional network update stages (PreUpdate, FixedUpdate, Update, and PostUpdate) provide this functionality:
+(*Network*) **PreUpdate**: Things like network tickrate, transport event polling (if supported), and typically anything that requires “beginning of the frame” processing would be invoked at this stage.
 
-- Introducing new named concepts.
-- Explaining the feature largely in terms of examples.
-- Explaining how Unity developers should _think_ about the feature, and how it should impact the way they develop multiplayer projects in Unity. It should explain the impact as concretely as possible.
-- If applicable, provide sample error messages, deprecation warnings, or migration guidance.
-- If applicable, describe the differences between teaching this to existing Unity developers and new Unity developers.
+(*Network*) **FixedUpdate:** Anything that needs to update before any MonoBehaviour.FixedUpdate call is made would occur at this stage (i.e. updating values of rigid bodies could happen here).
 
-For implementation-oriented RFCs (e.g. for framework internals), this section should focus on how Unity Multiplayer contributors should think about the change, and give examples of its concrete impact. For policy RFCs, this section should provide an example-driven introduction to the policy, and explain its impact in concrete terms.
+(*Network*) **Update**:  Anything that needs to be updated/processed before any MonoBehavior.Update call is made would occur at this stage (i.e. updating values to systems that might be used prior to any system dependent MonoBehaviour child is updated).
+
+(*Network*) **PostUpdate**: Things like sending out queued messages, getting the results of a batched job (i.e. snapshots or the like) would occur here.
+
+![Network-Game-Update-Loop-diagram](NetworkProcessingHook\NetworkUpdateLoopStages.png)
+
+**The original implementation only allowed for a single method to be registered per stage via the ```InternalNetworkUpdateEngine``` (legacy) format.  This had limitations to its design, and as such it was proposed to further extend this functionality to any ```INetworkUpdateLoopSystem``` such that any class could register for any of the new network update loop stages.
 
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
+In order to provide a more modular mechanism for registering with the network game update loop system, it is proposed that a new INetworkLoopUpdateSystem interface be used to define the underlying methods that would be used for this process.
+![](NetworkProcessingHook\InterfaceNetworkUpdateLoopSystem.png)
+Where the RegisterUpdate method is called for each of the four new network loop update stages (PreUpdate, FixedUpdate, Update, and LateUpdate).  The class that defines the RegisterUpdate method would either return an action for the update stage in question or null for no updates during the stage being queried for registration.  This approach not only provides a wider area of coverage (i.e. any class could register), but it also provides the ability to not register thus not adding the additional overhead of invoking an action for a stage not being used by the class.
 
-This is the technical portion of the RFC. Explain the design in sufficient detail that:
+The class defined below provides one potential way to both define the INetworkLoopUpdateSystem’s methods while providing additional class relative helper methods for registering and deregistering from the network update loop system.![](NetworkProcessingHook\GenericUpdateLoopSystem.png)
+Both the RegisterUpdate and the RegisterUpdateLoopSystemDestroyCallback methods are called by the NetworkUpdateManager during the registration process.  Below is a diagram to help better understand the network update loop system registration process:
+![](NetworkProcessingHook\NULSRegistrationProcess.png)
+1. Class instance registers with the NetworkUpdateMananger.
+2. During registration, the NetworkUpdateManager calls the class instance’s RegisterUpdate method that will either return null or an Action to be registered for the particular update stage in question.  (*the diagram above shows only the Update and LateUpdate were registered for example purposes*)
+3. If any update stage was registered, then the NetworkUpdateManager will invoke the class instance’s RegisterUpdateLoopSystemDestroyCallback method passing the callback action to be invoked upon the class instance being destroyed or if the class instance just wants to remove itself from the network update loop system stages.
+So, any INetworkLoopUpdateSystem derived class can opt to register or deregister from network loop update stages during runtime.  This can be useful if a network object has associated INetworkLoopUpdateSystem based components and is not considered ‘active’ but is still considered enabled.  Under this situation, one could deregister the INetworkLoopUpdateSystem based components to be removed from any network loop system update stages until the network object becomes activated (“active”) again.  The registration and deregistration process provides runtime control over when the network update stages for a specific class will be invoked.  Under other circumstances, one might want to register for only specific network loop update stages depending on certain events or states.  This too can be accomplished by simply deregistering (if already registered) and then re-registering with the new update stages.
 
-- Its interaction with other features is clear.
-- It is reasonably clear how the feature would be implemented.
-- Corner cases are dissected by example.
+Currently, the NetworkingManager and the RpcQueueContainer derive from two predefined INetworkLoopUpdateSystem derived classes (UpdateLoopBehaviour and GenericUpdateLoopSystem).
+![](NetworkProcessingHook\UpdatedClassesNULS.png)
+**NetworkingManager:** Now derives from the UpdateLoopBehaviour and registers for the following network update loop stages:
+1. **PreUpdate:** Transport event polling occurs here
+2. **Update:** The remainder of the NetworkingManager’s update occurs here.
 
-The section should return to the examples given in the previous section, and explain more fully how the detailed proposal makes those examples work.
+**RpcQueueContainer:**  Now derives from the GenericUpdateLoopSystem and registers for all network update loop stages:
+1. **PreUpdate:**  RPCs registered to be invoked at this stage will be invoked.
+2. **FixedUpdate:**  RPCs registered to be invoked at this stage will be invoked.
+3. **Update:**  RPCs registered to be invoked at this stage will be invoked.
+4. **LateUpdate:**  RPCs registered to be invoked at this stage will be invoked.
+5. **LateUpdate:**  Outbound RPCs queued for sending will be batched and sent at this stage
 
+**Invoking RPCs at specific Network Update Loop Stages:**
+While there are many future possibilities for this new feature, one of the several driving purposes for this added capability was to provide an intuitive way to invoke RPCs at specific stages during runtime (i.e. dynamically).  In order to accomplish this, the network update loop registration process needed to be enhanced (as explained above) and some minor adjustments to the RPC send parameters were needed.
+![](NetworkProcessingHook\SendParamsNULS.png)
+
+In order to specify what network update stage one might want an RPC to be invoked, adding the ServerRpcParams or ClientRpcParams as the last RPC method’s parameter and setting the UpdateStage is all that is needed:
+![](NetworkProcessingHook\SendParamsNULSExample.png)
+
+The above code snippet shows that the ServerRpc, UpdateMyRigidBodyPosition, will be invoked during the network FixedUpdate stage when invoked on the receiver side (in this case the server).  The class containing the Rpc method itself does not need to be registered with the NetworkUpdateManager as the RpcQueueContainer handles this portion of the RPC invocation process.
 # Drawbacks
 [drawbacks]: #drawbacks
 
