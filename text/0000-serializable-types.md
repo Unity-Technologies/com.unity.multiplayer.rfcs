@@ -270,6 +270,10 @@ Writing:
 
 Unlike [Array](#example-array) example above, we do not use `BitSerializer.IsReading` flag to change serialization logic but the value of a serialized flag itself. If `SyncVelocity` flag is set to `true`, both `LinearVelocity` and `AngularVelocity` will also be serialized into the stream — otherwise when it is set to `false`, we will leave `LinearVelocity` and `AngularVelocity` with default values.
 
+#### Nested/Recursive Serialization
+
+// todo
+
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
 
