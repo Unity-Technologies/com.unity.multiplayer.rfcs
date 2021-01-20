@@ -69,28 +69,16 @@ The above code snippet shows that the ServerRpc, UpdateMyRigidBodyPosition, will
 # Drawbacks
 [drawbacks]: #drawbacks
 
-Why should we _not_ do this?
+This feature does expose the potential for improper usage that could lead to elongate processing times in areas that could impact the over-all system performance.  Although, this same issue holds true for many game engine technologies and can be mitigated through providing clear documentation with appropriate warnings regarding usage where appropriate.
 
 # Rationale and alternatives
 [rationale-and-alternatives]: #rationale-and-alternatives
 
-- Why is this design the best in the space of possible designs?
-- What other designs have been considered and what is the rationale for not choosing them?
-- What is the impact of not doing this?
+Since multiplayer/netcode architectures has, up until more recently, not evolved with the rest of the Unity Technologies, there are not many alternative paths that can provide an alternate means to providing update callbacks outside of the Monobehaviour scope.
 
 # Prior art
 [prior-art]: #prior-art
-
-Discuss prior art, both the good and the bad, in relation to this proposal. A few examples of what this can include are:
-
-- For framework, tools, and library proposals: Does this feature exist in other networking stacks and what experience have their community had?
-- For community proposals: Is this done by some other community and what were their experiences with it?
-- For other teams: What lessons can we learn from what other communities have done here?
-- Papers: Are there any published papers or great posts that discuss this? If you have some relevant papers to refer to, this can serve as a more detailed theoretical background.
-
-This section is intended to encourage you as an author to think about the lessons from other projects, provide readers of your RFC with a fuller picture. If there is no prior art, that is fine - your ideas are interesting to us whether they are brand new or if it is an adaptation from other projects.
-
-Note that while precedent set by other projects is some motivation, it does not on its own motivate an RFC. Please also take into consideration that Unity Multiplayer sometimes intentionally diverges from common multiplayer networking features.
+(No Prior Art Currently)
 
 # Unresolved questions
 [unresolved-questions]: #unresolved-questions
@@ -101,11 +89,10 @@ Note that while precedent set by other projects is some motivation, it does not 
 
 # Future possibilities
 [future-possibilities]: #future-possibilities
+**AtomicNetworkTether (ANT)**
 
-Think about what the natural extension and evolution of your proposal would be and how it would affect the Unity Multiplayer as a whole in a holistic way. Try to use this section as a tool to more fully consider all possible interactions with the Unity Multiplayer in your proposal. Also consider how the this all fits into the roadmap for the project and the team.
+The ANT would derive from the NetworkUpdateLoopBehaviour:MonoBehaviour, INetworkUpdateLoopSystem  class which would provide both the basic MonoBehaviour functionality and further automate the Network Update Loop system registration process for any ANT derived child classes.  From an ease of use perspective, registration would only require one to override the InternalRegisterNetworkUpdateStage (name would most likely change) and to return Actions for any update stages that the ANT child class instance needs to perform its function.
 
-This is also a good place to "dump ideas", if they are out of scope for the RFC you are writing but otherwise related.
+Since a NetworkedObject or NetworkedBehaviour would be children of ANT, they would become more closely knit into the network loop update system itself.  This would provide users with a whole new set of updates that network game/entity objects could leverage from.  Since Job's can be kicked off at any time during any of the network update stages, network based job systems could  be designed such that any ANT derived class could register for specific "network related" job queues that could be processed throughout the PlayerLoop (i.e. provide a "Network Lerping" job queue that any NetworkedObject could "subscribe" to). 
 
-If you have tried and cannot think of any future possibilities, you may simply state that you cannot think of anything.
-
-Note that having something written down in the future-possibilities section is not a reason to accept the current or a future RFC; such notes should be in the section on motivation or rationale in this or subsequent RFCs. The section merely provides additional information.
+This type of functionality could lead to a "network job queue module" that provided the means to creating customized network job queue modules.  In the likeness of a GPU shader that receives data in byte streams and has access to video memory, network job queue modules could have access to the "network frames or snapshot frames" as well as any byte streams (native arrays) with associated data structures to parse the byte streams with.  
