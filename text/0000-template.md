@@ -25,7 +25,7 @@ The [Network Game Update Loop diagram](#Network-Game-Update-Loop-diagram) shows 
 
 (*Network*) **PostUpdate**: Things like sending out queued messages, getting the results of a batched job (i.e. snapshots or the like) would occur here.
 
-![Network-Game-Update-Loop-diagram](NetworkProcessingHook\NetworkUpdateLoopStages.png)
+![](NetworkProcessingHook\NetworkUpdateLoopStages.png)
 
 **The original implementation only allowed for a single method to be registered per stage via the ```InternalNetworkUpdateEngine``` (legacy) format.  This had limitations to its design, and as such it was proposed to further extend this functionality to any ```INetworkUpdateLoopSystem``` such that any class could register for any of the new network update loop stages.
 
