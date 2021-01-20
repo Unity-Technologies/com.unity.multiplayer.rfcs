@@ -27,7 +27,7 @@ The [Network Game Update Loop diagram](#Network-Game-Update-Loop-diagram) shows 
 
 ![](0000-NetworkProcessingHook/NetworkUpdateLoopStages.png)
 
-**The original implementation only allowed for a single method to be registered per stage via the ```InternalNetworkUpdateEngine``` (legacy) format.  This had limitations to its design, and as such it was proposed to further extend this functionality to any ```INetworkUpdateLoopSystem``` such that any class could register for any of the new network update loop stages.
+*The original implementation only allowed for a single method to be registered per stage via the ```InternalNetworkUpdateEngine``` (legacy) format.  This had limitations to its design, and as such it was proposed to further extend this functionality to any ```INetworkUpdateLoopSystem``` such that any class could register for any of the new network update loop stages.*
 
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
