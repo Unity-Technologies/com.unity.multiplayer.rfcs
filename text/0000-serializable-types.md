@@ -135,7 +135,7 @@ class BitSerializer
 
 interface INetworkSerializable
 {
-    void NetworkSerialize(BitSerializer bitSerializer);
+    void NetworkSerialize(BitSerializer serializer);
 }
 
 struct MyComplexStruct : INetworkSerializable
@@ -144,10 +144,10 @@ struct MyComplexStruct : INetworkSerializable
     public Quaternion Rotation;
 
     // INetworkSerializable
-    public NetworkSerialize(BitSerializer bitSerializer)
+    public NetworkSerialize(BitSerializer serializer)
     {
-        bitSerializer.Serialize(ref Position);
-        bitSerializer.Serialize(ref Rotation);
+        serializer.Serialize(ref Position);
+        serializer.Serialize(ref Rotation);
     }
     // ~INetworkSerializable
 }
@@ -165,6 +165,71 @@ void Update()
                 Position = transform.position,
                 Rotation = transform.rotation
             }); // Client -> Server
+    }
+}
+```
+
+#### Conditional Serialization
+
+As developer gets more control over serialization of a struct, one might implement conditional serialization at runtime. We will explore this more advanced use-case with the examples below:
+
+##### Example: Array
+
+```cs
+public struct MyCustomStruct : INetworkSerializable
+{
+    public int[] Array;
+
+    public void NetworkSerialize(BitSerializer serializer)
+    {
+        // Length
+        int length = 0;
+        if (!serializer.IsReading)
+        {
+            length = Array.Length;
+        }
+
+        serializer.Serialize(ref length);
+
+        // Array
+        if (serializer.IsReading)
+        {
+            Array = new int[length];
+        }
+
+        for (int i = 0; i < length; ++i)
+        {
+            serializer.Serialize(ref Array[i]);
+        }
+    }
+}
+```
+
+##### Example: Move
+
+```cs
+public struct MyMoveStruct : INetSerializable
+{
+    public Vector3 Position;
+    public Quaternion Rotation;
+
+    public bool SyncVelocity;
+    public Vector3 LinearVelocity;
+    public Vector3 AngularVelocity;
+
+    public void NetworkSerialize(BitSerializer serializer)
+    {
+        // Position & Rotation
+        serializer.Serialize(ref Position);
+        serializer.Serialize(ref Rotation);
+        
+        // LinearVelocity & AngularVelocity
+        serializer.Serialize(ref SyncVelocity);
+        if (SyncVelocity)
+        {
+            serializer.Serialize(ref LinearVelocity);
+            serializer.Serialize(ref AngularVelocity);
+        }
     }
 }
 ```
