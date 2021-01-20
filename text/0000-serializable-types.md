@@ -171,7 +171,9 @@ void Update()
 
 #### Conditional Serialization
 
-As developer gets more control over serialization of a struct, one might implement conditional serialization at runtime. We will explore this more advanced use-case with the examples below:
+As the developer has more control over serialization of a struct, one might implement conditional serialization at runtime.
+
+We will explore more advanced use-cases with the examples below:
 
 ##### Example: Array
 
@@ -197,18 +199,32 @@ public struct MyCustomStruct : INetworkSerializable
             Array = new int[length];
         }
 
-        for (int i = 0; i < length; ++i)
+        for (int n = 0; n < length; ++n)
         {
-            serializer.Serialize(ref Array[i]);
+            serializer.Serialize(ref Array[n]);
         }
     }
 }
 ```
 
+Reading:
+
+- (De)serialize `length` back from the stream
+- Iterate over `Array` member `n=length` times
+- (De)serialize value back into `Array[n]` element from the stream
+
+Writing:
+
+- Serialize `length=Array.Length` into stream
+- Iterate over `Array` member `n=length` times
+- Serialize value from `Array[n]` element into the stream
+
+`BitSerializer.IsReading` flag is being utilized here to determine whether or not to set `length` value to prepare before writing into the stream — on the flip side, we use it to determine whether or not to create a new `int[]` instance with `length` size to set `Array` before reading values from the stream.
+
 ##### Example: Move
 
 ```cs
-public struct MyMoveStruct : INetSerializable
+public struct MyMoveStruct : INetworkSerializable
 {
     public Vector3 Position;
     public Quaternion Rotation;
@@ -233,6 +249,26 @@ public struct MyMoveStruct : INetSerializable
     }
 }
 ```
+
+Reading:
+
+- (De)serialize `Position` back from the stream
+- (De)serialize `Rotation` back from the stream
+- (De)serialize `SyncVelocity` back from the stream
+- Check if `SyncVelocity` is set to `true`, if so:
+- (De)serialize `LinearVelocity` back from the stream
+- (De)serialize `AngularVelocity` back from the stream
+
+Writing:
+
+- Serialize `Position` into the stream
+- Serialize `Rotation` into the stream
+- Serialize`SyncVelocity` into the stream
+- Check if `SyncVelocity` is set to `true`, if so:
+- Serialize `LinearVelocity` into the stream
+- Serialize `AngularVelocity` into the stream
+
+Unlike [Array](#example-array) example above, we do not use `BitSerializer.IsReading` flag to change serialization logic but the value of a serialized flag itself. If `SyncVelocity` flag is set to `true`, both `LinearVelocity` and `AngularVelocity` will also be serialized into the stream — otherwise when it is set to `false`, we will leave `LinearVelocity` and `AngularVelocity` with default values.
 
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
