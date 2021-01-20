@@ -37,7 +37,7 @@ Currently, the RPC Queue’s primary purpose is to provide additional control ov
 
 
 
-![](0000-rpc-queue/RCPQueueINboundHigh.png)
+![](0000-rpc-queue/RCPQueueInboundHigh.png)
 
 1. The NetworkingManager enumerates through all current transport events (in the case of UNET) and adds any received RPC messages to the current inbound QueueHistoryFrame via the RPCQueueContainer (Network PreUpdate Stage).
 2. Later in the PlayerLoop (Network FixedUpdate stage) the RpcQueueContainer enumerates through all inbound RPCs and as long as they are valid will invoke each RPC, NetworkedObject relative, within the associated NetworkedBehaviour component instance initiated by the sender.
