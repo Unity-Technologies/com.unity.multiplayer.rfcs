@@ -319,7 +319,7 @@ However, if we were to serialize `MyStructB`, it would serialize `SomeNumber` an
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
 
-## `INetworkSerializable`
+## INetworkSerializable
 
 `INetworkSerializable` interface will not enforce anything other than `NetworkSerialize(BitSerializer)` method.
 
@@ -330,7 +330,7 @@ interface INetworkSerializable
 }
 ```
 
-## `BitSerializer`
+## BitSerializer
 
 `BitSerializer` is the main aggregator that implements serialization code for built-in supported types and custom types with `INetworkSerializable` interface.
 
