@@ -124,7 +124,7 @@ Complex user-defined types that implements `INetworkSerializable` interface will
 
 An instance of `BitSerializer` will be passed into `INetworkSerializable::NetworkSerialize(BitSerializer)` method which can be used to easily serialize fields by reference.
 
-All types supporting serialization will also be supported by `BitSerializer` with `BitSerializer::Serialize(ref int value)` variant methods and templated `BitSerializer::Serialize<T>(ref T value) where T : INetSerializable` method.
+All types supporting serialization will also be supported by `BitSerializer` with `BitSerializer::Serialize(ref int value)` variant methods and templated `BitSerializer::Serialize<T>(ref T value) where T : INetworkSerializable` method.
 
 ```cs
 class BitSerializer
@@ -134,7 +134,7 @@ class BitSerializer
     void Serialize(ref int value) { /* ... */ }
     void Serialize(ref float value) { /* ... */ }
     // ...
-    void Serialize<T>(ref T value) where T : INetSerializable { /* ... */ }
+    void Serialize<T>(ref T value) where T : INetworkSerializable { /* ... */ }
 }
 
 interface INetworkSerializable
@@ -276,7 +276,7 @@ Unlike [Array](#example-array) example above, we do not use `BitSerializer.IsRea
 
 #### Recursive Nested Serialization
 
-`BitSerializer` implements `void Serialize<T>(ref T value) where T : INetSerializable` method which allows for recursive nested serialization.
+`BitSerializer` implements `void Serialize<T>(ref T value) where T : INetworkSerializable` method which allows for recursive nested serialization.
 
 Let's have a look at the example below:
 
@@ -319,54 +319,95 @@ However, if we were to serialize `MyStructB`, it would serialize `SomeNumber` an
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
 
-This is the technical portion of the RFC. Explain the design in sufficient detail that:
+## `INetworkSerializable`
 
-- Its interaction with other features is clear.
-- It is reasonably clear how the feature would be implemented.
-- Corner cases are dissected by example.
+`INetworkSerializable` interface will not enforce anything other than `NetworkSerialize(BitSerializer)` method.
 
-The section should return to the examples given in the previous section, and explain more fully how the detailed proposal makes those examples work.
+```cs
+interface INetworkSerializable
+{
+    void NetworkSerialize(BitSerializer serializer);
+}
+```
+
+## `BitSerializer`
+
+`BitSerializer` is the main aggregator that implements serialization code for built-in supported types and custom types with `INetworkSerializable` interface.
+
+```cs
+// note: pseudo-code
+class BitSerializer
+{
+    // for reading
+    BitSerializer(BitReader reader) { /* ... */ }
+
+    // for writing
+    BitSerializer(BitWriter writer) { /* ... */ }
+
+    bool IsReading { get; }
+
+    // for common types
+    void Serialize(ref int value)
+    {
+        if (IsReading)
+        {
+            value = m_Reader.ReadInt32Packed();
+        }
+        else
+        {
+            m_Writer.WriteInt32Packed(value);
+        }
+    }
+    void Serialize(ref float value) { /* ... */ }
+    // ...
+
+    // for custom types
+    void Serialize<T>(ref T value) where T : INetworkSerializable
+    {
+        value.NetworkSerialize(this);
+    }
+}
+```
+
+## RPC & ILPP Changes
+
+At the time of writing this RFC proposal, `NetworkBehaviour.__beginSendServerRpc` and other internal RPC methods are returning and consuming `BitWriter` instances but they should return and consume `BitSerializer` instances constructed with `BitWriter` and `BitReader` instead. IL injected into RPC method bodies should change and use `BitSerializer` instead of `BitWriter` and generated static RPC handler methods should also use `BitSerializer` instead of `BitReader`.
 
 # Drawbacks
 [drawbacks]: #drawbacks
 
-Why should we _not_ do this?
+N/A
 
 # Rationale and alternatives
 [rationale-and-alternatives]: #rationale-and-alternatives
 
 - Why is this design the best in the space of possible designs?
+  - There has been no alternative discussed.
 - What other designs have been considered and what is the rationale for not choosing them?
+  - N/A
 - What is the impact of not doing this?
+  - This is an essential feature that we need to support ASAP.
 
 # Prior art
 [prior-art]: #prior-art
 
-Discuss prior art, both the good and the bad, in relation to this proposal. A few examples of what this can include are:
+## Unreal's `FArchive`
 
-- For framework, tools, and library proposals: Does this feature exist in other networking stacks and what experience have their community had?
-- For community proposals: Is this done by some other community and what were their experiences with it?
-- For other teams: What lessons can we learn from what other communities have done here?
-- Papers: Are there any published papers or great posts that discuss this? If you have some relevant papers to refer to, this can serve as a more detailed theoretical background.
-
-This section is intended to encourage you as an author to think about the lessons from other projects, provide readers of your RFC with a fuller picture. If there is no prior art, that is fine - your ideas are interesting to us whether they are brand new or if it is an adaptation from other projects.
-
-Note that while precedent set by other projects is some motivation, it does not on its own motivate an RFC. Please also take into consideration that Unity Multiplayer sometimes intentionally diverges from common multiplayer networking features.
+Unreal Engine has [`FArchive`](https://docs.unrealengine.com/en-US/API/Runtime/Core/Serialization/FArchive/index.html) which looks quite similar to `BitSerializer` proposed above. We may or may not get some ideas from there while implementing this RFC.
 
 # Unresolved questions
 [unresolved-questions]: #unresolved-questions
 
 - What parts of the design do you expect to resolve through the RFC process before this gets merged?
+  - N/A
 - What parts of the design do you expect to resolve through the implementation of this feature before stabilization?
+  - N/A
 - What related issues do you consider out of scope for this RFC that could be addressed in the future independently of the solution that comes out of this RFC?
+  - N/A
 
 # Future possibilities
 [future-possibilities]: #future-possibilities
 
-Think about what the natural extension and evolution of your proposal would be and how it would affect the Unity Multiplayer as a whole in a holistic way. Try to use this section as a tool to more fully consider all possible interactions with the Unity Multiplayer in your proposal. Also consider how the this all fits into the roadmap for the project and the team.
+## Templated Custom Serializers
 
-This is also a good place to "dump ideas", if they are out of scope for the RFC you are writing but otherwise related.
-
-If you have tried and cannot think of any future possibilities, you may simply state that you cannot think of anything.
-
-Note that having something written down in the future-possibilities section is not a reason to accept the current or a future RFC; such notes should be in the section on motivation or rationale in this or subsequent RFCs. The section merely provides additional information.
+Currently, there is no way to swap `BitSerializer` with something else. It is still possible to manually serialize types down to `byte[]` and use `BitSerializer.Serialize(ref byte[] value)` API but it would be much better to have full control over serializer. This RFC considers this as a potential improvement for the future.
