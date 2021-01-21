@@ -6,12 +6,16 @@
 # Summary
 [summary]: #summary
 
-_RFC draft for **Serializable Types** (to be updated and properly proposed)_
+This RFC proposes a standard way to support both built-in and custom serialization flows. Proposed design could be further extended with additional built-in serialization support, templated custom serializers and others in the future.
 
 # Motivation
 [motivation]: #motivation
 
-Why are we doing this? What use cases does it support? What is the expected outcome?
+Type serialization is one of the most common areas in the network programming. We want to automate this process as much as we can, offer out-of-the-box features to make life easier.
+
+MLAPI used to offer serialization support that is much less performant (due to boxing, runtime type checking etc.) and (arguably) less convenient. When [Standard RPC API](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/blob/master/text/0001-std-rpc-api.md) was introduced, it also did open a whole set of opportunities in this area. At the time of writing this RFC, proposed design immediately applies to serialization of RPC parameters but it's very high likely that this design will also be used in other areas of type serialization such as network variables.
+
+We want to offer built-in serialization support for most commonly used types and also support custom serialization for user-defined types with ease.
 
 # Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
