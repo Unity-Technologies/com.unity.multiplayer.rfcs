@@ -99,7 +99,7 @@ void WorldClientRpc(MyComplexType[] values) { /* ... */ }
 
 ### NetworkObject & NetworkBehaviour
 
-`NetworkObject` and `NetworkBehaviour` instances will be serialized by built-in serialization code if instances are not `null` and `NetworkObject.IsSpawned == true`. Passing a `null` instance or a `NetworkObject` with `IsSpawned == false` or a `NetworkBehaviour` with `NetworkObject.IsSpawned == false` will still lead into RPC replication but remote side will have `null` values for the parameters. Ids of spawned `NetworkObject` and `NetworkBehaviour` instances will be resolved by running `NetworkManager` instance, and those ids will be the links between local and remote instances. Also, those ids will be used when serializing `NetworkObject` and `NetworkBehaviour` instances as a part of an RPC call.
+`NetworkObject` and `NetworkBehaviour` instances will be serialized by built-in serialization code if instances are not `null` and `NetworkObject.IsSpawned == true`. Passing a `null` instance or a `NetworkObject` with `IsSpawned == false` or a `NetworkBehaviour` with `NetworkObject.IsSpawned == false` will still lead into RPC replication but remote side will have `null` values for the parameters. IDs of spawned `NetworkObject` and `NetworkBehaviour` instances will be resolved by running `NetworkManager` instance, and those IDs will be the links between local and remote instances. Also, those IDs will be used when serializing `NetworkObject` and `NetworkBehaviour` instances as a part of an RPC call.
 
 ```cs
 [ServerRpc]
@@ -270,9 +270,47 @@ Writing:
 
 Unlike [Array](#example-array) example above, we do not use `BitSerializer.IsReading` flag to change serialization logic but the value of a serialized flag itself. If `SyncVelocity` flag is set to `true`, both `LinearVelocity` and `AngularVelocity` will also be serialized into the stream — otherwise when it is set to `false`, we will leave `LinearVelocity` and `AngularVelocity` with default values.
 
-#### Nested/Recursive Serialization
+#### Recursive Nested Serialization
 
-// todo
+`BitSerializer` implements `void Serialize<T>(ref T value) where T : INetSerializable` method which allows for recursive nested serialization.
+
+Let's have a look at the example below:
+
+```cs
+public struct MyStructA : INetworkSerializable
+{
+    public Vector3 Position;
+    public Quaternion Rotation;
+
+    public void NetworkSerialize(BitSerializer serializer)
+    {
+        serializer.Serialize(ref Position);
+        serializer.Serialize(ref Rotation);
+    }
+}
+
+public struct MyStructB : INetworkSerializable
+{
+    public int SomeNumber;
+    public string SomeText;
+    public MyStructA StructA;
+    
+    public void NetworkSerialize(BitSerializer serializer)
+    {
+        serializer.Serialize(ref SomeNumber);
+        serializer.Serialize(ref SomeText);
+        serializer.Serialize(ref StructA);
+    }
+}
+```
+
+If we were to serialize `MyStructA` alone, it would serialize `Position` and `Rotation` into the stream via `BitSerializer`.
+
+However, if we were to serialize `MyStructB`, it would serialize `SomeNumber` and `SomeText` into the stream, then serialize `StructA` by calling `MyStructA`'s `void NetworkSerialize(BitSerializer)` method which serializes `Position` and `Rotation` into the same stream.
+
+**Note:** Technically, there is no hard-limit on how many `INetworkSerializable` fields you can serialize down the tree hierachy but in practice, there are some memory and bandwidth boundaries you'll need to watch out for.
+
+**Pro-tip:** You can [conditionally serialize](#conditional-serialization) in [recursive nested serialization](#recursive-nested-serialization) scenario and make use of both features! :)
 
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
