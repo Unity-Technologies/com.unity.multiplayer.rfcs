@@ -13,7 +13,7 @@ This RFC proposes a standard way to support both built-in and custom serializati
 
 Type serialization is one of the most common areas in the network programming. We want to automate this process as much as we can, offer out-of-the-box features to make life easier.
 
-MLAPI used to offer serialization support that is much less performant (due to boxing, runtime type checking etc.) and (arguably) less convenient. When [Standard RPC API](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/blob/master/text/0001-std-rpc-api.md) was introduced, it also did open a whole set of opportunities in this area. At the time of writing this RFC, proposed design immediately applies to serialization of RPC parameters but it's very high likely that this design will also be used in other areas of type serialization such as network variables.
+MLAPI used to offer serialization support that is much less performant (due to boxing, runtime type checking etc.) and (arguably) less convenient. When [Standard RPC API](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/blob/master/text/0001-std-rpc-api.md) was introduced, it also did open a whole set of opportunities in this area. At the time of writing this RFC, this proposed design applies to the serialization of RPC parameters and is very likely to be used in other areas that use serialization such as network variables.
 
 We want to offer built-in serialization support for most commonly used types and also support custom serialization for user-defined types with ease.
 
@@ -36,7 +36,7 @@ void Update()
 {
     if (Input.GetKeyDown(KeyCode.P))
     {
-        FooServerRpc(Time.frameCount, "hello, world"); // Client -> Server
+        FooServerRpc(Time.frameCount, "hello, world");
     }
 }
 ```
@@ -53,7 +53,7 @@ void Update()
 {
     if (Input.GetKeyDown(KeyCode.P))
     {
-        BarClientRpc(Color.red); // Server -> Client
+        BarClientRpc(Color.red);
     }
 }
 ```
@@ -84,7 +84,7 @@ void Update()
 {
     if (Input.GetKeyDown(KeyCode.P))
     {
-        ConfigServerRpc(SmallEnum.A, NormalEnum.X); // Client -> Server
+        ConfigServerRpc(SmallEnum.A, NormalEnum.X);
     }
 }
 ```
@@ -103,7 +103,7 @@ void WorldClientRpc(MyComplexType[] values) { /* ... */ }
 
 ### NetworkObject & NetworkBehaviour
 
-`NetworkObject` and `NetworkBehaviour` instances will be serialized by built-in serialization code if instances are not `null` and `NetworkObject.IsSpawned == true`. Passing a `null` instance or a `NetworkObject` with `IsSpawned == false` or a `NetworkBehaviour` with `NetworkObject.IsSpawned == false` will still lead into RPC replication but remote side will have `null` values for the parameters. IDs of spawned `NetworkObject` and `NetworkBehaviour` instances will be resolved by running `NetworkManager` instance, and those IDs will be the links between local and remote instances. Also, those IDs will be used when serializing `NetworkObject` and `NetworkBehaviour` instances as a part of an RPC call.
+`NetworkObject` and `NetworkBehaviour` instances will be serialized by built-in serialization via their respective network object ID (`NetworkObject.NetworkId`) and network behaviour ID (`NetworkBehaviour.GetBehaviourId()`).
 
 ```cs
 [ServerRpc]
@@ -113,35 +113,65 @@ void Update()
 {
     if (Input.GetKeyDown(KeyCode.P))
     {
-        MyServerRpc(/* NetworkObject = */ this.NetworkObject, /* NetworkBehaviour = */ this); // Client -> Server
+        MyServerRpc(
+            /* NetworkObject = */ this.NetworkObject,
+            /* NetworkBehaviour = */ this);
     }
+}
+```
+
+Serializing `NetworkObject` and/or `NetworkBehaviour` doesn't mean their fields will be serialized. Only IDs will be serialized and remote-side will lookup by IDs locally to retrieve instances. Serialization of these types fundamentally links local and remote instances via IDs.
+
+```cs
+class BitSerializer
+{
+    // ...
+
+    void Serialize(ref NetworkObject netObject)
+    {
+        if (IsReading)
+        {
+            bool isSet = m_Reader.ReadBool();
+            if (isSet)
+            {
+                ulong networkId = m_Reader.ReadUInt64Packed();
+                SpawnManager.SpawnedObjects.TryGetValue(networkId, out netObject);
+            }
+            else
+            {
+                netObject = null;
+            }
+        }
+        else
+        {
+            bool isSet = netObject != null && netObject.IsSpawned;
+            m_Writer.WriteBool(isSet);
+
+            if (isSet)
+            {
+                m_Writer.WriteUInt64Packed(netObject.NetworkId);
+            }
+        }
+    }
+
+    // ...
 }
 ```
 
 ### INetworkSerializable & BitSerializer
 
-Complex user-defined types that implements `INetworkSerializable` interface will be serialized by user provided serialization code.
-
-An instance of `BitSerializer` will be passed into `INetworkSerializable::NetworkSerialize(BitSerializer)` method which can be used to easily serialize fields by reference.
-
-All types supporting serialization will also be supported by `BitSerializer` with `BitSerializer::Serialize(ref int value)` variant methods and templated `BitSerializer::Serialize<T>(ref T value) where T : INetworkSerializable` method.
+Complex user-defined types that implement `INetworkSerializable` interface will be serialized by user provided serialization code.
 
 ```cs
-class BitSerializer
-{
-    bool IsReading { get; }
-
-    void Serialize(ref int value) { /* ... */ }
-    void Serialize(ref float value) { /* ... */ }
-    // ...
-    void Serialize<T>(ref T value) where T : INetworkSerializable { /* ... */ }
-}
-
 interface INetworkSerializable
 {
     void NetworkSerialize(BitSerializer serializer);
 }
+```
 
+An instance of `BitSerializer` will be passed into `INetworkSerializable::NetworkSerialize(BitSerializer)` method which can be used to easily serialize fields by reference.
+
+```cs
 struct MyComplexStruct : INetworkSerializable
 {
     public Vector3 Position;
@@ -155,21 +185,76 @@ struct MyComplexStruct : INetworkSerializable
     }
     // ~INetworkSerializable
 }
+```
 
-[ServerRpc]
-void MyServerRpc(MyComplexStruct myStruct) { /* ... */ }
+All types with built-in serialization support will also be supported by `BitSerializer` with `BitSerializer::Serialize(...)` variant methods.
 
-void Update()
+```cs
+class BitSerializer
 {
-    if (Input.GetKeyDown(KeyCode.P))
+    bool IsReading { get; }
+
+    // C# Primitives
+    void Serialize(ref bool value) { /* ... */ }
+    void Serialize(ref char value) { /* ... */ }
+    // and other variants: sbyte, byte, short, ushort, int, uint, long, ulong, double, string
+
+    // Unity Primitives
+    void Serialize(ref Color value) { /* ... */ }
+    // and other variants: Color32, Vector2, Vector3, Vector4, Quaternion, Ray, Ray2D
+
+    // Enum Types
+    void Serialize<TEnum>(ref TEnum value) where TEnum : Enum { /* ... */ }
+
+    // NetworkObject & NetworkBehaviour
+    void Serialize(ref NetworkObject netObject) { /* ... */ }
+    void Serialize(ref NetworkBehaviour netBehaviour) { /* ... */ }
+
+    // Static Arrays
+    void Serialize(ref bool[] array) { /* ... */ }
+    void Serialize(ref Color[] array) { /* ... */ }
+    void Serialize<TEnum>(ref TEnum array) where TEnum : Enum { /* ... */ }
+    void Serialize(ref NetworkObject[] array) { /* ... */ }
+    void Serialize(ref NetworkBehaviour[] array) { /* ... */ }
+    // and other arrays of built-in supported type variants
+}
+```
+
+`BitSerializer` will both serialize and deserialize fields based on its serialization mode indicated by `IsReading` flag using its internal `BitReader` and `BitWriter` instances.
+
+```cs
+class BitSerializer
+{
+    BitReader m_Reader;
+    BitWriter m_Writer;
+
+    bool IsReading { get; }
+
+    BitSerializer(BitReader reader)
     {
-        MyServerRpc(
-            new MyComplexStruct
-            {
-                Position = transform.position,
-                Rotation = transform.rotation
-            }); // Client -> Server
+        IsReading = true;
+        m_Reader = reader;
     }
+
+    BitSerializer(BitWriter writer)
+    {
+        IsReading = false;
+        m_Writer = writer;
+    }
+
+    void Serialize(ref int value)
+    {
+        if (IsReading)
+        {
+            value = m_Reader.ReadInt32Packed();
+        }
+        else
+        {
+            m_Writer.WriteInt32Packed(value);
+        }
+    }
+
+    // ...
 }
 ```
 
@@ -272,11 +357,11 @@ Writing:
 - Serialize `LinearVelocity` into the stream
 - Serialize `AngularVelocity` into the stream
 
-Unlike [Array](#example-array) example above, we do not use `BitSerializer.IsReading` flag to change serialization logic but the value of a serialized flag itself. If `SyncVelocity` flag is set to `true`, both `LinearVelocity` and `AngularVelocity` will also be serialized into the stream — otherwise when it is set to `false`, we will leave `LinearVelocity` and `AngularVelocity` with default values.
+Unlike [the Array example above](#example-array), we do not use `BitSerializer.IsReading` flag to change serialization logic but the value of a serialized flag itself. If `SyncVelocity` flag is set to `true`, both `LinearVelocity` and `AngularVelocity` will also be serialized into the stream — otherwise when it is set to `false`, we will leave `LinearVelocity` and `AngularVelocity` with default values.
 
 #### Recursive Nested Serialization
 
-`BitSerializer` implements `void Serialize<T>(ref T value) where T : INetworkSerializable` method which allows for recursive nested serialization.
+It is possible to recursively serialize nested members with `INetworkSerializable` interface down in the hierachy tree.
 
 Let's have a look at the example below:
 
@@ -297,13 +382,17 @@ public struct MyStructB : INetworkSerializable
 {
     public int SomeNumber;
     public string SomeText;
+
+    // nested member with `INetworkSerializable` interface
     public MyStructA StructA;
     
     public void NetworkSerialize(BitSerializer serializer)
     {
         serializer.Serialize(ref SomeNumber);
         serializer.Serialize(ref SomeText);
-        serializer.Serialize(ref StructA);
+
+        // serialize `StructA` into the same stream using `serializer`
+        StructA.NetworkSerialize(serializer);
     }
 }
 ```
@@ -332,40 +421,87 @@ interface INetworkSerializable
 
 ## BitSerializer
 
-`BitSerializer` is the main aggregator that implements serialization code for built-in supported types and custom types with `INetworkSerializable` interface.
+`BitSerializer` is the main aggregator that implements serialization code for built-in supported types and holds `BitReader` and `BitWriter` instances internally.
 
 ```cs
-// note: pseudo-code
 class BitSerializer
 {
-    // for reading
-    BitSerializer(BitReader reader) { /* ... */ }
-
-    // for writing
-    BitSerializer(BitWriter writer) { /* ... */ }
+    BitReader m_Reader;
+    BitWriter m_Writer;
 
     bool IsReading { get; }
 
-    // for common types
+    BitSerializer(BitReader reader)
+    {
+        IsReading = true;
+        m_Reader = reader;
+    }
+
+    BitSerializer(BitWriter writer)
+    {
+        IsReading = false;
+        m_Writer = writer;
+    }
+
     void Serialize(ref int value)
+    {
+        if (IsReading) value = m_Reader.ReadInt32Packed();
+        else m_Writer.WriteInt32Packed(value);
+    }
+
+    void Serialize(ref Vector3 value)
+    {
+        if (IsReading) value = m_Reader.ReadVector3Packed();
+        else m_Writer.WriteVector3Packed(value);
+    }
+
+    void Serialize<TEnum>(ref TEnum value) where TEnum : Enum
+    {
+        var enumType = value.GetType();
+        var intType = Enum.GetUnderlyingType(enumType);
+
+        if (intType == typeof(int))
+        {
+            if (IsReading) value = (TEnum)(object)m_Reader.ReadInt32Packed();
+            else m_Writer.WriteInt32Packed((int)(object)value);
+        }
+        else if (intType == typeof(byte))
+        {
+            if (IsReading) value = (TEnum)(object)m_Reader.ReadByteDirect();
+            else m_Writer.WriteByte((byte)(object)value);
+        }
+
+        // ...
+    }
+
+    void Serialize(ref NetworkObject netObject)
     {
         if (IsReading)
         {
-            value = m_Reader.ReadInt32Packed();
+            bool isSet = m_Reader.ReadBool();
+            if (isSet)
+            {
+                ulong networkId = m_Reader.ReadUInt64Packed();
+                SpawnManager.SpawnedObjects.TryGetValue(networkId, out netObject);
+            }
+            else
+            {
+                netObject = null;
+            }
         }
         else
         {
-            m_Writer.WriteInt32Packed(value);
+            bool isSet = netObject != null && netObject.IsSpawned;
+            m_Writer.WriteBool(isSet);
+
+            if (isSet)
+            {
+                m_Writer.WriteUInt64Packed(netObject.NetworkId);
+            }
         }
     }
-    void Serialize(ref float value) { /* ... */ }
-    // ...
 
-    // for custom types
-    void Serialize<T>(ref T value) where T : INetworkSerializable
-    {
-        value.NetworkSerialize(this);
-    }
+    // ...
 }
 ```
 
