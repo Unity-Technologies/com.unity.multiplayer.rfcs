@@ -103,7 +103,7 @@ void WorldClientRpc(MyComplexType[] values) { /* ... */ }
 
 ### NetworkObject & NetworkBehaviour
 
-`NetworkObject` and `NetworkBehaviour` instances will be serialized by built-in serialization via their respective network object ID (`NetworkObject.NetworkId`) and network behaviour ID (`NetworkBehaviour.GetBehaviourId()`).
+`NetworkObject` and `NetworkBehaviour` instances will be serialized by built-in serialization using their respective network object ID (`NetworkObject.NetworkId`) and network behaviour ID (`NetworkBehaviour.GetBehaviourId()`).
 
 ```cs
 [ServerRpc]
