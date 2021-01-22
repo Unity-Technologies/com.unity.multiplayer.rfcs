@@ -39,6 +39,7 @@ Where the RegisterUpdate method is called for each of the four new network loop 
 The class defined below provides one potential way to both define the [```INetworkUpdateLoopSystem's```](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/develop/com.unity.multiplayer.mlapi/Runtime/Core/NetworkUpdateLoopSystem.cs) methods while providing additional class relative helper methods for registering and deregistering from the network update loop system.
 
 ![](0000-NetworkProcessingHook/GenericUpdateLoopSystem.png)
+
 Both the ```RegisterUpdate``` and the ```RegisterUpdateLoopSystemDestroyCallback``` methods are called by the [```NetworkUpdateManager```](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/develop/com.unity.multiplayer.mlapi/Runtime/Core/NetworkUpdateManager.cs) during the registration process.  Below is a diagram to help better understand the network update loop system registration process:
 ![](0000-NetworkProcessingHook/NULSRegistrationProcess.png)
 1. Class instance registers with the NetworkUpdateMananger.
