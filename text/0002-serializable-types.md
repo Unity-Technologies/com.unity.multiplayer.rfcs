@@ -213,7 +213,7 @@ class BitSerializer
     // Static Arrays
     void Serialize(ref bool[] array) { /* ... */ }
     void Serialize(ref Color[] array) { /* ... */ }
-    void Serialize<TEnum>(ref TEnum array) where TEnum : Enum { /* ... */ }
+    void Serialize<TEnum>(ref TEnum[] array) where TEnum : Enum { /* ... */ }
     void Serialize(ref NetworkObject[] array) { /* ... */ }
     void Serialize(ref NetworkBehaviour[] array) { /* ... */ }
     // and other arrays of built-in supported type variants
@@ -455,20 +455,24 @@ class BitSerializer
         else m_Writer.WriteVector3Packed(value);
     }
 
-    void Serialize<TEnum>(ref TEnum value) where TEnum : Enum
+    unsafe void Serialize<TEnum>(ref TEnum value) where TEnum : unmanaged, Enum
     {
-        var enumType = value.GetType();
-        var intType = Enum.GetUnderlyingType(enumType);
-
-        if (intType == typeof(int))
+        if (sizeof(TEnum) == sizeof(int))
         {
-            if (IsReading) value = (TEnum)(object)m_Reader.ReadInt32Packed();
-            else m_Writer.WriteInt32Packed((int)(object)value);
+            if (IsReading)
+            {
+                int intValue = m_Reader.ReadInt32Packed();
+                value = *(TEnum*)&intValue;
+            }
+            else
+            {
+                TEnum enumValue = value;
+                m_Writer.WriteInt32Packed(*(int*)&enumValue);
+            }
         }
-        else if (intType == typeof(byte))
+        else if (sizeof(TEnum) == sizeof(byte))
         {
-            if (IsReading) value = (TEnum)(object)m_Reader.ReadByteDirect();
-            else m_Writer.WriteByte((byte)(object)value);
+            // ...
         }
 
         // ...
