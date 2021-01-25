@@ -61,12 +61,17 @@ Currently, the RPC Queue’s primary purpose is to provide additional control ov
 # Drawbacks
 [drawbacks]: #drawbacks
 
-This approach does include additional processing overhead and there could be some refactoring depending upon any future transport related work that might occur.  
+This approach does include additional processing overhead and there could be some minor refactoring depending upon any future transport related work that might occur.  This iteration of the RPC Queue would require some refactoring in order to become fully compatible with the Unity Job System, however there were several earlier adjustments already made (i.e. pre-allocating a byte stream per inbound and outbound QueueHistoryFrame) that took this into consideration in order to make any such refactoring less time intensive.
+
+For MMO related netcode architectures, the RPC Queue system could be further leveraged to provide IPC between server instances, client batching could need to account for relay servers, and there could be additional levels of refactoring for this type of functionality.  
+
+On the downside, the QueueHistoryFrame currently stores all inbound and outbound RPCs into a contiguous byte stream for the current frame which requires copying each entry from the QueueHistoryFrame into a new byte stream for inbound RPC processing while providing an ArraySegment for outbound RPCs.  Currently, the inbound RPCs are copied into a single FrameQueueItem (one is created for each QueueHistoryFrame) that should only be used at the time it is invoked but never stored for future reference.  In order for a user to store a FrameQueueItem, they would need to create a copy and store it using their own method.  This all could lead to additional memory allocations and frame time consumed, which could lead to performance degradation under heavy loads (i.e. 25k-30k RPCs per frame).
 
 # Rationale and alternatives
 [rationale-and-alternatives]: #rationale-and-alternatives
-Since there are no current discussions on batching specific packet types together at the transport layer (not recommended) and while Unet provides the ability to switch from immediate to queued mode there were other framework related design factors taken into condiseration (i.e. batched RPCs, invocation at different update stages, etc.) that made this the current best path to take.
+Since there are no current discussions on batching specific packet types together at the transport layer (not recommended) and while Unet provides the ability to switch from immediate to queued mode there were other framework related design factors taken into consideration (i.e. batched RPCs, invocation at different update stages, etc.) that made this the current best path to take.
 
+Framework batching allows additional levels of control over RPCS, as outlined under the motivation section above, that provide opportunities to rollback RPCs, invoke RPCs at specific network update loop stages, and to batch RPCs into target client id buckets prior to being sent.  Comparatively, transport layer packet buffering/queueing is “packet data agnostic” and does not provide the same range of functionality as batching at the framework layer.  
 
 # Prior art
 [prior-art]: #prior-art
@@ -77,10 +82,20 @@ Since there are no current discussions on batching specific packet types togethe
 [unresolved-questions]: #unresolved-questions
 
 - What parts of the design do you expect to resolve through the RFC process before this gets merged?
+
+
 - What parts of the design do you expect to resolve through the implementation of this feature before stabilization?
+
+    This RFC is primarily focused on getting a solid RPC Queue system integrated, functional, with reasonable optimizations towards processing time and memory allocaiton.
 - What related issues do you consider out of scope for this RFC that could be addressed in the future independently of the solution that comes out of this RFC?
+
+    Unity Job system integration and any memory allocation (per frame) that occurs outside of the scope of the RPC Queue system itself but falls within the RPC send, receive, and invocation realm.
+
 
 # Future possibilities
 [future-possibilities]: #future-possibilities
 
-This provides the opportunity to place RPC's into batched packets (containing more than 1 RPC per packet) prior to being sent as well as it offers the ability to add additional features to specify at which point in the Network Update Loop system an RPC could get invoked.  
+This provides the opportunity to place RPC's into batched packets (containing more than 1 RPC per packet) prior to being sent as well as it offers the ability to add additional features to specify at which point in the Network Update Loop system an RPC could get invoked.
+
+The RPC Queue and associated data structures could be refactored to become more Unity Job System friendly, but this would most likely require unified adjustments across RPC batching, processing, and any other MLAPI framework related system that utilizes the RPC Queue system.  However, the reduced processing benefits gained from handling the sorting and queueing of RPCs into respective outbound or inbound buckets via the Job system could help reduce the overall frame-time cost associated with the RPC Queue system and be worth the time and effort.
+
