@@ -73,12 +73,12 @@ The above code snippet shows that the ```ServerRpc```, ```UpdateMyRigidBodyPosit
 # Drawbacks
 [drawbacks]: #drawbacks
 
-This feature does expose the potential for improper usage that could lead to elongate processing times in areas that could impact the over-all system performance.  Although, this same issue holds true for many game engine technologies and can be mitigated through providing clear documentation with appropriate warnings regarding usage where appropriate.
+This feature does expose the potential for improper usage that could lead to elongated processing times in areas that could impact the over-all system performance.  Although, this same issue holds true for many game engine technologies.  This can be mitigated through clear documentation with appropriate warnings regarding usage where applicable.
 
 # Rationale and alternatives
 [rationale-and-alternatives]: #rationale-and-alternatives
 
-Since multiplayer/netcode architectures has, up until more recently, not evolved with the rest of the Unity Technologies, there are not many alternative paths that can provide an alternate means to providing update callbacks outside of the Monobehaviour scope.
+Since multiplayer/netcode architectures have, up until more recently, not evolved with the rest of the Unity Technologies, there are not many alternative paths that can offer alternate update callbacks outside of the Monobehaviour scope.
 
 # Prior art
 [prior-art]: #prior-art
