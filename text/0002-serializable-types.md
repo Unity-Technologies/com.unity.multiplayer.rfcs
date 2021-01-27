@@ -101,63 +101,6 @@ void HelloServerRpc(int[] scores, Color[] colors) { /* ... */ }
 void WorldClientRpc(MyComplexType[] values) { /* ... */ }
 ```
 
-### NetworkObject & NetworkBehaviour
-
-`NetworkObject` and `NetworkBehaviour` instances will be serialized by built-in serialization using their respective network object ID (`NetworkObject.NetworkId`) and network behaviour ID (`NetworkBehaviour.GetBehaviourId()`).
-
-```cs
-[ServerRpc]
-void MyServerRpc(NetworkObject nobj, NetworkBehaviour nbhv) { /* ... */ }
-
-void Update()
-{
-    if (Input.GetKeyDown(KeyCode.P))
-    {
-        MyServerRpc(
-            /* NetworkObject = */ this.NetworkObject,
-            /* NetworkBehaviour = */ this);
-    }
-}
-```
-
-Serializing `NetworkObject` and/or `NetworkBehaviour` doesn't mean their fields will be serialized. Only IDs will be serialized and remote-side will lookup by IDs locally to retrieve instances. Serialization of these types fundamentally links local and remote instances via IDs.
-
-```cs
-class BitSerializer
-{
-    // ...
-
-    void Serialize(ref NetworkObject netObject)
-    {
-        if (IsReading)
-        {
-            bool isSet = m_Reader.ReadBool();
-            if (isSet)
-            {
-                ulong networkId = m_Reader.ReadUInt64Packed();
-                SpawnManager.SpawnedObjects.TryGetValue(networkId, out netObject);
-            }
-            else
-            {
-                netObject = null;
-            }
-        }
-        else
-        {
-            bool isSet = netObject != null && netObject.IsSpawned;
-            m_Writer.WriteBool(isSet);
-
-            if (isSet)
-            {
-                m_Writer.WriteUInt64Packed(netObject.NetworkId);
-            }
-        }
-    }
-
-    // ...
-}
-```
-
 ### INetworkSerializable & BitSerializer
 
 Complex user-defined types that implement `INetworkSerializable` interface will be serialized by user provided serialization code.
@@ -206,16 +149,10 @@ class BitSerializer
     // Enum Types
     void Serialize<TEnum>(ref TEnum value) where TEnum : Enum { /* ... */ }
 
-    // NetworkObject & NetworkBehaviour
-    void Serialize(ref NetworkObject netObject) { /* ... */ }
-    void Serialize(ref NetworkBehaviour netBehaviour) { /* ... */ }
-
     // Static Arrays
     void Serialize(ref bool[] array) { /* ... */ }
     void Serialize(ref Color[] array) { /* ... */ }
     void Serialize<TEnum>(ref TEnum[] array) where TEnum : Enum { /* ... */ }
-    void Serialize(ref NetworkObject[] array) { /* ... */ }
-    void Serialize(ref NetworkBehaviour[] array) { /* ... */ }
     // and other arrays of built-in supported type variants
 }
 ```
@@ -476,33 +413,6 @@ class BitSerializer
         }
 
         // ...
-    }
-
-    void Serialize(ref NetworkObject netObject)
-    {
-        if (IsReading)
-        {
-            bool isSet = m_Reader.ReadBool();
-            if (isSet)
-            {
-                ulong networkId = m_Reader.ReadUInt64Packed();
-                SpawnManager.SpawnedObjects.TryGetValue(networkId, out netObject);
-            }
-            else
-            {
-                netObject = null;
-            }
-        }
-        else
-        {
-            bool isSet = netObject != null && netObject.IsSpawned;
-            m_Writer.WriteBool(isSet);
-
-            if (isSet)
-            {
-                m_Writer.WriteUInt64Packed(netObject.NetworkId);
-            }
-        }
     }
 
     // ...
