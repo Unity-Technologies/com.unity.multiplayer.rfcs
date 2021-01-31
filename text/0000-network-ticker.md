@@ -503,6 +503,87 @@ end
 ```
 </details>
 
+### Pseudo-code
+
+```cs
+public interface INetworkTickable
+{
+    void NetworkTick();
+}
+
+public enum NetworkTickStage
+{
+    Initialization = -4,
+    EarlyUpdate = -3,
+    FixedUpdate = -2,
+    PreUpdate = -1,
+    Update = 0,
+    PreLateUpdate = 1,
+    PostLateUpdate = 2
+}
+
+public static class NetworkTicker
+{
+    public static uint TickCount;
+    public static NetworkTickStage TickStage;
+
+    public static void RegisterAllNetworkTicks(this INetworkTickable tickable) { /* ... */ }
+    public static void RegisterNetworkTick(this INetworkTickable tickable, NetworkTickStage tickStage) { /* ... */ }
+    public static void UnregisterNetworkTick(this INetworkTickable tickable, NetworkTickStage tickStage) { /* ... */ }
+    public static void UnregisterAllNetworkTicks(this INetworkTickable tickable) { /* ... */ }
+}
+
+public class MyPlainScript : IDisposable, INetworkTickable
+{
+    public void Initialize()
+    {
+        this.RegisterNetworkTick(NetworkTickStage.EarlyUpdate);
+        this.RegisterNetworkTick(NetworkTickStage.FixedUpdate);
+        this.RegisterNetworkTick(NetworkTickStage.Update);
+    }
+
+    public void NetworkTick()
+    {
+        Debug.Log($"{nameof(MyPlainScript)}.{nameof(NetworkTick)}({NetworkTicker.TickStage})");
+    }
+
+    public void Dispose()
+    {
+        this.UnregisterAllNetworkTicks();
+    }
+}
+
+public class MyGameScript : MonoBehaviour, INetworkTickable
+{
+    private void OnEnable()
+    {
+        this.RegisterNetworkTick(NetworkTickStage.EarlyUpdate);
+        this.RegisterNetworkTick(NetworkTickStage.FixedUpdate);
+        this.RegisterNetworkTick(NetworkTickStage.Update);
+    }
+
+    public void NetworkTick()
+    {
+        print($"{nameof(MyGameScript)}.{nameof(NetworkTick)}({NetworkTicker.TickStage})");
+    }
+
+    private void FixedUpdate()
+    {
+        print($"{nameof(MyGameScript)}.{nameof(FixedUpdate)}()");
+    }
+
+    private void Update()
+    {
+        print($"{nameof(MyGameScript)}.{nameof(Update)}()");
+    }
+
+    private void OnDisable()
+    {
+        this.UnregisterNetworkTick();
+    }
+}
+```
+
 # Drawbacks
 [drawbacks]: #drawbacks
 
