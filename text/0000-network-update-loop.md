@@ -1,4 +1,4 @@
-- Feature Name: `network-ticker`
+- Feature Name: `network-update-loop`
 - Start Date: 2021-01-31
 - RFC PR: [Unity-Technologies/com.unity.multiplayer.rfcs#0000](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/0000)
 - Issue: [Unity-Technologies/com.unity.multiplayer#0000](https://github.com/Unity-Technologies/com.unity.multiplayer/issues/0000)
@@ -37,9 +37,9 @@ This is the technical portion of the RFC. Explain the design in sufficient detai
 
 The section should return to the examples given in the previous section, and explain more fully how the detailed proposal makes those examples work.
 
-## NetworkTicker Injecting Into PlayerLoop
+## Injecting NetworkUpdateLoop Systems Into PlayerLoop
 
-![](https://www.plantuml.com/plantuml/svg/rLbVazes47-_J-77PD9aaanUccaxmm57QO_aYhaaRncTlM0DikHAyjsvdxuhsO0n1rgJbnmlWBM_rMh_QstMN1PCipoARIKWCbRpn9Qvk33RbLn9bMHQvH1PNK9h9OKbAuMzKjB6_3-8tdsuk93AGgJkGKStWbMWhvKgFaQtajigUl_stQzlFaJNYxX5zWdiWzBh1K_Me3z6yr9QdiCK0Pm9vFfPNYkMpi1cAhtO8uvU_z55xs27f6rv9c27fTOWxUvf1_7RwzVHqSKJEpFBbNmpIDCN3SN-oiiWfp7JehejKcRXpLGQqFR5srysHAt5CASh_WZfCKwjnJ2d6mt7-6oNmboEiUWXnJKIdf1ajqpWfenjiMjPR7_bvMbNYe7iGokjogBZAHSHVdOqNUxrxrgG1SP5W7p4DIHMwPZbXQ001gQIoMqXCCGSTInuil6A039686O5YR4sbKLf3Pq-jc7st-OjLt-2jcDCz_ral7beo1K6wJsJ2RY_9FfNhzoleS9SHQ9tttZe5KI_FsL-uSwKVzzV-Uv0x4x0G6jMURedjvgsdZZoZssI8p3dbrsS9mMPTdNjQFVG5uweTkLpJTJ5zT5V5zieh_NuvzLS8DQL4FN_eP8IuvYG7hHQSW4QbQFj5TRaK5XDYjB5kR6O84AfGJ9HMPwOeT8-P0qfB_XI_nNkvl1lYVkGCED7I4eBCyRb8jF0qh_KdGaVFG5ZPgeqc82-SfcgXm1aA83fgRIWSqWvYZL7gu46RIZ0QouXB1GOR2ekOQasPJ60c2EWjfnNyM29qZLSGehsx7q2dwFAxbYodZ69GQ99mDYYedCkLtr02tYqfJuFYwToPGPHGPNKLlcaB5zMKtdF3T-4MQXIEal9iXYo98Dqn2mZYUOSRu8c-CBXOOw1Hm8DcRndnf4lD9C6BPu7QnejWZoHBweq_JQXC8TSDRXGBKuqBoossYDmJrEVFig2aa1guVxcCgmcPCwnmvygWq-jqy_u7jqw54CB9bUAfAWHDmMpIURP_bD22QGDRhBAO5hpaUUpGQ5GFaYtPiJ-ZnEIRrneZW5e1JEDdKXItu1scxY6OvjY6-2kihQwyrwLjOlhKrcxsAQojXu_ryfApj-VuC77psdrFzLnUmIzxIvJhkYRREFr4Z9sprMfpnIGXBY65KigJp-GFFVTA0duRKxVf0d2te3tezwGeL0s-o65kGjXmwndPlLCV5wTxmVupOd-u7XuxwFw1FS-iWdjxSDdspBNHkddG2JgOGR96jkTAmuYfTJKwMnoEutnJBuGfQHAj4atj2I0l7stIs8zc9AOkhwvHrFoXQUWMbvyXWkVwR-7plkyFVSmfVUh14r-6LKI6_5abs7wmHVCh0qn7nxqA7lpjhvfh8FicSeww5qwsoqyLyVO1AwhERMvUjbdMx4lOSKbgTBtA_97jXiVdlm8S0HBqDfbI2PAmcn0fXFDYWnJjviA-0johHTQ7bVIM8ttEzkhHyVx44y4n9Mna7jLDkSLedTWjvor5JnxCsRItTOLWCsaGEDzXQXlyYu_c5kQ-XglkPIG-gQhfJXIUUbpcMvFnkkhUB2xRqpeUky0vPUhRsVuoNXJIyDUSjohoUPgZbuQg_9wPD9CPuXg488w_XfBmLUP1TcydEiX7kxIECGCJ0R4eTvNkFFT3lx4a0tst0gD85SJ5rUcRpFJIsTr-qCBkrgvqnmFGFBaSSvjxSSJK3bONVMFjoikkSb8AgX9wzZsaeRdSfTkrZ9JwLavQwZSrPZgrApmOyP40qYJAKiRk_ee6cb6cmFdFOV0dGFvEs6FGUqSZ18bOQpaRmJZPfVGh4pp5TOqfFwyhDNCX72JuD1XyAxYjK2wIyGPGmtzoMGgOAor2ggg6QtXEGQFF3ZlynD_IA_huV08xieLzRN7_Zl5q4upo9Mkl9xSn1SJcXl2qTvDkF7m4DoqaAhYZP0dJ7cYGpvi3tgro8VmJO-yj_9JlsJy7m00)
+![](https://www.plantuml.com/plantuml/svg/tLbBSzis4BxxL_2OJ1fFaicbcROpiYIhQgN45UKajmnChaICGO05GDlih-y2f2JgYQLyYdsIYVqMu3w-NIpDFPS5qooFObi9Y8pLFB5bBYxCUYLNKYMPLZb4LfVGMabXmKfXhvMqCVyFelSVBowaiX2f1z3HZM0Lw8bInQVeLd9RHH_UlV_rycCqcSSjiSzW7vM-lorIPg6MdfNIyXp62E9CeEOlSg9OEWMRgVHY3n2z_UEGbWtyCAHzlX7OVgarIBjvUW3rszktqKc1m4cOvKfUzjBqLIErlVAQh778jAZg1vTZQK3RL-z-MGcs5kaQh_aJfCSqjXRf6cyq7DEtNg9hEwRgZ5DDy9yJ9ziiTz2gZ6sfRNbuU-LrE1HZw1I3IwtAOYV2BYBysyZixb3_hbNECSy2uWEk8R5Anoml10NGCvLCRWk1AUkaOy6JLVG4a342aMaavknO5gKrTFdOXjL_dxLIuu3iOIewcAeUJOsENlh0P0BNo9dG2VZcZSVq5H9Y9s3z6ssoXEZtGz4X73R_iRtoewSrg_pwqSt6Mq_ZobZ8FssBdb3WWlUG1Wy1cUuwnSdlQRbmWdNSFyEVkz3pJBkhfR5hw_7FOjG0PoWXwl_xIaha0mBDQBNW0ZIQIjjDx1y7Z8hIyOMnI3GXYf5CL9Odfg-qJtr3uXVVXdo3kndyM-8-9Cpm2PBImfHnESyqiFGlTMV2hvw0CLDL6YIoRrocwZ40wGjWUYmjw1nIZiUQeUT0WpOKu8HB21yA33OuLx1Gg_8RGCmGK7lEcxYtmDCrMaA6zkfz8PYXoUvOSZzb4bD6au2nHKFdN2wxWERmP4jz7XRVofKhH0LDKdlbix9yKOtb0pVyJW2fuZfFoRBeioI3TC0i8ntD1Tu8NV2Lm-CC4uy4wZFvm8mJdsic3Ney3zP6MWPv8L-SQVPjKc46kMfmePgUQ5vOvEa1kAUffu-oe118VRY_kGoR2PLpl7sCbS6drjbd-81X7SgXEPDBHJBKW9k2sIJpQlyfeGJI1ZTPPP3MVEPvDYWKdW_IjHknd-G4yeqBpJ41hM2cyHFfr3UWtIQkMrbJR0FS5DtMRQ1hqTs5dbTqTxKqHRVr-6KKNJArVuP7drgdFNEegVS8UcTVfbpHDrcdyXLax86hKfzvG19Y0akML5w-9tdkEreIyFkClacJdvq17mQT8NsXRFOiWxcxPwEi8-bw9PvoPzkvVtEYTJYP-Tl0y_9-MqUJzUk7BwJHhltLBRP8qlqCadjiaguvY9HIYSVJqUqunlVovIibrQyL4z7u0NNx7fcakZScANNTTeTMvYjFGRK2_BpeVdPexyVrImhg_KBGhNuqh3Ie97RsoOQNki7dpDmR8elkDJrRWy4po6y7V3O1xkZPaE1cuMN4p2hTNH6hFTd9TUiMu0gMN99QXsvTmv7jXljlVmGuW0LexNYLYP8mXv3fIBCYGy9t4mX_6Q_jGcD_9OtLU9UqdUu3UFVYYMZSwqtPlAyGdNE-5RgjlDgQZvFkqQvihAOI6kz6H7kJTtacxJHLERxdKaBgkxYMuKX5gSl5lJtDhw_zmUj2uqBNp0Salrv_FoDEXgiA78wIur5DTbVpwgMnAg_7CyqaY6W68QYZjg4KV9bPaCq7oWx7mrsQW9Y2oO0uGFm6Txv7mf-Oii4cNg4Jv7BayifqRO4wsQnkccXfLnjtdECBa29vc7DRn_48L0vMLztpxPfBRZAI2MhHEhVzISCpm2itrvcgz2pEwYjtrwO6DIlyI3FH0D9aoj96l3wB1fhHPivvnu7ppWlvIsQ7eV0CZ18bOOJbxn73PfVGN4xp9TOqbFwogCtCX71Jvz3Bu0t7Mu5q0uapXXRwaybKm51h5JHLCyR3z-WzyU1iqNzTW7HI3w87S5SkgPzOjh-3XdQQGgvqvUtafij8Q6xWH_iEuaRHVN2JIQg9LuSyuShJpVD-Xt1czxolQDK-RwtyH9z1_mS0)
 
 <details>
   <summary>UML Source</summary>
@@ -50,19 +50,19 @@ skinparam monochrome true
 skinparam defaultFontSize 14
 
 note over PlayerLoop: Unity 2019.4 LTS
-note over NetworkTicker: RuntimeInitializeOnLoadMethod
-NetworkTicker -> NetworkTicker: Initialize
-NetworkTicker -> PlayerLoop: GetCurrentPlayerLoop
-NetworkTicker <-- PlayerLoop
-NetworkTicker -> NetworkTicker: Initialization.Add(NetworkInitialization)
-NetworkTicker -> NetworkTicker: EarlyUpdate.Insert(0, NetworkEarlyUpdate)
-NetworkTicker -> NetworkTicker: FixedUpdate.Insert(0, NetworkFixedUpdate)
-NetworkTicker -> NetworkTicker: PreUpdate.Insert(0, NetworkPreUpdate)
-NetworkTicker -> NetworkTicker: Update.Insert(0, NetworkUpdate)
-NetworkTicker -> NetworkTicker: PreLateUpdate.Insert(0, NetworkPreLateUpdate)
-NetworkTicker -> NetworkTicker: PostLateUpdate.Add(NetworkPostLateUpdate)
-NetworkTicker -> PlayerLoop: SetPlayerLoop
-NetworkTicker <-- PlayerLoop
+note over NetworkUpdateLoop: RuntimeInitializeOnLoadMethod
+NetworkUpdateLoop -> NetworkUpdateLoop: Initialize
+NetworkUpdateLoop -> PlayerLoop: GetCurrentPlayerLoop
+NetworkUpdateLoop <-- PlayerLoop
+NetworkUpdateLoop -> NetworkUpdateLoop: Initialization.Add(NetworkInitialization)
+NetworkUpdateLoop -> NetworkUpdateLoop: EarlyUpdate.Insert(0, NetworkEarlyUpdate)
+NetworkUpdateLoop -> NetworkUpdateLoop: FixedUpdate.Insert(0, NetworkFixedUpdate)
+NetworkUpdateLoop -> NetworkUpdateLoop: PreUpdate.Insert(0, NetworkPreUpdate)
+NetworkUpdateLoop -> NetworkUpdateLoop: Update.Insert(0, NetworkUpdate)
+NetworkUpdateLoop -> NetworkUpdateLoop: PreLateUpdate.Insert(0, NetworkPreLateUpdate)
+NetworkUpdateLoop -> NetworkUpdateLoop: PostLateUpdate.Add(NetworkPostLateUpdate)
+NetworkUpdateLoop -> PlayerLoop: SetPlayerLoop
+NetworkUpdateLoop <-- PlayerLoop
 group Initialization
     PlayerLoop -> PlayerLoop: PlayerUpdateTime
     PlayerLoop -> PlayerLoop: DirectorSampleTime
@@ -70,24 +70,24 @@ group Initialization
     PlayerLoop -> PlayerLoop: SynchronizeInputs
     PlayerLoop -> PlayerLoop: SynchronizeState
     PlayerLoop -> PlayerLoop: XREarlyUpdate
-    PlayerLoop -> NetworkTicker: TickNetworkInitialization
-    NetworkTicker -> NetworkTicker: AdvanceTick
-    NetworkTicker -> NetworkTicker: ++TickCount
-    NetworkTicker -> NetworkTicker: TickStage = Initialization
-    loop m_Initialization_TickableArray
-        NetworkTicker -> INetworkTickable: NetworkTick
-        NetworkTicker <-- INetworkTickable
+    PlayerLoop -> NetworkUpdateLoop: RunNetworkInitialization
+    NetworkUpdateLoop -> NetworkUpdateLoop: AdvanceFrame
+    NetworkUpdateLoop -> NetworkUpdateLoop: ++FrameCount
+    NetworkUpdateLoop -> NetworkUpdateLoop: UpdateStage = Initialization
+    loop m_Initialization_Array
+        NetworkUpdateLoop -> INetworkUpdateSystem: NetworkUpdate
+        NetworkUpdateLoop <-- INetworkUpdateSystem
     end
-    PlayerLoop <-- NetworkTicker
+    PlayerLoop <-- NetworkUpdateLoop
 end
 group EarlyUpdate
-    PlayerLoop -> NetworkTicker: TickNetworkEarlyUpdate
-    NetworkTicker -> NetworkTicker: TickStage = EarlyUpdate
-    loop m_EarlyUpdate_TickableArray
-        NetworkTicker -> INetworkTickable: NetworkTick
-        NetworkTicker <-- INetworkTickable
+    PlayerLoop -> NetworkUpdateLoop: RunNetworkEarlyUpdate
+    NetworkUpdateLoop -> NetworkUpdateLoop: UpdateStage = EarlyUpdate
+    loop m_EarlyUpdate_Array
+        NetworkUpdateLoop -> INetworkUpdateSystem: NetworkUpdate
+        NetworkUpdateLoop <-- INetworkUpdateSystem
     end
-    PlayerLoop <-- NetworkTicker
+    PlayerLoop <-- NetworkUpdateLoop
     PlayerLoop -> PlayerLoop: PollPlayerConnection
     PlayerLoop -> PlayerLoop: ProfilerStartFrame
     PlayerLoop -> PlayerLoop: GpuTimestamp
@@ -120,13 +120,13 @@ group EarlyUpdate
     PlayerLoop -> PlayerLoop: PerformanceAnalyticsUpdate
 end
 group FixedUpdate
-    PlayerLoop -> NetworkTicker: TickNetworkFixedUpdate
-    NetworkTicker -> NetworkTicker: TickStage = FixedUpdate
-    loop m_FixedUpdate_TickableArray
-        NetworkTicker -> INetworkTickable: NetworkTick
-        NetworkTicker <-- INetworkTickable
+    PlayerLoop -> NetworkUpdateLoop: RunNetworkFixedUpdate
+    NetworkUpdateLoop -> NetworkUpdateLoop: UpdateStage = FixedUpdate
+    loop m_FixedUpdate_Array
+        NetworkUpdateLoop -> INetworkUpdateSystem: NetworkUpdate
+        NetworkUpdateLoop <-- INetworkUpdateSystem
     end
-    PlayerLoop <-- NetworkTicker
+    PlayerLoop <-- NetworkUpdateLoop
     PlayerLoop -> PlayerLoop: ClearLines
     PlayerLoop -> PlayerLoop: NewInputFixedUpdate
     PlayerLoop -> PlayerLoop: DirectorFixedSampleTime
@@ -142,13 +142,13 @@ group FixedUpdate
     PlayerLoop -> PlayerLoop: ScriptRunDelayedFixedFrameRate
 end
 group PreUpdate
-    PlayerLoop -> NetworkTicker: TickNetworkPreUpdate
-    NetworkTicker -> NetworkTicker: TickStage = PreUpdate
-    loop m_PreUpdate_TickableArray
-        NetworkTicker -> INetworkTickable: NetworkTick
-        NetworkTicker <-- INetworkTickable
+    PlayerLoop -> NetworkUpdateLoop: RunNetworkPreUpdate
+    NetworkUpdateLoop -> NetworkUpdateLoop: UpdateStage = PreUpdate
+    loop m_PreUpdate_Array
+        NetworkUpdateLoop -> INetworkUpdateSystem: NetworkUpdate
+        NetworkUpdateLoop <-- INetworkUpdateSystem
     end
-    PlayerLoop <-- NetworkTicker
+    PlayerLoop <-- NetworkUpdateLoop
     PlayerLoop -> PlayerLoop: PhysicsUpdate
     PlayerLoop -> PlayerLoop: Physics2DUpdate
     PlayerLoop -> PlayerLoop: CheckTexFieldInput
@@ -160,26 +160,26 @@ group PreUpdate
     PlayerLoop -> PlayerLoop: UpdateVideo
 end
 group Update
-    PlayerLoop -> NetworkTicker: TickNetworkUpdate
-    NetworkTicker -> NetworkTicker: TickStage = Update
-    loop m_Update_TickableArray
-        NetworkTicker -> INetworkTickable: NetworkTick
-        NetworkTicker <-- INetworkTickable
+    PlayerLoop -> NetworkUpdateLoop: RunNetworkUpdate
+    NetworkUpdateLoop -> NetworkUpdateLoop: UpdateStage = Update
+    loop m_Update_Array
+        NetworkUpdateLoop -> INetworkUpdateSystem: NetworkUpdate
+        NetworkUpdateLoop <-- INetworkUpdateSystem
     end
-    PlayerLoop <-- NetworkTicker
+    PlayerLoop <-- NetworkUpdateLoop
     PlayerLoop -> PlayerLoop: ScriptRunBehaviourUpdate
     PlayerLoop -> PlayerLoop: ScriptRunDelayedDynamicFrameRate
     PlayerLoop -> PlayerLoop: ScriptRunDelayedTasks
     PlayerLoop -> PlayerLoop: DirectorUpdate
 end
 group PreLateUpdate
-    PlayerLoop -> NetworkTicker: TickNetworkPreLateUpdate
-    NetworkTicker -> NetworkTicker: TickStage = PreLateUpdate
-    loop m_PreLateUpdate_TickableArray
-        NetworkTicker -> INetworkTickable: NetworkTick
-        NetworkTicker <-- INetworkTickable
+    PlayerLoop -> NetworkUpdateLoop: RunNetworkPreLateUpdate
+    NetworkUpdateLoop -> NetworkUpdateLoop: UpdateStage = PreLateUpdate
+    loop m_PreLateUpdate_Array
+        NetworkUpdateLoop -> INetworkUpdateSystem: NetworkUpdate
+        NetworkUpdateLoop <-- INetworkUpdateSystem
     end
-    PlayerLoop <-- NetworkTicker
+    PlayerLoop <-- NetworkUpdateLoop
     PlayerLoop -> PlayerLoop: AIUpdatePostScript
     PlayerLoop -> PlayerLoop: DirectorUpdateAnimationBegin
     PlayerLoop -> PlayerLoop: LegacyAnimationUpdate
@@ -230,13 +230,13 @@ group PostLateUpdate
     PlayerLoop -> PlayerLoop: MemoryFrameMaintenance
     PlayerLoop -> PlayerLoop: ExecuteGameCenterCallbacks
     PlayerLoop -> PlayerLoop: ProfilerEndFrame
-    PlayerLoop -> NetworkTicker: TickNetworkPostLateUpdate
-    NetworkTicker -> NetworkTicker: TickStage = PostLateUpdate
-    loop m_PostLateUpdate_TickableArray
-        NetworkTicker -> INetworkTickable: NetworkTick
-        NetworkTicker <-- INetworkTickable
+    PlayerLoop -> NetworkUpdateLoop: RunNetworkPostLateUpdate
+    NetworkUpdateLoop -> NetworkUpdateLoop: UpdateStage = PostLateUpdate
+    loop m_PostLateUpdate_Array
+        NetworkUpdateLoop -> INetworkUpdateSystem: NetworkUpdate
+        NetworkUpdateLoop <-- INetworkUpdateSystem
     end
-    PlayerLoop <-- NetworkTicker
+    PlayerLoop <-- NetworkUpdateLoop
 end
 ```
 </details>
@@ -244,12 +244,12 @@ end
 ### Pseudo-code
 
 ```cs
-public interface INetworkTickable
+public interface INetworkUpdateSystem
 {
-    void NetworkTick();
+    void NetworkUpdate();
 }
 
-public enum NetworkTickStage
+public enum NetworkUpdateStage
 {
     Initialization = -4,
     EarlyUpdate = -3,
@@ -260,7 +260,7 @@ public enum NetworkTickStage
     PostLateUpdate = 2
 }
 
-public static class NetworkTicker
+public static class NetworkUpdateLoop
 {
     [RuntimeInitializeOnLoadMethod]
     private static void Initialize()
@@ -298,7 +298,7 @@ public static class NetworkTicker
             return new PlayerLoopSystem
             {
                 type = typeof(NetworkInitialization),
-                updateDelegate = TickNetworkInitialization
+                updateDelegate = RunNetworkInitialization
             };
         }
     }
@@ -310,71 +310,71 @@ public static class NetworkTicker
             return new PlayerLoopSystem
             {
                 type = typeof(NetworkEarlyUpdate),
-                updateDelegate = TickNetworkEarlyUpdate
+                updateDelegate = RunNetworkEarlyUpdate
             };
         }
     }
 
     // define other loop systems ...
 
-    public static uint TickCount = 0;
-    public static NetworkTickStage TickStage;
+    public static uint FrameCount = 0;
+    public static NetworkUpdateStage UpdateStage;
 
-    private static void AdvanceTick()
+    private static void AdvanceFrame()
     {
-        ++TickCount;
+        ++FrameCount;
     }
 
-    private static readonly List<INetworkTickable> m_Initialization_TickableList = new List<INetworkTickable>();
-    private static INetworkTickable[] m_Initialization_TickableArray = new INetworkTickable[0];
+    private static readonly List<INetworkUpdateSystem> m_Initialization_List = new List<INetworkUpdateSystem>();
+    private static INetworkUpdateSystem[] m_Initialization_Array = new INetworkUpdateSystem[0];
 
-    private static void TickNetworkInitialization()
+    private static void RunNetworkInitialization()
     {
-        AdvanceTick();
+        AdvanceFrame();
 
-        TickStage = NetworkTickStage.Initialization;
-        int tickableArrayLength = m_Initialization_TickableArray.Length;
-        for (int i = 0; i < tickableArrayLength; i++)
+        UpdateStage = NetworkUpdateStage.Initialization;
+        int arrayLength = m_Initialization_Array.Length;
+        for (int i = 0; i < arrayLength; i++)
         {
-            m_Initialization_TickableArray[i].NetworkTick();
+            m_Initialization_Array[i].NetworkUpdate();
         }
     }
 
-    private static readonly List<INetworkTickable> m_EarlyUpdate_TickableList = new List<INetworkTickable>();
-    private static INetworkTickable[] m_EarlyUpdate_TickableArray = new INetworkTickable[0];
+    private static readonly List<INetworkUpdateSystem> m_EarlyUpdate_List = new List<INetworkUpdateSystem>();
+    private static INetworkUpdateSystem[] m_EarlyUpdate_Array = new INetworkUpdateSystem[0];
 
-    private static void TickNetworkEarlyUpdate()
+    private static void RunNetworkEarlyUpdate()
     {
-        TickStage = NetworkTickStage.EarlyUpdate;
-        int tickableArrayLength = m_EarlyUpdate_TickableArray.Length;
-        for (int i = 0; i < tickableArrayLength; i++)
+        UpdateStage = NetworkUpdateStage.EarlyUpdate;
+        int arrayLength = m_EarlyUpdate_Array.Length;
+        for (int i = 0; i < arrayLength; i++)
         {
-            m_EarlyUpdate_TickableArray[i].NetworkTick();
+            m_EarlyUpdate_Array[i].NetworkUpdate();
         }
     }
 
     // implement other loop systems ...
 
-    public static void RegisterNetworkTick(this INetworkTickable tickable, NetworkTickStage tickStage = NetworkTickStage.Update)
+    public static void RegisterNetworkUpdate(this INetworkUpdateSystem updateSystem, NetworkUpdateStage updateStage = NetworkUpdateStage.Update)
     {
-        switch (tickStage)
+        switch (updateStage)
         {
-            case NetworkTickStage.Initialization:
+            case NetworkUpdateStage.Initialization:
             {
-                if (!m_Initialization_TickableList.Contains(tickable))
+                if (!m_Initialization_List.Contains(updateSystem))
                 {
-                    m_Initialization_TickableList.Add(tickable);
-                    m_Initialization_TickableArray = m_Initialization_TickableList.ToArray();
+                    m_Initialization_List.Add(updateSystem);
+                    m_Initialization_Array = m_Initialization_List.ToArray();
                 }
 
                 break;
             }
-            case NetworkTickStage.EarlyUpdate:
+            case NetworkUpdateStage.EarlyUpdate:
             {
-                if (!m_EarlyUpdate_TickableList.Contains(tickable))
+                if (!m_EarlyUpdate_List.Contains(updateSystem))
                 {
-                    m_EarlyUpdate_TickableList.Add(tickable);
-                    m_EarlyUpdate_TickableArray = m_EarlyUpdate_TickableList.ToArray();
+                    m_EarlyUpdate_List.Add(updateSystem);
+                    m_EarlyUpdate_Array = m_EarlyUpdate_List.ToArray();
                 }
 
                 break;
@@ -383,26 +383,26 @@ public static class NetworkTicker
         }
     }
 
-    public static void UnregisterNetworkTick(this INetworkTickable tickable, NetworkTickStage tickStage = NetworkTickStage.Update)
+    public static void UnregisterNetworkUpdate(this INetworkUpdateSystem updateSystem, NetworkUpdateStage updateStage = NetworkUpdateStage.Update)
     {
-        switch (tickStage)
+        switch (updateStage)
         {
-            case NetworkTickStage.Initialization:
+            case NetworkUpdateStage.Initialization:
             {
-                if (m_Initialization_TickableList.Contains(tickable))
+                if (m_Initialization_List.Contains(updateSystem))
                 {
-                    m_Initialization_TickableList.Remove(tickable);
-                    m_Initialization_TickableArray = m_Initialization_TickableList.ToArray();
+                    m_Initialization_List.Remove(updateSystem);
+                    m_Initialization_Array = m_Initialization_List.ToArray();
                 }
 
                 break;
             }
-            case NetworkTickStage.EarlyUpdate:
+            case NetworkUpdateStage.EarlyUpdate:
             {
-                if (m_EarlyUpdate_TickableList.Contains(tickable))
+                if (m_EarlyUpdate_List.Contains(updateSystem))
                 {
-                    m_EarlyUpdate_TickableList.Remove(tickable);
-                    m_EarlyUpdate_TickableArray = m_EarlyUpdate_TickableList.ToArray();
+                    m_EarlyUpdate_List.Remove(updateSystem);
+                    m_EarlyUpdate_Array = m_EarlyUpdate_List.ToArray();
                 }
 
                 break;
@@ -413,9 +413,9 @@ public static class NetworkTicker
 }
 ```
 
-## NetworkTicker Ticking INetworkTickables
+## NetworkUpdateLoop Running INetworkUpdateSystem Updates
 
-![](https://www.plantuml.com/plantuml/svg/xLPTJy8m57tVh-YZFZ1YuXDH4unWI4GDasTIjoiqTEtITUZyzMxZOstNCRP4Ouoy0BtddjETUzlTU4rOX0KEaITJ2YYMWlWo2QaJ7o8XPznV2Hu2aY819HB06qwe77CcFV89wEBISHYNWFW619gcpnGJvlc2H7A09dSaZdYCNoaS0Js2VETY_KByTGLvZqFO0wVPfcvXXJU49w8MLQ5R2fv4kgWxOKGIJBC7S53sqOAeTuCK3X03D8CbYIK8PVbiX0LDvr609PnRIAvwFPsbiz2OV43m4q9jD805UsFLghXFRCGArxSaPM6wkwfmr3rhQncBfzyXqqAXD3GpFWNnm7daAcuK76N8ie7yUxTavcd8cbHFuYMWQsJcqbmjN2ZBY_tH6Wg1qm9a5J7EkHAloSbTqPAESQjd_bJgCgU0vPuRjjfBh_jU_XkWVX-vhckldj9ahQfdvhMfdfcxgvwo_9UhPo_EST2MSPQmmoLcUcYxvqnCLKD_HXlUl53q36NpbXxjxeQrLJjqQSS6hVRc_wNIt98DtTYY4NzP3vhJGpOmdZe-p9dOlNA7b2gnkDthLfbHtUtFqsR29ld6-UaB)
+![](https://www.plantuml.com/plantuml/svg/xLPTJy8m57tdL_HH7nWnyOce2KOm9AB6XMTIsHKQkdRfEdJ-UlS5Qxjki16DYV8qUkyzfxtdxAxXXh002-mZLyOKK2W5MSh8fxrm7_4vuykru3uWAI9G8XwyuOZA2MVI9P-0BYvxFSOb8Bu5WMRnCyM4kKj10Zb4qpiI1Zp4hnGQaXv1ldEncGSUbk36eGHVoxx7FkoIPyd6Rc6DjuH7eZRB2haIF0fqScVAY2IO9WVfeUId1L7_1cau3vm7G_G2AvBW2IrqDiQ2nldpkGNggj-lOfr8EI4VuFqiPLisODwkxQfkpXCRiymKEL0ftQazLv2Qpj-HqDBnxoLioLMsEv4c1f4kEagNCfmoLBULY1MhPcabkGQXUEqaNW6wHYOAJGlzXRAy60c1uonOIsCC3IsdeJ9jb5PwY4KT8-r8oieiDHN3w7UzGtHHodz3D1WWnt7iqYf-R2kjMTfDMXEba5PP_YlIsbLhJieH4qtsWz7ifsrscZbL3lsajdnp8EaLokOj1kxU3Qk7kzdtPETMJVi_YeBMVZrWrHOk_MK6DQyhoJsspNrbpaJnFHzHgiN3zjzovHBjv8_7NrOFR-IeIzmN)
 
 <details>
   <summary>UML Source</summary>
@@ -426,45 +426,45 @@ skinparam monochrome true
 skinparam defaultFontSize 14
 
 note over MyPlainScript: IDisposable
-note over MyPlainScript: INetworkTickable
+note over MyPlainScript: INetworkUpdateSystem
 note over MyGameScript: MonoBehaviour
-note over MyGameScript: INetworkTickable
+note over MyGameScript: INetworkUpdateSystem
 group MyPlainScript.Initialize
-    MyPlainScript -> NetworkTicker: RegisterNetworkTick(EarlyUpdate)
-    MyPlainScript <-- NetworkTicker
-    MyPlainScript -> NetworkTicker: RegisterNetworkTick(FixedUpdate)
-    MyPlainScript <-- NetworkTicker
-    MyPlainScript -> NetworkTicker: RegisterNetworkTick(Update)
-    MyPlainScript <-- NetworkTicker
+    MyPlainScript -> NetworkUpdateLoop: RegisterNetworkUpdate(EarlyUpdate)
+    MyPlainScript <-- NetworkUpdateLoop
+    MyPlainScript -> NetworkUpdateLoop: RegisterNetworkUpdate(FixedUpdate)
+    MyPlainScript <-- NetworkUpdateLoop
+    MyPlainScript -> NetworkUpdateLoop: RegisterNetworkUpdate(Update)
+    MyPlainScript <-- NetworkUpdateLoop
 end
 group MonoBehaviour.OnEnable
-    MyGameScript -> NetworkTicker: RegisterNetworkTick(EarlyUpdate)
-    MyGameScript <-- NetworkTicker
-    MyGameScript -> NetworkTicker: RegisterNetworkTick(FixedUpdate)
-    MyGameScript <-- NetworkTicker
-    MyGameScript -> NetworkTicker: RegisterNetworkTick(Update)
-    MyGameScript <-- NetworkTicker
+    MyGameScript -> NetworkUpdateLoop: RegisterNetworkUpdate(EarlyUpdate)
+    MyGameScript <-- NetworkUpdateLoop
+    MyGameScript -> NetworkUpdateLoop: RegisterNetworkUpdate(FixedUpdate)
+    MyGameScript <-- NetworkUpdateLoop
+    MyGameScript -> NetworkUpdateLoop: RegisterNetworkUpdate(Update)
+    MyGameScript <-- NetworkUpdateLoop
 end
 group PlayerLoop.EarlyUpdate
-    PlayerLoop -> NetworkTicker: TickNetworkEarlyUpdate
-    NetworkTicker -> NetworkTicker: TickStage = EarlyUpdate
-    loop m_EarlyUpdate_TickableArray
-        NetworkTicker -> MyPlainScript: NetworkTick
-        NetworkTicker <-- MyPlainScript
-        NetworkTicker -> MyGameScript: NetworkTick
-        NetworkTicker <-- MyGameScript
+    PlayerLoop -> NetworkUpdateLoop: RunNetworkEarlyUpdate
+    NetworkUpdateLoop -> NetworkUpdateLoop: UpdateStage = EarlyUpdate
+    loop m_EarlyUpdate_Array
+        NetworkUpdateLoop -> MyPlainScript: NetworkUpdate
+        NetworkUpdateLoop <-- MyPlainScript
+        NetworkUpdateLoop -> MyGameScript: NetworkUpdate
+        NetworkUpdateLoop <-- MyGameScript
     end
-    PlayerLoop <-- NetworkTicker
+    PlayerLoop <-- NetworkUpdateLoop
     PlayerLoop -> PlayerLoop: // ...
 end
 group PlayerLoop.FixedUpdate
-    PlayerLoop -> NetworkTicker: TickNetworkFixedUpdate
-    NetworkTicker -> NetworkTicker: TickStage = FixedUpdate
-    loop m_FixedUpdate_TickableArray
-        NetworkTicker -> MyPlainScript: NetworkTick
-        NetworkTicker <-- MyPlainScript
-        NetworkTicker -> MyGameScript: NetworkTick
-        NetworkTicker <-- MyGameScript
+    PlayerLoop -> NetworkUpdateLoop: RunNetworkFixedUpdate
+    NetworkUpdateLoop -> NetworkUpdateLoop: UpdateStage = FixedUpdate
+    loop m_FixedUpdate_Array
+        NetworkUpdateLoop -> MyPlainScript: NetworkUpdate
+        NetworkUpdateLoop <-- MyPlainScript
+        NetworkUpdateLoop -> MyGameScript: NetworkUpdate
+        NetworkUpdateLoop <-- MyGameScript
     end
     PlayerLoop -> PlayerLoop: // ...
     PlayerLoop -> PlayerLoop: ScriptRunBehaviourFixedUpdate
@@ -476,15 +476,15 @@ group PlayerLoop.FixedUpdate
     PlayerLoop -> PlayerLoop: // ...
 end
 group PlayerLoop.Update
-    PlayerLoop -> NetworkTicker: TickNetworkUpdate
-    NetworkTicker -> NetworkTicker: TickStage = Update
-    loop m_Update_TickableArray
-        NetworkTicker -> MyPlainScript: NetworkTick
-        NetworkTicker <-- MyPlainScript
-        NetworkTicker -> MyGameScript: NetworkTick
-        NetworkTicker <-- MyGameScript
+    PlayerLoop -> NetworkUpdateLoop: RunNetworkUpdate
+    NetworkUpdateLoop -> NetworkUpdateLoop: UpdateStage = Update
+    loop m_Update_Array
+        NetworkUpdateLoop -> MyPlainScript: NetworkUpdate
+        NetworkUpdateLoop <-- MyPlainScript
+        NetworkUpdateLoop -> MyGameScript: NetworkUpdate
+        NetworkUpdateLoop <-- MyGameScript
     end
-    PlayerLoop <-- NetworkTicker
+    PlayerLoop <-- NetworkUpdateLoop
     PlayerLoop -> PlayerLoop: ScriptRunBehaviourUpdate
     group MonoBehaviour.Update
         PlayerLoop -> MyGameScript: Update
@@ -494,12 +494,12 @@ group PlayerLoop.Update
     PlayerLoop -> PlayerLoop: // ...
 end
 group MonoBehaviour.OnDisable
-    MyGameScript -> NetworkTicker: UnregisterAllNetworkTicks
-    MyGameScript <-- NetworkTicker
+    MyGameScript -> NetworkUpdateLoop: UnregisterAllNetworkUpdates
+    MyGameScript <-- NetworkUpdateLoop
 end
 group IDisposable.Dispose
-    MyPlainScript -> NetworkTicker: UnregisterAllNetworkTicks
-    MyPlainScript <-- NetworkTicker
+    MyPlainScript -> NetworkUpdateLoop: UnregisterAllNetworkUpdates
+    MyPlainScript <-- NetworkUpdateLoop
 end
 ```
 </details>
@@ -507,12 +507,12 @@ end
 ### Pseudo-code
 
 ```cs
-public interface INetworkTickable
+public interface INetworkUpdateSystem
 {
-    void NetworkTick();
+    void NetworkUpdate();
 }
 
-public enum NetworkTickStage
+public enum NetworkUpdateStage
 {
     Initialization = -4,
     EarlyUpdate = -3,
@@ -523,64 +523,64 @@ public enum NetworkTickStage
     PostLateUpdate = 2
 }
 
-public static class NetworkTicker
+public static class NetworkUpdateLoop
 {
-    public static uint TickCount;
-    public static NetworkTickStage TickStage;
+    public static uint FrameCount;
+    public static NetworkUpdateStage UpdateStage;
 
-    public static void RegisterAllNetworkTicks(this INetworkTickable tickable) { /* ... */ }
-    public static void RegisterNetworkTick(this INetworkTickable tickable, NetworkTickStage tickStage) { /* ... */ }
-    public static void UnregisterNetworkTick(this INetworkTickable tickable, NetworkTickStage tickStage) { /* ... */ }
-    public static void UnregisterAllNetworkTicks(this INetworkTickable tickable) { /* ... */ }
+    public static void RegisterAllNetworkUpdates(this INetworkUpdateSystem updateSystem);
+    public static void RegisterNetworkUpdate(this INetworkUpdateSystem updateSystem, NetworkUpdateStage updateStage);
+    public static void UnregisterNetworkUpdate(this INetworkUpdateSystem updateSystem, NetworkUpdateStage updateStage);
+    public static void UnregisterAllNetworkUpdates(this INetworkUpdateSystem updateSystem);
 }
 
-public class MyPlainScript : IDisposable, INetworkTickable
+public class MyPlainScript : IDisposable, INetworkUpdateSystem
 {
     public void Initialize()
     {
-        this.RegisterNetworkTick(NetworkTickStage.EarlyUpdate);
-        this.RegisterNetworkTick(NetworkTickStage.FixedUpdate);
-        this.RegisterNetworkTick(NetworkTickStage.Update);
+        this.RegisterNetworkUpdate(NetworkUpdateStage.EarlyUpdate);
+        this.RegisterNetworkUpdate(NetworkUpdateStage.FixedUpdate);
+        this.RegisterNetworkUpdate(NetworkUpdateStage.Update);
     }
 
-    public void NetworkTick()
+    public void NetworkUpdate()
     {
-        Debug.Log($"{nameof(MyPlainScript)}.{nameof(NetworkTick)}({NetworkTicker.TickStage})");
+        Debug.Log($"{nameof(MyPlainScript)}.{nameof(NetworkUpdate)}()");
     }
 
     public void Dispose()
     {
-        this.UnregisterAllNetworkTicks();
+        this.UnregisterAllNetworkUpdates();
     }
 }
 
-public class MyGameScript : MonoBehaviour, INetworkTickable
+public class MyGameScript : MonoBehaviour, INetworkUpdateSystem
 {
     private void OnEnable()
     {
-        this.RegisterNetworkTick(NetworkTickStage.EarlyUpdate);
-        this.RegisterNetworkTick(NetworkTickStage.FixedUpdate);
-        this.RegisterNetworkTick(NetworkTickStage.Update);
+        this.RegisterNetworkUpdate(NetworkUpdateStage.EarlyUpdate);
+        this.RegisterNetworkUpdate(NetworkUpdateStage.FixedUpdate);
+        this.RegisterNetworkUpdate(NetworkUpdateStage.Update);
     }
 
     public void NetworkTick()
     {
-        print($"{nameof(MyGameScript)}.{nameof(NetworkTick)}({NetworkTicker.TickStage})");
+        Debug.Log($"{nameof(MyGameScript)}.{nameof(NetworkUpdate)}({NetworkUpdateLoop.UpdateStage})");
     }
 
     private void FixedUpdate()
     {
-        print($"{nameof(MyGameScript)}.{nameof(FixedUpdate)}()");
+        Debug.Log($"{nameof(MyGameScript)}.{nameof(FixedUpdate)}()");
     }
 
     private void Update()
     {
-        print($"{nameof(MyGameScript)}.{nameof(Update)}()");
+        Debug.Log($"{nameof(MyGameScript)}.{nameof(Update)}()");
     }
 
     private void OnDisable()
     {
-        this.UnregisterNetworkTick();
+        this.UnregisterAllNetworkUpdates();
     }
 }
 ```
