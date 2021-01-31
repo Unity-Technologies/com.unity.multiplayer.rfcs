@@ -240,6 +240,178 @@ end
 ```
 </details>
 
+### Pseudo-code
+
+```cs
+public interface INetworkTickable
+{
+    void NetworkTick();
+}
+
+public enum NetworkTickStage
+{
+    Initialization = -4,
+    EarlyUpdate = -3,
+    FixedUpdate = -2,
+    PreUpdate = -1,
+    Update = 0,
+    PreLateUpdate = 1,
+    PostLateUpdate = 2
+}
+
+[InitializeOnLoad]
+public static class NetworkTicker
+{
+    static NetworkTicker()
+    {
+        var customPlayerLoop = PlayerLoop.GetCurrentPlayerLoop();
+
+        for (int i = 0; i < customPlayerLoop.subSystemList.Length; i++)
+        {
+            var playerLoopSystem = customPlayerLoop.subSystemList[i];
+
+            if (playerLoopSystem.type == typeof(Initialization))
+            {
+                var subsystems = playerLoopSystem.subSystemList.ToList();
+                subsystems.Add(NetworkInitialization.CreateLoopSystem());
+                playerLoopSystem.subSystemList = subsystems.ToArray();
+            }
+            else if (playerLoopSystem.type == typeof(EarlyUpdate))
+            {
+                var subsystems = playerLoopSystem.subSystemList.ToList();
+                subsystems.Insert(0, NetworkEarlyUpdate.CreateLoopSystem());
+                playerLoopSystem.subSystemList = subsystems.ToArray();
+            }
+            // add/insert other loop systems ...
+
+            customPlayerLoop.subSystemList[i] = playerLoopSystem;
+        }
+
+        PlayerLoop.SetPlayerLoop(customPlayerLoop);
+    }
+
+    private struct NetworkInitialization
+    {
+        public static PlayerLoopSystem CreateLoopSystem()
+        {
+            return new PlayerLoopSystem
+            {
+                type = typeof(NetworkInitialization),
+                updateDelegate = TickNetworkInitialization
+            };
+        }
+    }
+
+    private struct NetworkEarlyUpdate
+    {
+        public static PlayerLoopSystem CreateLoopSystem()
+        {
+            return new PlayerLoopSystem
+            {
+                type = typeof(NetworkEarlyUpdate),
+                updateDelegate = TickNetworkEarlyUpdate
+            };
+        }
+    }
+
+    // define other loop systems ...
+
+    public static uint TickCount = 0;
+    public static NetworkTickStage TickStage;
+
+    private static void AdvanceTick()
+    {
+        ++TickCount;
+    }
+
+    private static readonly List<INetworkTickable> m_Initialization_TickableList = new List<INetworkTickable>();
+    private static INetworkTickable[] m_Initialization_TickableArray = new INetworkTickable[0];
+
+    private static void TickNetworkInitialization()
+    {
+        AdvanceTick();
+
+        TickStage = NetworkTickStage.Initialization;
+        int tickableArrayLength = m_Initialization_TickableArray.Length;
+        for (int i = 0; i < tickableArrayLength; i++)
+        {
+            m_Initialization_TickableArray[i].NetworkTick();
+        }
+    }
+
+    private static readonly List<INetworkTickable> m_EarlyUpdate_TickableList = new List<INetworkTickable>();
+    private static INetworkTickable[] m_EarlyUpdate_TickableArray = new INetworkTickable[0];
+
+    private static void TickNetworkEarlyUpdate()
+    {
+        TickStage = NetworkTickStage.EarlyUpdate;
+        int tickableArrayLength = m_EarlyUpdate_TickableArray.Length;
+        for (int i = 0; i < tickableArrayLength; i++)
+        {
+            m_EarlyUpdate_TickableArray[i].NetworkTick();
+        }
+    }
+
+    // implement other loop systems ...
+
+    public static void RegisterNetworkTick(this INetworkTickable tickable, NetworkTickStage tickStage = NetworkTickStage.Update)
+    {
+        switch (tickStage)
+        {
+            case NetworkTickStage.Initialization:
+            {
+                if (!m_Initialization_TickableList.Contains(tickable))
+                {
+                    m_Initialization_TickableList.Add(tickable);
+                    m_Initialization_TickableArray = m_Initialization_TickableList.ToArray();
+                }
+
+                break;
+            }
+            case NetworkTickStage.EarlyUpdate:
+            {
+                if (!m_EarlyUpdate_TickableList.Contains(tickable))
+                {
+                    m_EarlyUpdate_TickableList.Add(tickable);
+                    m_EarlyUpdate_TickableArray = m_EarlyUpdate_TickableList.ToArray();
+                }
+
+                break;
+            }
+            // register other loop systems ...
+        }
+    }
+
+    public static void UnregisterNetworkTick(this INetworkTickable tickable, NetworkTickStage tickStage = NetworkTickStage.Update)
+    {
+        switch (tickStage)
+        {
+            case NetworkTickStage.Initialization:
+            {
+                if (m_Initialization_TickableList.Contains(tickable))
+                {
+                    m_Initialization_TickableList.Remove(tickable);
+                    m_Initialization_TickableArray = m_Initialization_TickableList.ToArray();
+                }
+
+                break;
+            }
+            case NetworkTickStage.EarlyUpdate:
+            {
+                if (m_EarlyUpdate_TickableList.Contains(tickable))
+                {
+                    m_EarlyUpdate_TickableList.Remove(tickable);
+                    m_EarlyUpdate_TickableArray = m_EarlyUpdate_TickableList.ToArray();
+                }
+
+                break;
+            }
+            // unregister other loop systems ...
+        }
+    }
+}
+```
+
 ## NetworkTicker Ticking INetworkTickables
 
 ![](https://www.plantuml.com/plantuml/svg/xLPTJy8m57tVh-YZFZ1YuXDH4unWI4GDasTIjoiqTEtITUZyzMxZOstNCRP4Ouoy0BtddjETUzlTU4rOX0KEaITJ2YYMWlWo2QaJ7o8XPznV2Hu2aY819HB06qwe77CcFV89wEBISHYNWFW619gcpnGJvlc2H7A09dSaZdYCNoaS0Js2VETY_KByTGLvZqFO0wVPfcvXXJU49w8MLQ5R2fv4kgWxOKGIJBC7S53sqOAeTuCK3X03D8CbYIK8PVbiX0LDvr609PnRIAvwFPsbiz2OV43m4q9jD805UsFLghXFRCGArxSaPM6wkwfmr3rhQncBfzyXqqAXD3GpFWNnm7daAcuK76N8ie7yUxTavcd8cbHFuYMWQsJcqbmjN2ZBY_tH6Wg1qm9a5J7EkHAloSbTqPAESQjd_bJgCgU0vPuRjjfBh_jU_XkWVX-vhckldj9ahQfdvhMfdfcxgvwo_9UhPo_EST2MSPQmmoLcUcYxvqnCLKD_HXlUl53q36NpbXxjxeQrLJjqQSS6hVRc_wNIt98DtTYY4NzP3vhJGpOmdZe-p9dOlNA7b2gnkDthLfbHtUtFqsR29ld6-UaB)
