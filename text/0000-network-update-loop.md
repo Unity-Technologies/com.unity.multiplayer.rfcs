@@ -563,7 +563,7 @@ public class MyGameScript : MonoBehaviour, INetworkUpdateSystem
         this.RegisterNetworkUpdate(NetworkUpdateStage.Update);
     }
 
-    public void NetworkTick()
+    public void NetworkUpdate()
     {
         Debug.Log($"{nameof(MyGameScript)}.{nameof(NetworkUpdate)}({NetworkUpdateLoop.UpdateStage})");
     }
