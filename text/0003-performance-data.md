@@ -1,82 +1,83 @@
-- Feature Name: (fill me in with a unique ident, `my_awesome_feature`)
-- Start Date: (fill me in with today's date, YYYY-MM-DD)
+- Feature Name: Network Tick and Profiler Notification System
+- Start Date: 1-29-2021
 - RFC PR: [Unity-Technologies/com.unity.multiplayer.rfcs#0000](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/0000)
 - Issue: [Unity-Technologies/com.unity.multiplayer#0000](https://github.com/Unity-Technologies/com.unity.multiplayer/issues/0000)
 
 # Summary
 [summary]: #summary
 
-One paragraph explanation of the feature.
+Currently there is Transport performance data and MLAPI performance data that is not being propagated up externally for any consumer to render or consume. The use cases for this would be useful for technologies such as a **Network Stats Overlay** or a **Profiler** (**Network Messages** and **Network Operation** need this data in the vanilla Unity Profiler). Users need a viable and low overhead way to obtain this data (such as RPCs sent this frame/tick) from MLAPI and utilize this data in the way that they want for their own metrics.
 
 # Motivation
 [motivation]: #motivation
 
-Why are we doing this? What use cases does it support? What is the expected outcome?
+This is needed to provide both a default and user specific implementations for future Network Profilers and Network Stats overlays. The MLAPI source code can remain Open Source, and yet, the data being streamed can be hooked up to external and low level systems.
 
 # Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
 
-Explain the proposal as if it was already included in the Unity Multiplayer and you were teaching it to another Unity developer. That generally means:
+In order to allow first and third party rendering of the data we will need to allow both MLAPI and its transports to propagate data up the chain. 
+If the profiler flags are enabled the following will need to happen: 
+Transports will need to output the number of bytes being sent in the current tick and the latency. The data will be written out to a ProfilerTickData chunk. This data will be generic and transport agnostic.
+MLAPI will need to output the number of networked objects and the amount of RPCs being sent. This data will be added to the ProfilerTickData chunk.
 
-- Introducing new named concepts.
-- Explaining the feature largely in terms of examples.
-- Explaining how Unity developers should _think_ about the feature, and how it should impact the way they develop multiplayer projects in Unity. It should explain the impact as concretely as possible.
-- If applicable, provide sample error messages, deprecation warnings, or migration guidance.
-- If applicable, describe the differences between teaching this to existing Unity developers and new Unity developers.
+External Tools and APIs will be able to then get this fully written ProfilerTickData at the end of the frame for them to do what they wish (Render to Profiler Stats Overlay or Display/Record in a Profiler or file)
 
-For implementation-oriented RFCs (e.g. for framework internals), this section should focus on how Unity Multiplayer contributors should think about the change, and give examples of its concrete impact. For policy RFCs, this section should provide an example-driven introduction to the policy, and explain its impact in concrete terms.
+As this data is largely a struct like object, accessing its data will be as simple as accessing fields. Additionally the rendering or logging of these statistics will fall on the user and not affect the Tick or be done at all within the MLAPI framework.
 
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
 
-This is the technical portion of the RFC. Explain the design in sufficient detail that:
 
-- Its interaction with other features is clear.
-- It is reasonably clear how the feature would be implemented.
-- Corner cases are dissected by example.
+In order to limit the interface, we are pushing the collected set or performance data to be obtainable only at the end of a tick. The following is roughly what this object could look like. Currently this object will be updated in ```NetworkManager.LateUpdate()``` for the MLAPI and ```Transport.Send()``` and other relevant transport method for the transport layer. At the end of the tick the user will be notified that the relevant data is complete and ready (both the MLAPI data and Transport data).
 
-The section should return to the examples given in the previous section, and explain more fully how the detailed proposal makes those examples work.
+```cs
+class ProfilerTickData {
+    int tickID;
+
+    // transport-level
+    int bytesSent;
+    int bytesReceived;
+    int tickDuration;
+    ...
+
+    // mlapi-level
+    int numberOfRPCs;
+    ...
+
+    // potentially? For any remaining edge cases?
+    Dictionary<string,Object> kvStore;
+}
+```
 
 # Drawbacks
 [drawbacks]: #drawbacks
 
-Why should we _not_ do this?
+With a defined struct, we risk needing to know in advance as many fields and points of data that we want to push out of the Transport and MLAPI layer.
+Changes to the ProfilerTickData inherently cause changes to the transport, MLAPI, and all third party consumers.
+Each transport is also required to implement any required changes needed to fill out the relevant transport-level information. Of course not filling out the fields simply means the Overlay, Profiler, Logger will just display default values for the field types. This means they can implement after an initial release of their transport, if need be.
 
 # Rationale and alternatives
 [rationale-and-alternatives]: #rationale-and-alternatives
 
-- Why is this design the best in the space of possible designs?
-- What other designs have been considered and what is the rationale for not choosing them?
-- What is the impact of not doing this?
+This design of single struct is the best for locality of data. 
+There is less room for user error since there is only one readonly object that they get access to.
+There is no room for user injected data or exceptions since we aren’t using an event signaling or actions. All user interaction for rendering happens at end of tick so they can’t affect the time of profiling or cause unforeseen issues.
+
+The impact of not doing a Network Tick and Profiler Notification System is that we’d loose the Profiling capabilities that existed in the vanilla Profiler with Mirror/UNET.
 
 # Prior art
 [prior-art]: #prior-art
 
-Discuss prior art, both the good and the bad, in relation to this proposal. A few examples of what this can include are:
-
-- For framework, tools, and library proposals: Does this feature exist in other networking stacks and what experience have their community had?
-- For community proposals: Is this done by some other community and what were their experiences with it?
-- For other teams: What lessons can we learn from what other communities have done here?
-- Papers: Are there any published papers or great posts that discuss this? If you have some relevant papers to refer to, this can serve as a more detailed theoretical background.
-
-This section is intended to encourage you as an author to think about the lessons from other projects, provide readers of your RFC with a fuller picture. If there is no prior art, that is fine - your ideas are interesting to us whether they are brand new or if it is an adaptation from other projects.
-
-Note that while precedent set by other projects is some motivation, it does not on its own motivate an RFC. Please also take into consideration that Unity Multiplayer sometimes intentionally diverges from common multiplayer networking features.
+Writing all pertinent data per tick is a similar method to what most rendering pipelines do, which is gather relevant data store in a buffer and render it. Since Multiplayer requires the same effective speed as our Render Pipelines we want to make sure it is as stable and robust as possible.
 
 # Unresolved questions
 [unresolved-questions]: #unresolved-questions
 
-- What parts of the design do you expect to resolve through the RFC process before this gets merged?
-- What parts of the design do you expect to resolve through the implementation of this feature before stabilization?
-- What related issues do you consider out of scope for this RFC that could be addressed in the future independently of the solution that comes out of this RFC?
+It is possible that some of this data can be stored as a KV-store (string to object). This would be needed if someone was writing an unusual transport and wanted to place data within the ProfilerTickData and then obtain it to display in their Profiler Stat/Profiler.
+Is this something the community would be interested in for custom transports and custom overlays?
 
 # Future possibilities
 [future-possibilities]: #future-possibilities
 
-Think about what the natural extension and evolution of your proposal would be and how it would affect the Unity Multiplayer as a whole in a holistic way. Try to use this section as a tool to more fully consider all possible interactions with the Unity Multiplayer in your proposal. Also consider how the this all fits into the roadmap for the project and the team.
-
-This is also a good place to "dump ideas", if they are out of scope for the RFC you are writing but otherwise related.
-
-If you have tried and cannot think of any future possibilities, you may simply state that you cannot think of anything.
-
-Note that having something written down in the future-possibilities section is not a reason to accept the current or a future RFC; such notes should be in the section on motivation or rationale in this or subsequent RFCs. The section merely provides additional information.
+This is a low impact and visibility change. All in all, it's unlikely that there would be much in future possibilities or requests to this feature.
