@@ -67,11 +67,16 @@ For MMO related netcode architectures, the RPC Queue system could be further lev
 
 On the downside, the QueueHistoryFrame currently stores all inbound and outbound RPCs into a contiguous byte stream for the current frame which requires copying each entry from the QueueHistoryFrame into a new byte stream for inbound RPC processing while providing an ArraySegment for outbound RPCs.  Currently, the inbound RPCs are copied into a single FrameQueueItem (one is created for each QueueHistoryFrame) that should only be used at the time it is invoked but never stored for future reference.  In order for a user to store a FrameQueueItem, they would need to create a copy and store it using their own method.  This all could lead to additional memory allocations and frame time consumed, which could lead to performance degradation under heavy loads (i.e. 25k-30k RPCs per frame).
 
+
+
 # Rationale and alternatives
 [rationale-and-alternatives]: #rationale-and-alternatives
-Since there are no current discussions on batching specific packet types together at the transport layer (not recommended) and while Unet provides the ability to switch from immediate to queued mode there were other framework related design factors taken into consideration (i.e. batched RPCs, invocation at different update stages, etc.) that made this the current best path to take.
+Unet provides the ability to switch from immediate to queued mode which does provide a transport layer queue, however this setting is applied to every outbound packet and does not provide the ability to extract specific packet types from the buffer.  Unet’s queued buffering only helps reduce the network stack load, and Unet is slated to become deprecated.  Since there were other framework related design factors taken into consideration (i.e. batched RPCs, invocation at different update stages, etc.) and MLAPI could theoretically support other custom transports, it made sense to provide queueing capabilities at the framework layer.
 
-Framework batching allows additional levels of control over RPCS, as outlined under the motivation section above, that provide opportunities to rollback RPCs, invoke RPCs at specific network update loop stages, and to batch RPCs into target client id buckets prior to being sent.  Comparatively, transport layer packet buffering/queueing is “packet data agnostic” and does not provide the same range of functionality as batching at the framework layer.  
+(blurb on UTP)
+ 
+Framework queuing allows additional levels of control over RPCs as is outlined under the motivation section above.   It also provides additional opportunities for Rpc rollback capabilities, network update loop stage specific invocation, and batching RPCs into target client id buckets prior to being sent in order to better optimize packet data distribution and utilization. Comparatively, transport layer packet buffering/queueing is “packet data agnostic” and does not provide the same range of functionality as batching at the framework layer.
+
 
 # Prior art
 [prior-art]: #prior-art
@@ -83,13 +88,15 @@ Framework batching allows additional levels of control over RPCS, as outlined un
 
 - What parts of the design do you expect to resolve through the RFC process before this gets merged?
 
+    Any additional future considerations not currently addressed in the original RFC.  
 
 - What parts of the design do you expect to resolve through the implementation of this feature before stabilization?
+    
+    Since MLAPI will be evoling and the way data ingresses and egresses could be further optimized/improved, those additional RPC Queue design considerations (if any) will be further defined in new RFCs.  This RFC is for the initial framework of RPC queueing.
 
-    This RFC is primarily focused on getting a solid RPC Queue system integrated, functional, with reasonable optimizations towards processing time and memory allocaiton.
 - What related issues do you consider out of scope for this RFC that could be addressed in the future independently of the solution that comes out of this RFC?
 
-    Unity Job system integration and any memory allocation (per frame) that occurs outside of the scope of the RPC Queue system itself but falls within the RPC send, receive, and invocation realm.
+    Unity Job system integration, memory allocation (per frame) that occurs outside of the scope of the RPC Queue system (but falls within the RPC send, receive, and invocation realm), RPC message batching, and future MLAPI UTP integration.   
 
 
 # Future possibilities
