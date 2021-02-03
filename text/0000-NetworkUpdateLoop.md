@@ -26,29 +26,376 @@ The Network Game Update Loop diagram below shows a comparison of the various upd
 
 (*Network*) **PostUpdate**: Things like sending out queued messages, getting the results of a batched job (i.e. snapshots or the like) would occur here.
 
-![](0000-NetworkProcessingHook/NetworkUpdateLoopStages.png)
+![](0000-NetworkUpdateLoop/NetworkUpdateLoopStages.png)
 
 *The original implementation only allowed for a single method to be registered per stage via the ```InternalNetworkUpdateEngine``` (legacy) format.  This had limitations to its design, and as such it was proposed to further extend this functionality to any [```INetworkUpdateLoopSystem```](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/develop/com.unity.multiplayer.mlapi/Runtime/Core/NetworkUpdateLoopSystem.cs) such that any class could register for any of the new network update loop stages.*
 
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
+
+
+
+
+### Pseudo-code
+```cs
+public interface INetworkUpdateSystem
+{
+    void NetworkUpdate();
+}
+
+public enum NetworkUpdateStage
+{
+    Initialization = -4,
+    EarlyUpdate = -3,
+    FixedUpdate = -2,
+    PreUpdate = -1,
+    Update = 0,
+    PreLateUpdate = 1,
+    PostLateUpdate = 2
+}
+
+public static class NetworkUpdateLoop
+{
+    [RuntimeInitializeOnLoadMethod]
+    private static void Initialize()
+    {
+        var customPlayerLoop = PlayerLoop.GetCurrentPlayerLoop();
+
+        for (int i = 0; i < customPlayerLoop.subSystemList.Length; i++)
+        {
+            var playerLoopSystem = customPlayerLoop.subSystemList[i];
+
+            if (playerLoopSystem.type == typeof(Initialization))
+            {
+                var subsystems = playerLoopSystem.subSystemList.ToList();
+                subsystems.Add(NetworkInitialization.CreateLoopSystem());
+                playerLoopSystem.subSystemList = subsystems.ToArray();
+            }
+            else if (playerLoopSystem.type == typeof(EarlyUpdate))
+            {
+                var subsystems = playerLoopSystem.subSystemList.ToList();
+                subsystems.Insert(0, NetworkEarlyUpdate.CreateLoopSystem());
+                playerLoopSystem.subSystemList = subsystems.ToArray();
+            }
+            // add/insert other loop systems ...
+
+            customPlayerLoop.subSystemList[i] = playerLoopSystem;
+        }
+
+        PlayerLoop.SetPlayerLoop(customPlayerLoop);
+    }
+
+    private struct NetworkInitialization
+    {
+        public static PlayerLoopSystem CreateLoopSystem()
+        {
+            return new PlayerLoopSystem
+            {
+                type = typeof(NetworkInitialization),
+                updateDelegate = RunNetworkInitialization
+            };
+        }
+    }
+
+    private struct NetworkEarlyUpdate
+    {
+        public static PlayerLoopSystem CreateLoopSystem()
+        {
+            return new PlayerLoopSystem
+            {
+                type = typeof(NetworkEarlyUpdate),
+                updateDelegate = RunNetworkEarlyUpdate
+            };
+        }
+    }
+
+    // define other loop systems ...
+
+    public static uint FrameCount = 0;
+    public static NetworkUpdateStage UpdateStage;
+
+    private static void AdvanceFrame()
+    {
+        ++FrameCount;
+    }
+
+    private static readonly List<INetworkUpdateSystem> m_Initialization_List = new List<INetworkUpdateSystem>();
+    private static INetworkUpdateSystem[] m_Initialization_Array = new INetworkUpdateSystem[0];
+
+    private static void RunNetworkInitialization()
+    {
+        AdvanceFrame();
+
+        UpdateStage = NetworkUpdateStage.Initialization;
+        int arrayLength = m_Initialization_Array.Length;
+        for (int i = 0; i < arrayLength; i++)
+        {
+            m_Initialization_Array[i].NetworkUpdate();
+        }
+    }
+
+    private static readonly List<INetworkUpdateSystem> m_EarlyUpdate_List = new List<INetworkUpdateSystem>();
+    private static INetworkUpdateSystem[] m_EarlyUpdate_Array = new INetworkUpdateSystem[0];
+
+    private static void RunNetworkEarlyUpdate()
+    {
+        UpdateStage = NetworkUpdateStage.EarlyUpdate;
+        int arrayLength = m_EarlyUpdate_Array.Length;
+        for (int i = 0; i < arrayLength; i++)
+        {
+            m_EarlyUpdate_Array[i].NetworkUpdate();
+        }
+    }
+
+    // implement other loop systems ...
+
+    public static void RegisterNetworkUpdate(this INetworkUpdateSystem updateSystem, NetworkUpdateStage updateStage = NetworkUpdateStage.Update)
+    {
+        switch (updateStage)
+        {
+            case NetworkUpdateStage.Initialization:
+            {
+                if (!m_Initialization_List.Contains(updateSystem))
+                {
+                    m_Initialization_List.Add(updateSystem);
+                    m_Initialization_Array = m_Initialization_List.ToArray();
+                }
+
+                break;
+            }
+            case NetworkUpdateStage.EarlyUpdate:
+            {
+                if (!m_EarlyUpdate_List.Contains(updateSystem))
+                {
+                    m_EarlyUpdate_List.Add(updateSystem);
+                    m_EarlyUpdate_Array = m_EarlyUpdate_List.ToArray();
+                }
+
+                break;
+            }
+            // register other loop systems ...
+        }
+    }
+
+    public static void UnregisterNetworkUpdate(this INetworkUpdateSystem updateSystem, NetworkUpdateStage updateStage = NetworkUpdateStage.Update)
+    {
+        switch (updateStage)
+        {
+            case NetworkUpdateStage.Initialization:
+            {
+                if (m_Initialization_List.Contains(updateSystem))
+                {
+                    m_Initialization_List.Remove(updateSystem);
+                    m_Initialization_Array = m_Initialization_List.ToArray();
+                }
+
+                break;
+            }
+            case NetworkUpdateStage.EarlyUpdate:
+            {
+                if (m_EarlyUpdate_List.Contains(updateSystem))
+                {
+                    m_EarlyUpdate_List.Remove(updateSystem);
+                    m_EarlyUpdate_Array = m_EarlyUpdate_List.ToArray();
+                }
+
+                break;
+            }
+            // unregister other loop systems ...
+        }
+    }
+}
+```
+
+## NetworkUpdateLoop Running INetworkUpdateSystem Updates
+
+![](https://www.plantuml.com/plantuml/svg/xLPTJy8m57tdL_HH7nWnyOce2KOm9AB6XMTIsHKQkdRfEdJ-UlS5Qxjki16DYV8qUkyzfxtdxAxXXh002-mZLyOKK2W5MSh8fxrm7_4vuykru3uWAI9G8XwyuOZA2MVI9P-0BYvxFSOb8Bu5WMRnCyM4kKj10Zb4qpiI1Zp4hnGQaXv1ldEncGSUbk36eGHVoxx7FkoIPyd6Rc6DjuH7eZRB2haIF0fqScVAY2IO9WVfeUId1L7_1cau3vm7G_G2AvBW2IrqDiQ2nldpkGNggj-lOfr8EI4VuFqiPLisODwkxQfkpXCRiymKEL0ftQazLv2Qpj-HqDBnxoLioLMsEv4c1f4kEagNCfmoLBULY1MhPcabkGQXUEqaNW6wHYOAJGlzXRAy60c1uonOIsCC3IsdeJ9jb5PwY4KT8-r8oieiDHN3w7UzGtHHodz3D1WWnt7iqYf-R2kjMTfDMXEba5PP_YlIsbLhJieH4qtsWz7ifsrscZbL3lsajdnp8EaLokOj1kxU3Qk7kzdtPETMJVi_YeBMVZrWrHOk_MK6DQyhoJsspNrbpaJnFHzHgiN3zjzovHBjv8_7NrOFR-IeIzmN)
+
+<details>
+  <summary>UML Source</summary>
+
+```
+skinparam Style strictuml
+skinparam monochrome true
+skinparam defaultFontSize 14
+
+note over MyPlainScript: IDisposable
+note over MyPlainScript: INetworkUpdateSystem
+note over MyGameScript: MonoBehaviour
+note over MyGameScript: INetworkUpdateSystem
+group MyPlainScript.Initialize
+    MyPlainScript -> NetworkUpdateLoop: RegisterNetworkUpdate(EarlyUpdate)
+    MyPlainScript <-- NetworkUpdateLoop
+    MyPlainScript -> NetworkUpdateLoop: RegisterNetworkUpdate(FixedUpdate)
+    MyPlainScript <-- NetworkUpdateLoop
+    MyPlainScript -> NetworkUpdateLoop: RegisterNetworkUpdate(Update)
+    MyPlainScript <-- NetworkUpdateLoop
+end
+group MonoBehaviour.OnEnable
+    MyGameScript -> NetworkUpdateLoop: RegisterNetworkUpdate(EarlyUpdate)
+    MyGameScript <-- NetworkUpdateLoop
+    MyGameScript -> NetworkUpdateLoop: RegisterNetworkUpdate(FixedUpdate)
+    MyGameScript <-- NetworkUpdateLoop
+    MyGameScript -> NetworkUpdateLoop: RegisterNetworkUpdate(Update)
+    MyGameScript <-- NetworkUpdateLoop
+end
+group PlayerLoop.EarlyUpdate
+    PlayerLoop -> NetworkUpdateLoop: RunNetworkEarlyUpdate
+    NetworkUpdateLoop -> NetworkUpdateLoop: UpdateStage = EarlyUpdate
+    loop m_EarlyUpdate_Array
+        NetworkUpdateLoop -> MyPlainScript: NetworkUpdate
+        NetworkUpdateLoop <-- MyPlainScript
+        NetworkUpdateLoop -> MyGameScript: NetworkUpdate
+        NetworkUpdateLoop <-- MyGameScript
+    end
+    PlayerLoop <-- NetworkUpdateLoop
+    PlayerLoop -> PlayerLoop: // ...
+end
+group PlayerLoop.FixedUpdate
+    PlayerLoop -> NetworkUpdateLoop: RunNetworkFixedUpdate
+    NetworkUpdateLoop -> NetworkUpdateLoop: UpdateStage = FixedUpdate
+    loop m_FixedUpdate_Array
+        NetworkUpdateLoop -> MyPlainScript: NetworkUpdate
+        NetworkUpdateLoop <-- MyPlainScript
+        NetworkUpdateLoop -> MyGameScript: NetworkUpdate
+        NetworkUpdateLoop <-- MyGameScript
+    end
+    PlayerLoop -> PlayerLoop: // ...
+    PlayerLoop -> PlayerLoop: ScriptRunBehaviourFixedUpdate
+    group MonoBehaviour.FixedUpdate
+        PlayerLoop -> MyGameScript: FixedUpdate
+        MyGameScript -> MyGameScript: // ...
+        PlayerLoop <-- MyGameScript
+    end
+    PlayerLoop -> PlayerLoop: // ...
+end
+group PlayerLoop.Update
+    PlayerLoop -> NetworkUpdateLoop: RunNetworkUpdate
+    NetworkUpdateLoop -> NetworkUpdateLoop: UpdateStage = Update
+    loop m_Update_Array
+        NetworkUpdateLoop -> MyPlainScript: NetworkUpdate
+        NetworkUpdateLoop <-- MyPlainScript
+        NetworkUpdateLoop -> MyGameScript: NetworkUpdate
+        NetworkUpdateLoop <-- MyGameScript
+    end
+    PlayerLoop <-- NetworkUpdateLoop
+    PlayerLoop -> PlayerLoop: ScriptRunBehaviourUpdate
+    group MonoBehaviour.Update
+        PlayerLoop -> MyGameScript: Update
+        MyGameScript -> MyGameScript: // ...
+        PlayerLoop <-- MyGameScript
+    end
+    PlayerLoop -> PlayerLoop: // ...
+end
+group MonoBehaviour.OnDisable
+    MyGameScript -> NetworkUpdateLoop: UnregisterAllNetworkUpdates
+    MyGameScript <-- NetworkUpdateLoop
+end
+group IDisposable.Dispose
+    MyPlainScript -> NetworkUpdateLoop: UnregisterAllNetworkUpdates
+    MyPlainScript <-- NetworkUpdateLoop
+end
+```
+</details>
+
+### Pseudo-code
+
+```cs
+public interface INetworkUpdateSystem
+{
+    void NetworkUpdate();
+}
+
+public enum NetworkUpdateStage
+{
+    Initialization = -4,
+    EarlyUpdate = -3,
+    FixedUpdate = -2,
+    PreUpdate = -1,
+    Update = 0,
+    PreLateUpdate = 1,
+    PostLateUpdate = 2
+}
+
+public static class NetworkUpdateLoop
+{
+    public static uint FrameCount;
+    public static NetworkUpdateStage UpdateStage;
+
+    public static void RegisterAllNetworkUpdates(this INetworkUpdateSystem updateSystem);
+    public static void RegisterNetworkUpdate(this INetworkUpdateSystem updateSystem, NetworkUpdateStage updateStage);
+    public static void UnregisterNetworkUpdate(this INetworkUpdateSystem updateSystem, NetworkUpdateStage updateStage);
+    public static void UnregisterAllNetworkUpdates(this INetworkUpdateSystem updateSystem);
+}
+
+public class MyPlainScript : IDisposable, INetworkUpdateSystem
+{
+    public void Initialize()
+    {
+        this.RegisterNetworkUpdate(NetworkUpdateStage.EarlyUpdate);
+        this.RegisterNetworkUpdate(NetworkUpdateStage.FixedUpdate);
+        this.RegisterNetworkUpdate(NetworkUpdateStage.Update);
+    }
+
+    public void NetworkUpdate()
+    {
+        Debug.Log($"{nameof(MyPlainScript)}.{nameof(NetworkUpdate)}()");
+    }
+
+    public void Dispose()
+    {
+        this.UnregisterAllNetworkUpdates();
+    }
+}
+
+public class MyGameScript : MonoBehaviour, INetworkUpdateSystem
+{
+    private void OnEnable()
+    {
+        this.RegisterNetworkUpdate(NetworkUpdateStage.EarlyUpdate);
+        this.RegisterNetworkUpdate(NetworkUpdateStage.FixedUpdate);
+        this.RegisterNetworkUpdate(NetworkUpdateStage.Update);
+    }
+
+    public void NetworkUpdate()
+    {
+        Debug.Log($"{nameof(MyGameScript)}.{nameof(NetworkUpdate)}({NetworkUpdateLoop.UpdateStage})");
+    }
+
+    private void FixedUpdate()
+    {
+        Debug.Log($"{nameof(MyGameScript)}.{nameof(FixedUpdate)}()");
+    }
+
+    private void Update()
+    {
+        Debug.Log($"{nameof(MyGameScript)}.{nameof(Update)}()");
+    }
+
+    private void OnDisable()
+    {
+        this.UnregisterAllNetworkUpdates();
+    }
+}
+```
+
 In order to provide a more modular mechanism for registering with the network game update loop system, it is proposed that a new [```INetworkUpdateLoopSystem```](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/develop/com.unity.multiplayer.mlapi/Runtime/Core/NetworkUpdateLoopSystem.cs) interface be used to define the underlying methods that would be used for this process.
-![](0000-NetworkProcessingHook/InterfaceNetworkUpdateLoopSystem.png)
+![](0000-NetworkUpdateLoop/InterfaceNetworkUpdateLoopSystem.png)
 Where the RegisterUpdate method is called for each of the four new network loop update stages (PreUpdate, FixedUpdate, Update, and LateUpdate).  The class that defines the RegisterUpdate method would either return an action for the update stage in question or null for no updates during the stage being queried for registration.  This approach not only provides a wider area of coverage (i.e. any class could register), but it also provides the ability to not register thus not adding the additional overhead of invoking an action for a stage not being used by the class.
 
 The class defined below provides one potential way to both define the [```INetworkUpdateLoopSystem's```](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/develop/com.unity.multiplayer.mlapi/Runtime/Core/NetworkUpdateLoopSystem.cs) methods while providing additional class relative helper methods for registering and deregistering from the network update loop system.
 
-![](0000-NetworkProcessingHook/GenericUpdateLoopSystem.png)
+![](0000-NetworkUpdateLoop/GenericUpdateLoopSystem.png)
 
 Both the ```RegisterUpdate``` and the ```RegisterUpdateLoopSystemDestroyCallback``` methods are called by the [```NetworkUpdateManager```](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/develop/com.unity.multiplayer.mlapi/Runtime/Core/NetworkUpdateManager.cs) during the registration process.  Below is a diagram to help better understand the network update loop system registration process:
-![](0000-NetworkProcessingHook/NULSRegistrationProcess.png)
+![](0000-NetworkUpdateLoop/NULSRegistrationProcess.png)
 1. Class instance registers with the NetworkUpdateMananger.
 2. During registration, the [```NetworkUpdateManager```](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/develop/com.unity.multiplayer.mlapi/Runtime/Core/NetworkUpdateManager.cs) calls the class instance’s ```RegisterUpdate``` method that will either return null or an Action to be registered for the particular update stage in question.  (*the diagram above shows only the Update and LateUpdate were registered for example purposes*)
 3. If any update stage was registered, then the [```NetworkUpdateManager```](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/develop/com.unity.multiplayer.mlapi/Runtime/Core/NetworkUpdateManager.cs) will invoke the class instance’s ```RegisterUpdateLoopSystemDestroyCallback``` method passing the callback action to be invoked upon the class instance being destroyed or if the class instance just wants to remove itself from the network update loop system stages.
 So, any [```INetworkUpdateLoopSystem```](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/develop/com.unity.multiplayer.mlapi/Runtime/Core/NetworkUpdateLoopSystem.cs) derived class can opt to register or deregister from network loop update stages during runtime.  This can be useful if a network object has associated [```INetworkUpdateLoopSystem```](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/develop/com.unity.multiplayer.mlapi/Runtime/Core/NetworkUpdateLoopSystem.cs) based components and is not considered ‘active’ but is still considered enabled.  Under this situation, one could deregister the [```INetworkUpdateLoopSystem```](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/develop/com.unity.multiplayer.mlapi/Runtime/Core/NetworkUpdateLoopSystem.cs) based components to be removed from any network loop system update stages until the network object becomes activated (“active”) again.  The registration and deregistration process provides runtime control over when the network update stages for a specific class will be invoked.  Under other circumstances, one might want to register for only specific network loop update stages depending on certain events or states.  This too can be accomplished by simply deregistering (if already registered) and then re-registering with the new update stages.
 
 Currently, the [```NetworkingManager```](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/develop/com.unity.multiplayer.mlapi/Runtime/Core/NetworkingManager.cs) and the [```RpcQueueContainer```](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/develop/com.unity.multiplayer.mlapi/Runtime/Messaging/RPCQueue/RPCQueueContainer.cs) derive from two predefined [```INetworkUpdateLoopSystem```](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/develop/com.unity.multiplayer.mlapi/Runtime/Core/NetworkUpdateLoopSystem.cs) derived classes (```UpdateLoopBehaviour``` and ```GenericUpdateLoopSystem```).
-![](0000-NetworkProcessingHook/UpdatedClassesNULS.png)
+![](0000-NetworkUpdateLoop/UpdatedClassesNULS.png)
 **NetworkingManager:** Now derives from the ```UpdateLoopBehaviour``` and registers for the following network update loop stages:
 1. **PreUpdate:** Transport event polling occurs here
 2. **Update:** The remainder of the [```NetworkingManager's```](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/develop/com.unity.multiplayer.mlapi/Runtime/Core/NetworkingManager.cs) update occurs here.
@@ -63,11 +410,11 @@ Currently, the [```NetworkingManager```](https://github.com/Unity-Technologies/c
 **Invoking RPCs at specific Network Update Loop Stages:**
 While there are many future possibilities for this new feature, one of the several driving purposes for this added capability was to provide an intuitive way to invoke RPCs at specific stages during runtime (i.e. dynamically).  In order to accomplish this, the network update loop registration process needed to be enhanced (as explained above) and some minor adjustments to the RPC send parameters were needed.
 
-![](0000-NetworkProcessingHook/SendParamsNULS.png)
+![](0000-NetworkUpdateLoop/SendParamsNULS.png)
 
 In order to specify what network update stage one might want an RPC to be invoked, adding the [```ServerRpcParams```](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/develop/com.unity.multiplayer.mlapi/Runtime/Messaging/RpcParams.cs) or [```ClientRpcParams```](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/develop/com.unity.multiplayer.mlapi/Runtime/Messaging/RpcParams.cs) as the last RPC method’s parameter and setting the UpdateStage is all that is needed:
 
-![](0000-NetworkProcessingHook/SendParamsNULSExample.png)
+![](0000-NetworkUpdateLoop/SendParamsNULSExample.png)
 
 The above code snippet shows that the ```ServerRpc```, ```UpdateMyRigidBodyPosition```, will be invoked during the network FixedUpdate stage when invoked on the receiver side (in this case the server).  The class containing the Rpc method itself does not need to be registered with the [```NetworkUpdateManager```](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/develop/com.unity.multiplayer.mlapi/Runtime/Core/NetworkUpdateManager.cs) as the [```RpcQueueContainer```](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/develop/com.unity.multiplayer.mlapi/Runtime/Messaging/RPCQueue/RPCQueueContainer.cs) handles this portion of the RPC invocation process.
 # Drawbacks
