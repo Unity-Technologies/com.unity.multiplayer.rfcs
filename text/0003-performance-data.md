@@ -39,6 +39,7 @@ class ProfilerTickData {
     int bytesSent;
     int bytesReceived;
     int tickDuration;
+    int numberOfMessagesOutgoing;
     ...
 
     // mlapi-level
@@ -48,6 +49,51 @@ class ProfilerTickData {
     // potentially? For any remaining edge cases?
     Dictionary<string,Object> kvStore;
 }
+
+
+namespace MLAPI {
+    private static ProfilerTickData profilerData = new ProfilerTickData();
+
+    internal static ref ProfilerTickData ProfilerData => ref profilerData;
+    
+    class NetworkManager{
+         public delegate void PerfomanceDataEventHandler(in ProfilerTickData profilerData);
+         event PerfomanceDataEventHandler PerfomanceDataEvent;
+         
+         void LateUpdate(){
+             ...
+             profilerData.tickID += 1;
+             ...
+             // Transports to their send and recieves
+             ...
+             profilerData.numberOfRPCs += 1;
+             ...
+             PerfomanceDataEvent?.Invoke();
+         }
+    }
+}
+
+
+namespace MLAPI.Transport {
+    class UnetTransport{
+         void Send(ulong clientId, ArraySegment<byte> data, string channelName){
+             MLAPI.ProfilerData.numberOfMessagesOutgoing += 1;
+         }
+    }
+}
+
+namespace ThirdParty {
+    class StatsRenderer{
+        void Start(){
+            NetworkManager.instance.PerfomanceDataEvent += OnPerformanceEvent;
+        }
+        
+        void OnPerformanceEvent(in ProfilerTickData profilerData){
+            IMGUI.textlabel("Num Messages", profilerData.numberOfMessagesOutgoing);
+        }
+    }
+}
+
 ```
 
 # Drawbacks
