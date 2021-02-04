@@ -44,10 +44,6 @@ class ProfilerTickData {
 
     // mlapi-level
     int numberOfRPCs;
-    ...
-
-    // potentially? For any remaining edge cases?
-    Dictionary<string,Object> kvStore;
 }
 
 
@@ -64,7 +60,7 @@ namespace MLAPI {
              ...
              profilerData.tickID += 1;
              ...
-             // Transports to their send and recieves
+             // Transports do their send and recieves
              ...
              profilerData.numberOfRPCs += 1;
              ...
