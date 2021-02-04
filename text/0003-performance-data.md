@@ -23,7 +23,7 @@ MLAPI will need to output the number of networked objects and the amount of RPCs
 
 External Tools and APIs will be able to then get this fully written ProfilerTickData at the end of the frame for them to do what they wish (Render to Profiler Stats Overlay or Display/Record in a Profiler or file)
 
-As this data is largely a struct like object, accessing its data will be as simple as accessing fields. Additionally the rendering or logging of these statistics will fall on the user and not affect the Tick or be done at all within the MLAPI framework.
+As this data is largely a struct, accessing its data will be as simple as accessing fields. Additionally the rendering or logging of these statistics will fall on the user and not affect the Tick or be done at all within the MLAPI framework.
 
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
@@ -32,7 +32,7 @@ As this data is largely a struct like object, accessing its data will be as simp
 In order to limit the interface, we are pushing the collected set or performance data to be obtainable only at the end of a tick. The following is roughly what this object could look like. Currently this object will be updated in ```NetworkManager.LateUpdate()``` for the MLAPI and ```Transport.Send()``` and other relevant transport method for the transport layer. At the end of the tick the user will be notified that the relevant data is complete and ready (both the MLAPI data and Transport data).
 
 ```cs
-class ProfilerTickData {
+struct ProfilerTickData {
     int tickID;
 
     // transport-level
