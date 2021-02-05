@@ -6,11 +6,11 @@
 # Summary
 [summary]: #summary
 
-Often there is a need to update netcode systems like RPC queue, transport IO and others outside the standard [`MonoBehaviour` event cycle](https://docs.unity3d.com/Manual/ExecutionOrder.html).
+Often there is a need to update netcode systems like RPC queue, transport IO and others outside standard [`MonoBehaviour` event cycle](https://docs.unity3d.com/Manual/ExecutionOrder.html).
 
 This RFC proposes a new **Network Update Loop** infrastructure that utilizes [Unity's low-level Player Loop API](https://docs.unity3d.com/ScriptReference/LowLevel.PlayerLoop.html) and allows for registering `INetworkUpdateSystem`s with `NetworkUpdate()` methods to be executed at specific `NetworkUpdateStage`s which may also be prior to or after `MonoBehaviour`-driven game logic execution.
 
-Implementation is expected to have minimal yet flexible API that would allow further systems such as network ticking to be easily developed.
+Implementation is expected to have minimal yet flexible API that would allow further systems such as network tick to be easily developed.
 
 # Motivation
 [motivation]: #motivation
