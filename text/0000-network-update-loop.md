@@ -674,43 +674,39 @@ end
 # Drawbacks
 [drawbacks]: #drawbacks
 
-Why should we _not_ do this?
+N/A: We need to have this, other systems such as network tick, network variable snapshotting and others will be relying on this pipeline.
 
 # Rationale and alternatives
 [rationale-and-alternatives]: #rationale-and-alternatives
 
 - Why is this design the best in the space of possible designs?
+  - This approach is both more flexible and performant than other approaches considered (manual centralized UpdateManager, [Script Execution Order](https://docs.unity3d.com/Manual/class-MonoManager.html) etc.)
 - What other designs have been considered and what is the rationale for not choosing them?
+  - We might rely on [Script Execution Order](https://docs.unity3d.com/Manual/class-MonoManager.html) which lives in [`MonoBehaviour` event cycle](https://docs.unity3d.com/Manual/ExecutionOrder.html) but direct access and control over player loop is better in terms of performance and flexibility.
 - What is the impact of not doing this?
+  - Other upcoming network systems are depending on this feature.
 
 # Prior art
 [prior-art]: #prior-art
 
-Discuss prior art, both the good and the bad, in relation to this proposal. A few examples of what this can include are:
-
-- For framework, tools, and library proposals: Does this feature exist in other networking stacks and what experience have their community had?
-- For community proposals: Is this done by some other community and what were their experiences with it?
-- For other teams: What lessons can we learn from what other communities have done here?
-- Papers: Are there any published papers or great posts that discuss this? If you have some relevant papers to refer to, this can serve as a more detailed theoretical background.
-
-This section is intended to encourage you as an author to think about the lessons from other projects, provide readers of your RFC with a fuller picture. If there is no prior art, that is fine - your ideas are interesting to us whether they are brand new or if it is an adaptation from other projects.
-
-Note that while precedent set by other projects is some motivation, it does not on its own motivate an RFC. Please also take into consideration that Unity Multiplayer sometimes intentionally diverges from common multiplayer networking features.
+N/A
 
 # Unresolved questions
 [unresolved-questions]: #unresolved-questions
 
-- What parts of the design do you expect to resolve through the RFC process before this gets merged?
-- What parts of the design do you expect to resolve through the implementation of this feature before stabilization?
-- What related issues do you consider out of scope for this RFC that could be addressed in the future independently of the solution that comes out of this RFC?
+N/A
 
 # Future possibilities
 [future-possibilities]: #future-possibilities
 
-Think about what the natural extension and evolution of your proposal would be and how it would affect the Unity Multiplayer as a whole in a holistic way. Try to use this section as a tool to more fully consider all possible interactions with the Unity Multiplayer in your proposal. Also consider how the this all fits into the roadmap for the project and the team.
+## Network Tick & Time API
 
-This is also a good place to "dump ideas", if they are out of scope for the RFC you are writing but otherwise related.
+// todo
 
-If you have tried and cannot think of any future possibilities, you may simply state that you cannot think of anything.
+## Network Variables Snapshotting
 
-Note that having something written down in the future-possibilities section is not a reason to accept the current or a future RFC; such notes should be in the section on motivation or rationale in this or subsequent RFCs. The section merely provides additional information.
+// todo
+
+## Other Tick/Update Dependent Network Systems
+
+// todo
