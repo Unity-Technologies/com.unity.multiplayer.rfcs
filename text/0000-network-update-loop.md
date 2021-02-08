@@ -43,7 +43,7 @@ Developers will mostly interact with `NetworkUpdateLoop` for registration and `I
 
 ### Frames and Stages
 
-After injection, player loop looks like this:
+After injection, player loop will look like this:
 
 - **Initialization**
   - // other systems
@@ -101,34 +101,108 @@ After injection, player loop looks like this:
 
 As seen above, it first calls `NetworkLoopUpdate.AdvanceFrame()` in `Initialization` stage then continues with iterating over registered `INetworkUpdateSystem`s in `m_Initialization_Array` and calls `INetworkUpdateSystem.NetworkUpdate()` on them.
 
-Network stages are mostly the first block in player loop except `Initialization` and `PostLateUpdate` where in those cases, network stages are executed last.
+Network stages are mostly the first batch in player loop except `Initialization` and `PostLateUpdate` where in those cases, network stages are executed last.
+
+In all stages, iterate over static array and call `NetworkUpdate()` method over `INetworkUpdateSystem` interface pattern is repeated.
 
 ## INetworkUpdateSystem
 
+`INetworkUpdateSystem` interface is the ultimate contract between user-defined systems and the `NetworkUpdateLoop`.
+
 ### Plain Class Usage
+
+```cs
+public class MyPlainScript : IDisposable, INetworkUpdateSystem
+{
+    public void Initialize()
+    {
+        // extension method calls are equivalent to `NetworkUpdateLoop.RegisterNetworkUpdate(this, NetworkUpdateStage.XXX)`
+        this.RegisterNetworkUpdate(NetworkUpdateStage.EarlyUpdate);
+        this.RegisterNetworkUpdate(NetworkUpdateStage.FixedUpdate);
+        this.RegisterNetworkUpdate(NetworkUpdateStage.Update);
+    }
+
+    // will be called on EarlyUpdate, FixedUpdate and Update stages as registered above
+    public void NetworkUpdate()
+    {
+        Debug.Log($"{nameof(MyPlainScript)}.{nameof(NetworkUpdate)}({NetworkUpdateLoop.UpdateStage})");
+    }
+
+    public void Dispose()
+    {
+        // extension method call is equivalent to `NetworkUpdateLoop.UnregisterAllNetworkUpdates(this)`
+        this.UnregisterAllNetworkUpdates();
+    }
+}
+```
+
+Output
+
+```
+MyPlainScript.NetworkUpdate(EarlyUpdate)
+MyPlainScript.NetworkUpdate(FixedUpdate)
+MyPlainScript.NetworkUpdate(Update)
+MyPlainScript.NetworkUpdate(EarlyUpdate)
+MyPlainScript.NetworkUpdate(FixedUpdate)
+MyPlainScript.NetworkUpdate(Update)
+...
+```
 
 ### MonoBehaviour Usage
 
-Explain the proposal as if it was already included in the Unity Multiplayer and you were teaching it to another Unity developer. That generally means:
+```cs
+public class MyGameScript : MonoBehaviour, INetworkUpdateSystem
+{
+    private void OnEnable()
+    {
+        // extension method calls are equivalent to `NetworkUpdateLoop.RegisterNetworkUpdate(this, NetworkUpdateStage.XXX)`
+        this.RegisterNetworkUpdate(NetworkUpdateStage.EarlyUpdate);
+        this.RegisterNetworkUpdate(NetworkUpdateStage.FixedUpdate);
+        this.RegisterNetworkUpdate(NetworkUpdateStage.Update);
+    }
 
-- Introducing new named concepts.
-- Explaining the feature largely in terms of examples.
-- Explaining how Unity developers should _think_ about the feature, and how it should impact the way they develop multiplayer projects in Unity. It should explain the impact as concretely as possible.
-- If applicable, provide sample error messages, deprecation warnings, or migration guidance.
-- If applicable, describe the differences between teaching this to existing Unity developers and new Unity developers.
+    // will be called on EarlyUpdate, FixedUpdate and Update stages as registered above
+    public void NetworkUpdate()
+    {
+        Debug.Log($"{nameof(MyGameScript)}.{nameof(NetworkUpdate)}({NetworkUpdateLoop.UpdateStage})");
+    }
 
-For implementation-oriented RFCs (e.g. for framework internals), this section should focus on how Unity Multiplayer contributors should think about the change, and give examples of its concrete impact. For policy RFCs, this section should provide an example-driven introduction to the policy, and explain its impact in concrete terms.
+    private void FixedUpdate()
+    {
+        Debug.Log($"{nameof(MyGameScript)}.{nameof(FixedUpdate)}()");
+    }
+
+    private void Update()
+    {
+        Debug.Log($"{nameof(MyGameScript)}.{nameof(Update)}()");
+    }
+
+    private void OnDisable()
+    {
+        // extension method call is equivalent to `NetworkUpdateLoop.UnregisterAllNetworkUpdates(this)`
+        this.UnregisterAllNetworkUpdates();
+    }
+}
+```
+
+Output
+
+```
+MyGameScript.NetworkUpdate(EarlyUpdate)
+MyGameScript.NetworkUpdate(FixedUpdate)
+MyGameScript.FixedUpdate()
+MyGameScript.NetworkUpdate(Update)
+MyGameScript.Update()
+MyGameScript.NetworkUpdate(EarlyUpdate)
+MyGameScript.NetworkUpdate(FixedUpdate)
+MyGameScript.FixedUpdate()
+MyGameScript.NetworkUpdate(Update)
+MyGameScript.Update()
+...
+```
 
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
-
-This is the technical portion of the RFC. Explain the design in sufficient detail that:
-
-- Its interaction with other features is clear.
-- It is reasonably clear how the feature would be implemented.
-- Corner cases are dissected by example.
-
-The section should return to the examples given in the previous section, and explain more fully how the detailed proposal makes those examples work.
 
 ## Injecting NetworkUpdateLoop Systems Into PlayerLoop
 
@@ -596,87 +670,6 @@ group IDisposable.Dispose
 end
 ```
 </details>
-
-### Pseudo-code
-
-```cs
-public interface INetworkUpdateSystem
-{
-    void NetworkUpdate();
-}
-
-public enum NetworkUpdateStage
-{
-    Initialization = -4,
-    EarlyUpdate = -3,
-    FixedUpdate = -2,
-    PreUpdate = -1,
-    Update = 0,
-    PreLateUpdate = 1,
-    PostLateUpdate = 2
-}
-
-public static class NetworkUpdateLoop
-{
-    public static uint FrameCount;
-    public static NetworkUpdateStage UpdateStage;
-
-    public static void RegisterAllNetworkUpdates(this INetworkUpdateSystem updateSystem);
-    public static void RegisterNetworkUpdate(this INetworkUpdateSystem updateSystem, NetworkUpdateStage updateStage);
-    public static void UnregisterNetworkUpdate(this INetworkUpdateSystem updateSystem, NetworkUpdateStage updateStage);
-    public static void UnregisterAllNetworkUpdates(this INetworkUpdateSystem updateSystem);
-}
-
-public class MyPlainScript : IDisposable, INetworkUpdateSystem
-{
-    public void Initialize()
-    {
-        this.RegisterNetworkUpdate(NetworkUpdateStage.EarlyUpdate);
-        this.RegisterNetworkUpdate(NetworkUpdateStage.FixedUpdate);
-        this.RegisterNetworkUpdate(NetworkUpdateStage.Update);
-    }
-
-    public void NetworkUpdate()
-    {
-        Debug.Log($"{nameof(MyPlainScript)}.{nameof(NetworkUpdate)}()");
-    }
-
-    public void Dispose()
-    {
-        this.UnregisterAllNetworkUpdates();
-    }
-}
-
-public class MyGameScript : MonoBehaviour, INetworkUpdateSystem
-{
-    private void OnEnable()
-    {
-        this.RegisterNetworkUpdate(NetworkUpdateStage.EarlyUpdate);
-        this.RegisterNetworkUpdate(NetworkUpdateStage.FixedUpdate);
-        this.RegisterNetworkUpdate(NetworkUpdateStage.Update);
-    }
-
-    public void NetworkUpdate()
-    {
-        Debug.Log($"{nameof(MyGameScript)}.{nameof(NetworkUpdate)}({NetworkUpdateLoop.UpdateStage})");
-    }
-
-    private void FixedUpdate()
-    {
-        Debug.Log($"{nameof(MyGameScript)}.{nameof(FixedUpdate)}()");
-    }
-
-    private void Update()
-    {
-        Debug.Log($"{nameof(MyGameScript)}.{nameof(Update)}()");
-    }
-
-    private void OnDisable()
-    {
-        this.UnregisterAllNetworkUpdates();
-    }
-}
-```
 
 # Drawbacks
 [drawbacks]: #drawbacks
