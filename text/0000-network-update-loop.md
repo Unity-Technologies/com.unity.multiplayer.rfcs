@@ -22,26 +22,86 @@ Beyond that, the proposed design standardizes `NetworkUpdateStage`s which are go
 # Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
 
-Developers will mostly interact with `static class NetworkUpdateLoop` for registration and `interface INetworkUpdateSystem` for implementation.
+Developers will mostly interact with `NetworkUpdateLoop` for registration and `INetworkUpdateSystem` for implementation.
 
 ## NetworkUpdateLoop
 
-`NetworkUpdateLoop` implements custom methods injected into the player loop, maintains stage-specific lists of `INetworkUpdateSystem`s to be executed in the player loop.
+`NetworkUpdateLoop` implements custom methods injected into the player loop, maintains stage-specific lists of `INetworkUpdateSystem`s.
 
 ### Registration
 
 `NetworkUpdateLoop` exposes 4 methods for registration:
 
 - `void RegisterNetworkUpdate(INetworkUpdateSystem updateSystem, NetworkUpdateStage updateStage)`
-  - registers a `INetworkUpdateSystem` to be executed on the specified `NetworkUpdateStage`
+  - registers an `INetworkUpdateSystem` to be executed on the specified `NetworkUpdateStage`
 - `void RegisterAllNetworkUpdates(INetworkUpdateSystem updateSystem)`
-  - registers a `INetworkUpdateSystem` to be executed on all `NetworkUpdateStage`s
+  - registers an `INetworkUpdateSystem` to be executed on all `NetworkUpdateStage`s
 - `void UnregisterNetworkUpdate(INetworkUpdateSystem updateSystem, NetworkUpdateStage updateStage)`
-  - unregisters a `INetworkUpdateSystem` from the specified `NetworkUpdateStage`
+  - unregisters an `INetworkUpdateSystem` from the specified `NetworkUpdateStage`
 - `void UnregisterAllNetworkUpdates(INetworkUpdateSystem updateSystem)`
-  - unregisters a `INetworkUpdateSystem` from all `NetworkUpdateStage`s
+  - unregisters an `INetworkUpdateSystem` from all `NetworkUpdateStage`s
 
 ### Frames and Stages
+
+After injection, player loop looks like this:
+
+- **Initialization**
+  - // other systems
+  - RunNetworkInitialization
+    - `NetworkLoopSystem.AdvanceFrame()`
+        - `++FrameCount`
+    - `UpdateStage = NetworkUpdateStage.Initialization`
+    - `foreach (INetworkUpdateSystem in m_Initialization_Array)`
+      - `INetworkUpdateSystem.NetworkUpdate()`
+- **EarlyUpdate**
+  - RunNetworkEarlyUpdate
+    - `UpdateStage = NetworkUpdateStage.EarlyUpdate`
+    - `foreach (INetworkUpdateSystem in m_EarlyUpdate_Array)`
+      - `INetworkUpdateSystem.NetworkUpdate()`
+  - // other systems
+- **FixedUpdate**
+  - RunNetworkFixedUpdate
+    - `UpdateStage = NetworkUpdateStage.FixedUpdate`
+    - `foreach (INetworkUpdateSystem in m_FixedUpdate_Array)`
+      - `INetworkUpdateSystem.NetworkUpdate()`
+  - ScriptRunBehaviourFixedUpdate
+    - `foreach (MonoBehaviour in m_Behaviours)`
+      - `MonoBehaviour.FixedUpdate()`
+  - // other systems
+- **PreUpdate**
+  - RunNetworkPreUpdate
+    - `UpdateStage = NetworkUpdateStage.PreUpdate`
+    - `foreach (INetworkUpdateSystem in m_PreUpdate_Array)`
+      - `INetworkUpdateSystem.NetworkUpdate()`
+  - // other systems
+- **Update**
+  - RunNetworkUpdate
+    - `UpdateStage = NetworkUpdateStage.Update`
+    - `foreach (INetworkUpdateSystem in m_Update_Array)`
+      - `INetworkUpdateSystem.NetworkUpdate()`
+  - ScriptRunBehaviourUpdate
+    - `foreach (MonoBehaviour in m_Behaviours)`
+      - `MonoBehaviour.Update()`
+  - // other systems
+- **PreLateUpdate**
+  - RunNetworkPreLateUpdate
+    - `UpdateStage = NetworkUpdateStage.PreLateUpdate`
+    - `foreach (INetworkUpdateSystem in m_PreLateUpdate_Array)`
+      - `INetworkUpdateSystem.NetworkUpdate()`
+  - // other systems
+  - ScriptRunBehaviourLateUpdate
+    - `foreach (MonoBehaviour in m_Behaviours)`
+      - `MonoBehaviour.LateUpdate()`
+- **PostLateUpdate**
+  - // other systems
+  - RunNetworkPostLateUpdate
+    - `UpdateStage = NetworkUpdateStage.PostLateUpdate`
+    - `foreach (INetworkUpdateSystem in m_PostLateUpdate_Array)`
+      - `INetworkUpdateSystem.NetworkUpdate()`
+
+As seen above, it first calls `NetworkLoopUpdate.AdvanceFrame()` in `Initialization` stage then continues with iterating over registered `INetworkUpdateSystem`s in `m_Initialization_Array` and calls `INetworkUpdateSystem.NetworkUpdate()` on them.
+
+Network stages are mostly the first block in player loop except `Initialization` and `PostLateUpdate` where in those cases, network stages are executed last.
 
 ## INetworkUpdateSystem
 
