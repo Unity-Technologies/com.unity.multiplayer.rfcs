@@ -36,7 +36,9 @@ struct ProfilerTickData {
     int tickID;
 
     // mlapi-level
-    int numberOfRPCs;
+    int numberOfServerRPCs;
+    int numberOfClientRPCs;
+    int numberOfClientsConnected;
     ...
 
     // transport-level
@@ -46,10 +48,13 @@ struct ProfilerTickData {
 
 
 struct TransportProfilerData {
-    int bytesSent;
-    int bytesReceived;
     int tickDuration;
-    int numberOfMessagesOutgoing;
+    int numberOfBuffMessagesOut;
+    int numberOfBuffMessagesIn;
+    int numberOfUnBuffMessagesOut;
+    int numberOfUnBuffMessagesIn;
+    int numberBytesSent;
+    int numberBytesReceived;
 }
 
 
@@ -66,7 +71,7 @@ namespace MLAPI {
              ...
              // Transports do their send and receives
              ...
-             profilerData.numberOfRPCs += 1;
+             profilerData.numberOfServerRPCs += 1;
              ...
              var transportProfilerData = Transport.GetProfilerData();
              profilerData.transportProfilerData = transportProfilerData;
@@ -81,7 +86,7 @@ namespace MLAPI.Transport {
          private static TransportProfilerData transportProfilerData;
          
          void Send(ulong clientId, ArraySegment<byte> data, string channelName){
-             transportProfilerData.numberOfMessagesOutgoing += 1;
+             transportProfilerData.numberOfBuffMessagesOut += 1;
          }
          
          TransportProfilerData GetProfilerData() {
@@ -97,7 +102,7 @@ namespace ThirdParty {
         }
         
         void OnPerformanceEvent(in ProfilerTickData profilerData){
-            IMGUI.textlabel("Num RPCs", profilerData.numberOfRPCs);
+            IMGUI.textlabel("Num Server RPCs", profilerData.numberOfServerRPCs);
         }
     }
 }
