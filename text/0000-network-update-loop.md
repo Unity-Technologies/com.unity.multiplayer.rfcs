@@ -15,7 +15,9 @@ Implementation is expected to have minimal yet flexible API that would allow fur
 # Motivation
 [motivation]: #motivation
 
-Why are we doing this? What use cases does it support? What is the expected outcome?
+Even though it is possible to use low-level Player Loop API directly to insert custom `PlayerLoopSystem`s into existing player loop, it also requires non-trivial amount of boilerplate code and could cause fundamental issues in the engine runtime if not done very carefully. **We would like to have less boilerplate code and also be less error-prone at runtime.**
+
+Beyond that, proposed design standardizes `NetworkUpdateStage`s which are going to be executed at specific points in the player loop. This allows other framework systems tied into `NetworkUpdateLoop` to be aligned, such as RPCs executing at specific stages. **We would like to standardize execution of network stages as an infrastructure in the framework.**
 
 # Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
