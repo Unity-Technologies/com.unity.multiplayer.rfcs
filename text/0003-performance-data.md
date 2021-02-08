@@ -55,8 +55,6 @@ struct TransportProfilerData {
 
 namespace MLAPI {
     private static ProfilerTickData profilerData = new ProfilerTickData();
-
-    internal static ref ProfilerTickData ProfilerData => ref profilerData;
     
     class NetworkManager{
          public delegate void PerfomanceDataEventHandler(in ProfilerTickData profilerData);
@@ -80,8 +78,14 @@ namespace MLAPI {
 
 namespace MLAPI.Transport {
     class UnetTransport{
+         private static TransportProfilerData transportProfilerData;
+         
          void Send(ulong clientId, ArraySegment<byte> data, string channelName){
-             MLAPI.ProfilerData.numberOfMessagesOutgoing += 1;
+             transportProfilerData.numberOfMessagesOutgoing += 1;
+         }
+         
+         TransportProfilerData GetProfilerData() {
+             return transportProfilerData;
          }
     }
 }
@@ -93,7 +97,7 @@ namespace ThirdParty {
         }
         
         void OnPerformanceEvent(in ProfilerTickData profilerData){
-            IMGUI.textlabel("Num Messages", profilerData.numberOfMessagesOutgoing);
+            IMGUI.textlabel("Num RPCs", profilerData.numberOfRPCs);
         }
     }
 }
