@@ -35,15 +35,21 @@ In order to limit the interface, we are pushing the collected set or performance
 struct ProfilerTickData {
     int tickID;
 
+    // mlapi-level
+    int numberOfRPCs;
+    ...
+
     // transport-level
+    TransportProfilerData transportProfilerData;
+    ...
+}
+
+
+struct TransportProfilerData {
     int bytesSent;
     int bytesReceived;
     int tickDuration;
     int numberOfMessagesOutgoing;
-    ...
-
-    // mlapi-level
-    int numberOfRPCs;
 }
 
 
@@ -60,11 +66,13 @@ namespace MLAPI {
              ...
              profilerData.tickID += 1;
              ...
-             // Transports do their send and recieves
+             // Transports do their send and receives
              ...
              profilerData.numberOfRPCs += 1;
              ...
-             PerfomanceDataEvent?.Invoke();
+             var transportProfilerData = Transport.GetProfilerData();
+             profilerData.transportProfilerData = transportProfilerData;
+             PerfomanceDataEvent?.Invoke(profilerData);
          }
     }
 }
