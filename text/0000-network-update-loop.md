@@ -6,9 +6,9 @@
 # Summary
 [summary]: #summary
 
-Often there is a need to update netcode systems like RPC queue, transport and others outside the standard [`MonoBehaviour` event cycle](https://docs.unity3d.com/Manual/ExecutionOrder.html).
+Often there is a need to update netcode systems like RPC queue, transport, and others outside the standard [`MonoBehaviour` event cycle](https://docs.unity3d.com/Manual/ExecutionOrder.html).
 
-This RFC proposes a new **Network Update Loop** infrastructure that utilizes [Unity's low-level Player Loop API](https://docs.unity3d.com/ScriptReference/LowLevel.PlayerLoop.html) and allows for registering `INetworkUpdateSystem`s with `NetworkUpdate()` methods to be executed at specific `NetworkUpdateStage`s which may also be prior to or after `MonoBehaviour`-driven game logic execution.
+This RFC proposes a new **Network Update Loop** infrastructure that utilizes [Unity's low-level Player Loop API](https://docs.unity3d.com/ScriptReference/LowLevel.PlayerLoop.html) and allows for registering `INetworkUpdateSystem`s with `NetworkUpdate()` methods to be executed at specific `NetworkUpdateStage`s which may also be before or after `MonoBehaviour`-driven game logic execution.
 
 Implementation is expected to have a minimal yet flexible API that would allow further systems such as network tick to be easily developed.
 
@@ -21,6 +21,33 @@ Beyond that, the proposed design standardizes `NetworkUpdateStage`s which are go
 
 # Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
+
+Developers will mostly interact with `static class NetworkUpdateLoop` for registration and `interface INetworkUpdateSystem` for implementation.
+
+## NetworkUpdateLoop
+
+`NetworkUpdateLoop` implements custom methods injected into the player loop, maintains stage-specific lists of `INetworkUpdateSystem`s to be executed in the player loop.
+
+### Registration
+
+`NetworkUpdateLoop` exposes 4 methods for registration:
+
+- `void RegisterNetworkUpdate(INetworkUpdateSystem updateSystem, NetworkUpdateStage updateStage)`
+  - registers a `INetworkUpdateSystem` to be executed on the specified `NetworkUpdateStage`
+- `void RegisterAllNetworkUpdates(INetworkUpdateSystem updateSystem)`
+  - registers a `INetworkUpdateSystem` to be executed on all `NetworkUpdateStage`s
+- `void UnregisterNetworkUpdate(INetworkUpdateSystem updateSystem, NetworkUpdateStage updateStage)`
+  - unregisters a `INetworkUpdateSystem` from the specified `NetworkUpdateStage`
+- `void UnregisterAllNetworkUpdates(INetworkUpdateSystem updateSystem)`
+  - unregisters a `INetworkUpdateSystem` from all `NetworkUpdateStage`s
+
+### Frames and Stages
+
+## INetworkUpdateSystem
+
+### Plain Class Usage
+
+### MonoBehaviour Usage
 
 Explain the proposal as if it was already included in the Unity Multiplayer and you were teaching it to another Unity developer. That generally means:
 
