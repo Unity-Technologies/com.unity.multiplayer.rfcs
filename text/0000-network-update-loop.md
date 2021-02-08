@@ -701,20 +701,20 @@ N/A
 
 ## Network Tick & Time API
 
-// todo
+Relying on this pipeline, we could implement network time and tick numbers to reference specific network frames — potentially for interpolation, snapshotting, rollback/replay etc.
 
-## Tranport IO
+## Transport IO
 
-// todo
+A transport system could be polled very early in the `EarlyUpdate` stage to receive input data and could be flushed on `PostLateUpdate` stage to send output data.
 
 ## RPC Execution
 
-// todo
+RPCs might carry `NetworkUpdateStage` information with them and be executed at specific stages on the remote-end.
 
 ## Network Variables Snapshotting
 
-// todo
+Network variables need to know when they should be written and when they should be read so that they could snapshot themselves for outbound and update themselves for inbound.
 
 ## Other Tick/Update Dependent Network Systems
 
-// todo
+With this network update loop pipeline, it's natural to register any tick/frame/update based network systems into relevant stages. We are expecting lots of upcoming network systems to utilize this infrastructure in the future.
