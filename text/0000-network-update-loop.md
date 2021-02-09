@@ -41,7 +41,7 @@ Developers will mostly interact with `NetworkUpdateLoop` for registration and `I
 - `void UnregisterAllNetworkUpdates(INetworkUpdateSystem updateSystem)`
   - unregisters an `INetworkUpdateSystem` from all `NetworkUpdateStage`s
 
-### Frames and Stages
+### Update Stages
 
 After injection, player loop will look like this:
 
@@ -685,7 +685,7 @@ N/A
 # Future possibilities
 [future-possibilities]: #future-possibilities
 
-## Network Tick & Time API
+## Network Time, Tick & Frames
 
 Relying on this pipeline, we could implement network time and tick numbers to reference specific network frames — potentially for interpolation, snapshotting, rollback/replay etc.
 
@@ -697,10 +697,10 @@ A transport system could be polled very early in the `EarlyUpdate` stage to rece
 
 RPCs might carry `NetworkUpdateStage` information with them and be executed at specific stages on the remote-end.
 
-## Network Variables Snapshotting
+## Network Variables & Snapshotting
 
-Network variables need to know when they should be written and when they should be read so that they could snapshot themselves for outbound and update themselves for inbound.
+Network variables need to know when they should be written and when they should be read, so that they could snapshot themselves for outbound and update themselves for inbound.
 
 ## Other Tick/Update Dependent Network Systems
 
-With this network update loop pipeline, it's natural to register any tick/frame/update based network systems into relevant stages. We are expecting lots of upcoming network systems to utilize this infrastructure in the future.
+With this network update loop pipeline, it's natural to register any tick/frame/update based network systems into relevant stages. We are expecting lots of upcoming network systems to utilizing this infrastructure in the future.
