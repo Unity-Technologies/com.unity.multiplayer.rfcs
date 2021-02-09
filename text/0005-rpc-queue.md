@@ -1,7 +1,7 @@
 * Feature Name: `rpc-queue`
 * Start Date: 2020-11-01
-* RFC PR: [Unity-Technologies/com.unity.multiplayer.rfcs#0000](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/0000)
-* Issue: [Unity-Technologies/com.unity.multiplayer#0000](https://github.com/Unity-Technologies/com.unity.multiplayer/issues/0000)
+* RFC PR: [RFC#5](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/5)
+* Issue: [MLAPI#476](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/issues/476)
 
 # Summary
 [summary]: #summary
@@ -26,7 +26,7 @@ There are several advantages to a queue based architecture vs writing directly t
 
 Currently, the RPC Queue’s primary purpose is to provide additional control over when RPC messages are sent and upon being received when they are invoked (near future feature RPC Invocation Stage).  Additionally, RPC Queues provide the opportunity to place multiple RPC messages into a single outbound packet (near future feature RPC Message Batching) that reduces the total packets received and sent.
 
-![](0000-rpc-queue/RCPQueueOutboundHigh.png)
+![](0005-rpc-queue/RPCQueueOutboundHigh.png)
 1. A user defined RPC within a NetworkedBehaviour derived child is initiated.
 2. The ILPP generated code invokes the BeginSendXXXXRpc ( XXXX could be either Server or Client )
 3. RPCQueueContainer initializes a new RPC entry in the current QueueHistoryFrame.  It then returns the stream writer to the ILPP generated code
@@ -35,9 +35,7 @@ Currently, the RPC Queue’s primary purpose is to provide additional control ov
 6. The RPCQueueContainer finalizes the serialized RPC Queue entry
 7. Later in the player loop (game update loop) the RPCQueueContainer processes through all outbound RPCs via RPCQueueProcessing and they are sent individually or batched.
 
-
-
-![](0000-rpc-queue/RCPQueueInboundHigh.png)
+![](0005-rpc-queue/RPCQueueInboundHigh.png)
 
 1. The NetworkingManager enumerates through all current transport events (in the case of UNET) and adds any received RPC messages to the current inbound QueueHistoryFrame via the RPCQueueContainer (Network PreUpdate Stage).
 2. Later in the PlayerLoop (Network FixedUpdate stage) the RpcQueueContainer enumerates through all inbound RPCs and as long as they are valid will invoke each RPC, NetworkedObject relative, within the associated NetworkedBehaviour component instance initiated by the sender.
@@ -46,13 +44,13 @@ Currently, the RPC Queue’s primary purpose is to provide additional control ov
 [reference-level-explanation]: #reference-level-explanation
 
 ### Outbound RPC Data Flow Pipeline
-![](0000-rpc-queue/OutboundDataFlowPipeline.png)
+![](0005-rpc-queue/OutboundDataFlowPipeline.png)
 
 ### Inbound RPC Data Flow Pipeline
-![](0000-rpc-queue/InboundDataFlowPipeline.png)
+![](0005-rpc-queue/InboundDataFlowPipeline.png)
 
 ### RPC Queue Classes
-![](0000-rpc-queue/RPCQueueClasses.png)
+![](0005-rpc-queue/RPCQueueClasses.png)
 
 - **RPCQueueContainer:** Manages inbound and outbound RPC queues.  Both inbound and outbound queues are byte arrays exposed as streams (i.e. currently BitStreams) and contained within a QueueHistoryFrame.  The number of QueueHistoryFrames is defined by calling the Initialize method and passing the maximum number of history frames.  The total number of frames is MaxFrameHistory + 1, where the additional frame is considered the “current frame” (i.e. it will always maintain the exact number of frames in history).
 - **RPCQueueProcessing:** Currently, this class is instantiated by the RPCQueueContainer during its initialization.  It is highly probable that this class will get absorbed into the RPCQueueContainer.
@@ -67,21 +65,19 @@ For MMO related netcode architectures, the RPC Queue system could be further lev
 
 On the downside, the QueueHistoryFrame currently stores all inbound and outbound RPCs into a contiguous byte stream for the current frame which requires copying each entry from the QueueHistoryFrame into a new byte stream for inbound RPC processing while providing an ArraySegment for outbound RPCs.  Currently, the inbound RPCs are copied into a single FrameQueueItem (one is created for each QueueHistoryFrame) that should only be used at the time it is invoked but never stored for future reference.  In order for a user to store a FrameQueueItem, they would need to create a copy and store it using their own method.  This all could lead to additional memory allocations and frame time consumed, which could lead to performance degradation under heavy loads (i.e. 25k-30k RPCs per frame).
 
-
-
 # Rationale and alternatives
 [rationale-and-alternatives]: #rationale-and-alternatives
+
 Unet provides the ability to switch from immediate to queued mode which does provide a transport layer queue, however this setting is applied to every outbound packet and does not provide the ability to extract specific packet types from the buffer.  Unet’s queued buffering only helps reduce the network stack load, and Unet is slated to become deprecated.  Since there were other framework related design factors taken into consideration (i.e. batched RPCs, invocation at different update stages, etc.) and MLAPI could theoretically support other custom transports, it made sense to provide queueing capabilities at the framework layer.
 
 (blurb on UTP)
  
 Framework queuing allows additional levels of control over RPCs as is outlined under the motivation section above.   It also provides additional opportunities for Rpc rollback capabilities, network update loop stage specific invocation, and batching RPCs into target client id buckets prior to being sent in order to better optimize packet data distribution and utilization. Comparatively, transport layer packet buffering/queueing is “packet data agnostic” and does not provide the same range of functionality as batching at the framework layer.
 
-
 # Prior art
 [prior-art]: #prior-art
 
-
+N/A
 
 # Unresolved questions
 [unresolved-questions]: #unresolved-questions
@@ -105,4 +101,3 @@ Framework queuing allows additional levels of control over RPCs as is outlined u
 This provides the opportunity to place RPC's into batched packets (containing more than 1 RPC per packet) prior to being sent as well as it offers the ability to add additional features to specify at which point in the Network Update Loop system an RPC could get invoked.
 
 The RPC Queue and associated data structures could be refactored to become more Unity Job System friendly, but this would most likely require unified adjustments across RPC batching, processing, and any other MLAPI framework related system that utilizes the RPC Queue system.  However, the reduced processing benefits gained from handling the sorting and queueing of RPCs into respective outbound or inbound buckets via the Job system could help reduce the overall frame-time cost associated with the RPC Queue system and be worth the time and effort.
-
