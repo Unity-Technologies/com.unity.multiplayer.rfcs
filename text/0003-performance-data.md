@@ -29,7 +29,7 @@ As this data is largely a struct, accessing its data will be as simple as access
 [reference-level-explanation]: #reference-level-explanation
 
 
-In order to limit the interface, we are pushing the collected set or performance data to be obtainable only at the end of a tick. The following is roughly what this object could look like. Currently this object will be updated in ```NetworkManager.LateUpdate()``` for the MLAPI and ```Transport.Send()``` and other relevant transport method for the transport layer. At the end of the tick the user will be notified that the relevant data is complete and ready (both the MLAPI data and Transport data).
+In order to limit the interface, we are pushing the collected set or performance data to be obtainable only at the end of a tick. The following is roughly what this object could look like. Currently this object will be updated in ```NetworkManager.LateUpdate()``` for the MLAPI and ```Transport.Send()``` and other relevant transport method for the transport layer. At the end of the tick the user will be notified that the relevant data is complete and ready (both the MLAPI data and Transport data). Since MLAPI is responsible for collecting the data and is the owner of the collection of performance data it calls ```GetProfilerData()``` on the transports directly to get the data exactly when it needs it in the pipeline before propagating the data out externally.
 
 ```cs
 struct ProfilerTickData {
