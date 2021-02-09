@@ -48,8 +48,6 @@ After injection, player loop will look like this:
 - **Initialization**
   - // other systems
   - RunNetworkInitialization
-    - `NetworkLoopSystem.AdvanceFrame()`
-        - `++FrameCount`
     - `UpdateStage = NetworkUpdateStage.Initialization`
     - `foreach (INetworkUpdateSystem in m_Initialization_Array)`
       - `INetworkUpdateSystem.NetworkUpdate()`
@@ -99,11 +97,9 @@ After injection, player loop will look like this:
     - `foreach (INetworkUpdateSystem in m_PostLateUpdate_Array)`
       - `INetworkUpdateSystem.NetworkUpdate()`
 
-As seen above, it first calls `NetworkLoopUpdate.AdvanceFrame()` in `Initialization` stage then continues with iterating over registered `INetworkUpdateSystem`s in `m_Initialization_Array` and calls `INetworkUpdateSystem.NetworkUpdate()` on them.
+As seen above, player loop executes `Initialization` stage and that invokes `NetworkUpdateLoop`'s `RunNetworkInitialization` method which iterates over registered `INetworkUpdateSystem`s in `m_Initialization_Array` and calls `INetworkUpdateSystem.NetworkUpdate()` on them.
 
-Network stages are mostly the first batch in player loop except `Initialization` and `PostLateUpdate` where in those cases, network stages are executed last.
-
-In all stages, iterate over static array and call `NetworkUpdate()` method over `INetworkUpdateSystem` interface pattern is repeated.
+In all stages, iterate over a static array and call `NetworkUpdate()` method over `INetworkUpdateSystem` interface pattern is repeated.
 
 ## INetworkUpdateSystem
 
@@ -206,7 +202,7 @@ MyGameScript.Update()
 
 ## Injecting NetworkUpdateLoop Systems Into PlayerLoop
 
-![](https://www.plantuml.com/plantuml/svg/tLbBSzis4BxxL_2OJ1fFaicbcROpiYIhQgN45UKajmnChaICGO05GDlih-y2f2JgYQLyYdsIYVqMu3w-NIpDFPS5qooFObi9Y8pLFB5bBYxCUYLNKYMPLZb4LfVGMabXmKfXhvMqCVyFelSVBowaiX2f1z3HZM0Lw8bInQVeLd9RHH_UlV_rycCqcSSjiSzW7vM-lorIPg6MdfNIyXp62E9CeEOlSg9OEWMRgVHY3n2z_UEGbWtyCAHzlX7OVgarIBjvUW3rszktqKc1m4cOvKfUzjBqLIErlVAQh778jAZg1vTZQK3RL-z-MGcs5kaQh_aJfCSqjXRf6cyq7DEtNg9hEwRgZ5DDy9yJ9ziiTz2gZ6sfRNbuU-LrE1HZw1I3IwtAOYV2BYBysyZixb3_hbNECSy2uWEk8R5Anoml10NGCvLCRWk1AUkaOy6JLVG4a342aMaavknO5gKrTFdOXjL_dxLIuu3iOIewcAeUJOsENlh0P0BNo9dG2VZcZSVq5H9Y9s3z6ssoXEZtGz4X73R_iRtoewSrg_pwqSt6Mq_ZobZ8FssBdb3WWlUG1Wy1cUuwnSdlQRbmWdNSFyEVkz3pJBkhfR5hw_7FOjG0PoWXwl_xIaha0mBDQBNW0ZIQIjjDx1y7Z8hIyOMnI3GXYf5CL9Odfg-qJtr3uXVVXdo3kndyM-8-9Cpm2PBImfHnESyqiFGlTMV2hvw0CLDL6YIoRrocwZ40wGjWUYmjw1nIZiUQeUT0WpOKu8HB21yA33OuLx1Gg_8RGCmGK7lEcxYtmDCrMaA6zkfz8PYXoUvOSZzb4bD6au2nHKFdN2wxWERmP4jz7XRVofKhH0LDKdlbix9yKOtb0pVyJW2fuZfFoRBeioI3TC0i8ntD1Tu8NV2Lm-CC4uy4wZFvm8mJdsic3Ney3zP6MWPv8L-SQVPjKc46kMfmePgUQ5vOvEa1kAUffu-oe118VRY_kGoR2PLpl7sCbS6drjbd-81X7SgXEPDBHJBKW9k2sIJpQlyfeGJI1ZTPPP3MVEPvDYWKdW_IjHknd-G4yeqBpJ41hM2cyHFfr3UWtIQkMrbJR0FS5DtMRQ1hqTs5dbTqTxKqHRVr-6KKNJArVuP7drgdFNEegVS8UcTVfbpHDrcdyXLax86hKfzvG19Y0akML5w-9tdkEreIyFkClacJdvq17mQT8NsXRFOiWxcxPwEi8-bw9PvoPzkvVtEYTJYP-Tl0y_9-MqUJzUk7BwJHhltLBRP8qlqCadjiaguvY9HIYSVJqUqunlVovIibrQyL4z7u0NNx7fcakZScANNTTeTMvYjFGRK2_BpeVdPexyVrImhg_KBGhNuqh3Ie97RsoOQNki7dpDmR8elkDJrRWy4po6y7V3O1xkZPaE1cuMN4p2hTNH6hFTd9TUiMu0gMN99QXsvTmv7jXljlVmGuW0LexNYLYP8mXv3fIBCYGy9t4mX_6Q_jGcD_9OtLU9UqdUu3UFVYYMZSwqtPlAyGdNE-5RgjlDgQZvFkqQvihAOI6kz6H7kJTtacxJHLERxdKaBgkxYMuKX5gSl5lJtDhw_zmUj2uqBNp0Salrv_FoDEXgiA78wIur5DTbVpwgMnAg_7CyqaY6W68QYZjg4KV9bPaCq7oWx7mrsQW9Y2oO0uGFm6Txv7mf-Oii4cNg4Jv7BayifqRO4wsQnkccXfLnjtdECBa29vc7DRn_48L0vMLztpxPfBRZAI2MhHEhVzISCpm2itrvcgz2pEwYjtrwO6DIlyI3FH0D9aoj96l3wB1fhHPivvnu7ppWlvIsQ7eV0CZ18bOOJbxn73PfVGN4xp9TOqbFwogCtCX71Jvz3Bu0t7Mu5q0uapXXRwaybKm51h5JHLCyR3z-WzyU1iqNzTW7HI3w87S5SkgPzOjh-3XdQQGgvqvUtafij8Q6xWH_iEuaRHVN2JIQg9LuSyuShJpVD-Xt1czxolQDK-RwtyH9z1_mS0)
+![](https://www.plantuml.com/plantuml/svg/tLbBSzis4BxxL_2OpDIP99DBCsrdP4bMrKg9Ayg9RncON8aOWm0BWBRPNzy5I4dK4qlv5Fia0xiBO7U_VT4yS5ampV8ejfM0o5ZD4rlcuiAiTt8bLP9fbKDaTGcjdHGMh1JsMaaRy_yW-l3fua8g2v5w11tT25Q1dYXLV8vk9RTLzF7zXr_VVOecyxX5zWNiaz8FjqNABDJKir9QdiCOcJWJAFchd2YMJi5cAhtOOuWk_pWaPSD-cALzln7OVgarIBjPFS3rs-LbT98WS1DckPBlUcdwfg7QtdbBbZXaMbJrmhknDA3jc_U_h0XRctI9r_mPqcCIMvjqYJSQZibRRz6b7HDrngqc-C-9csssEqXLnhR4jYoylVCsx8enTFB1fLPbiUDX5n7-RMXsJwX_roBdYBC0-O1hIApICSiBGM7ecKecjuL0o3hgMF1avJq1pXWPCT98nEnO5gKrTFhOXiNVpLhGE41xE1GTXAhdxkQxUCCbHByVifLmlFcFxPqVFQrPvVUF7ZRUMeqhOo7_l4rwGe1pfKCIF0l8T5T5ZdvFoeKZhBtm1ThTPJrFjRjI6hssbdyMfGOGh8Ie_-yhAH6T1D1hjU02DAfAsslCtY6mZ8hIeTTOX7q8y9A9olB4z9NsG3GajFkYu3lSp-3V4iyXyGoV8IajJ1cNyqm3I_zIzoRyz0ICcQhIO5ZvpcMgdW8iVG5CZwK5dKFAyLepj1neq8R2EE4ImfS2W-N65IpKAXa6E6R8K5lEgxYtmDirKaAAzk9zM9wXokvPyZ1b4Y6ZIOonHKNdN2wxCCtXsPRwF5vybKiUo1LKIMsLByhoHJMMZzpmUm6a_ESi9SkYpv8CqW6pZ7GrvtWZDC4t3ayp11w9gS_a8pEEVAwPD6ZnF9YfQ0ZoH3vLqlJRG646kMhuGXasqRom6AS7u5PJ7pxAWX90wilzpMLOJIYSOoymLWPNhTFFy17TEeIXEPDBHLBKW9k2sIJpOlyfeGJI0JTPPJ2iUUJvQ50el1-aQpDYTSS9mJSkD4S0Mi5COoVIhMz0kqEOJ60TOXl6JT9jrUPTa-ukwtb9TrTAatHRowyZwP93-nTuyj0wRPb39RRdeDVPPSeL_P0rbAyWOuzSbVhC2v8u9h1aIUNfUvBdlg8bCTxDw8Sq-EpCy77GcQKlbCrUf33N2JR2EWPTByI7tDaszczEb0udaR_DU1xkjsKqg5yllf92kxPNDzyYKVSpI1wmIBhc859A9XvFHxVZ6D_bqrTAob-hI4IB3oZRryWaqRqnIQYhjZkKCjzu2ghbuETvzujTUz-lNvDJxoU2RlcZYKg3Ic9bdspYKZVsEJCFXXX5zugUhJ7T6S5lX_di0BWZPnC4DnklmsTMS7T9hBPa9zEjIu0hM799AXswLGr7ZXlkl_u8um0MeBMBgqoKX3c4J4UQ5Ha6V3U1yCruhHTQz5VIM8szfEtK3s3lnHFHcDUhidcl49qnttBT5gwsfjMaFjgbZTLKGcDlHDGt-PGNXfqcAySFN4f8VHNNKXmfANLftDkpzRhj3xOBZGbTCH-W_7PzTuQV35SPEEmbnxsQRAxcwQMnAg_7CyqaYAW68QYZjg4KV9bPaCtdmWxNmrCQXvY2oO0uGFmEzxv6mfy8sM0Hhz08SZbok39TIw1EEgkB9XhiQkMEStm0oPE7ERUr7uz0vM1rrHrlrrnoav5KK9FMsFOt3Sy0hznSPwhIis9MNxbUc-hKhF0ZpKG3I9CfInlnUXGDDAFDdFEE0-UT1_aciyDGU0P6YP8mml9znB0v9JINqto9EGsflovgDJCXtDGvz1ZiSBmMI1r8d37Kq9zCfWA6MgkWgfen7hwZzyo3iqN_TG7IIJs87i1zkQH-Ojd-AXawQGgvqfNNavikOq1p0p_QTn0tYkw3cqnILRowv0bJdYwUzok4CwldVK6hydbhvoVw3Fe_)
 
 <details>
   <summary>UML Source</summary>
@@ -238,8 +234,6 @@ group Initialization
     PlayerLoop -> PlayerLoop: SynchronizeState
     PlayerLoop -> PlayerLoop: XREarlyUpdate
     PlayerLoop -> NetworkUpdateLoop: RunNetworkInitialization
-    NetworkUpdateLoop -> NetworkUpdateLoop: AdvanceFrame
-    NetworkUpdateLoop -> NetworkUpdateLoop: ++FrameCount
     NetworkUpdateLoop -> NetworkUpdateLoop: UpdateStage = Initialization
     loop m_Initialization_Array
         NetworkUpdateLoop -> INetworkUpdateSystem: NetworkUpdate
@@ -484,21 +478,13 @@ public static class NetworkUpdateLoop
 
     // define other loop systems ...
 
-    public static uint FrameCount = 0;
     public static NetworkUpdateStage UpdateStage;
-
-    private static void AdvanceFrame()
-    {
-        ++FrameCount;
-    }
 
     private static readonly List<INetworkUpdateSystem> m_Initialization_List = new List<INetworkUpdateSystem>();
     private static INetworkUpdateSystem[] m_Initialization_Array = new INetworkUpdateSystem[0];
 
     private static void RunNetworkInitialization()
     {
-        AdvanceFrame();
-
         UpdateStage = NetworkUpdateStage.Initialization;
         int arrayLength = m_Initialization_Array.Length;
         for (int i = 0; i < arrayLength; i++)
