@@ -87,7 +87,7 @@ namespace MLAPI.Transport {
          }
          
          void Send(ulong clientId, ArraySegment<byte> data, string channelName){
-             transportProfilerData.numberOfBuffMessagesOut += 1;
+             transportProfilerData[NumberOfBuffMessagesOut] += 1;
          }
     }
 }
@@ -99,7 +99,7 @@ namespace ThirdParty {
         }
         
         void OnPerformanceEvent(in ProfilerTickData profilerData){
-            IMGUI.textlabel("Num Server RPCs", profilerData.numberOfServerRPCs);
+            IMGUI.textlabel("Num Server RPCs", profilerData.tickData[NumberOfServerRPCs]);
         }
     }
 }
