@@ -70,7 +70,6 @@ On the downside, the QueueHistoryFrame currently stores all inbound and outbound
 
 Unet provides the ability to switch from immediate to queued mode which does provide a transport layer queue, however this setting is applied to every outbound packet and does not provide the ability to extract specific packet types from the buffer.  Unet’s queued buffering only helps reduce the network stack load, and Unet is slated to become deprecated.  Since there were other framework related design factors taken into consideration (i.e. batched RPCs, invocation at different update stages, etc.) and MLAPI could theoretically support other custom transports, it made sense to provide queueing capabilities at the framework layer.
 
-(blurb on UTP)
  
 Framework queuing allows additional levels of control over RPCs as is outlined under the motivation section above.   It also provides additional opportunities for Rpc rollback capabilities, network update loop stage specific invocation, and batching RPCs into target client id buckets prior to being sent in order to better optimize packet data distribution and utilization. Comparatively, transport layer packet buffering/queueing is “packet data agnostic” and does not provide the same range of functionality as batching at the framework layer.
 
