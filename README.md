@@ -12,15 +12,16 @@ The "RFC" (request for comments) process is intended to provide a consistent and
 
 You need to follow this process if you intend to make "substantial" changes to Unity Multiplayer projects, documentation or the RFC process itself. What constitutes a "substantial" change is evolving based on community norms and varies depending on what part of the ecosystem you are proposing to change, but may include the following:
 
-- Example A
-- Example B
-- Example C
+- Any framework API or internal behavior change that is not a bugfix
+- Introducing a new feature and/or deprecating an existing feature
+- Additional built-in features, components and/or extensions
+- A code refactor touching a large part of the codebase
 
 Some changes do not require an RFC:
 
-- Example X
-- Example Y
-- Example Z
+- Bugfix/hotfix/patch, minimal local refactorings and other minor improvements
+- Reorganizing directories, moving and renaming files without changing their meanings
+- Typo fixes, commentary updates, documentation changes
 
 If you submit a pull request to implement a new feature without going through the RFC process, it may be closed with a polite request to submit an RFC first.
 
@@ -30,7 +31,7 @@ A hastily-proposed RFC can hurt its chances of acceptance. Low quality proposals
 
 Although there is no single way to prepare for submitting an RFC, it is generally a good idea to pursue feedback from other project developers beforehand, to ascertain that the RFC may be desirable; having a consistent impact on the project requires concerted effort toward consensus-building.
 
-_// todo: forums, discord, slack and other communication channels here._
+Our main communication channel for discussions about RFCs and the development of MLAPI is the [MLAPI Discord](http://discord.mlapi.network/). The `#rfc-discussion` channel can be used to get feedback for RFC ideas or to discuss already existing RFC proposals.
 
 As a rule of thumb, receiving encouraging feedback from long-standing project developers, and particularly members of the relevant project's team is a good indication that the RFC is worth pursuing.
 
@@ -38,9 +39,10 @@ As a rule of thumb, receiving encouraging feedback from long-standing project de
 
 In short, to get a major feature added to Unity Multiplayer, one must first get the RFC merged into the RFC repository as a markdown file. At that point the RFC is "active" and may be implemented with the goal of eventual inclusion into Unity Multiplayer.
 
-- Fork the RFC repo [RFC repository](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs)
+- Fork the RFC repo [RFC repository](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs).
 - Copy `0000-template.md` to `text/0000-my-feature.md` (where "my-feature" is descriptive). Don't assign an RFC number yet; This is going to be the PR number and we'll rename the file accordingly if the RFC is accepted.
-- Please make sure to include the feature proposal document only (`0000-my-feature.md`) in your upcoming PR. Any PRs with additional files will be closed and asked for proposal document only under a  completely new PR. All implementations including POCs, prototypes, demos, either polished or unpolished works are all subject to be reviewed under a different PR on their respective repositories with the links between.
+- Make sure to put all relevant materials (if any) such as images, PDFs etc. under a folder named exactly as markdown document filename without extension (e.g. markdown document: `text/0000-my-feature.md` and materials folder: `text/0000-my-feature/`) in your upcoming PR.
+- Do not include implementations including POCs, prototypes, demos, either polished or unpolished works. They are all subject to be reviewed under a different PR on their respective repositories with the links between.
 - Fill in the RFC. Put care into the details: RFCs that do not present convincing motivation, demonstrate lack of understanding of the design's impact, or are disingenuous about the drawbacks or alternatives tend to be poorly-received.
 - Submit a pull request. As a pull request the RFC will receive design feedback from the larger community, and the author should be prepared to revise it in response.
 - Each pull request will be labeled with the most relevant Unity Multiplayer team, which will lead to its being triaged by that team in a future meeting and assigned to a member of the subteam.
@@ -86,13 +88,12 @@ _// todo_
 
 The process is intended to be as lightweight as reasonable for the present circumstances. As usual, we are trying to let the process be driven by consensus and community norms, not impose more structure than necessary.
 
-## Unity Contribution Agreement
+## <a name="cla"></a> Contributor License Agreements
 
-All contributions are subject to the [Unity Contribution Agreement ("UCA")](https://unity3d.com/legal/licenses/Unity_Contribution_Agreement). By making a pull request, you are confirming agreement to the terms and conditions of the UCA, including that your Contributions are your original creation and that you have complete right and authority to make your Contributions.
+When you open a pull request, you will be asked to acknowledge our Contributor License Agreement. We allow both individual contributions and contributions made on behalf of companies. We use an open source tool called CLA assistant. If you have any questions on our CLA, please submit an issue.
 
-## License
-
-_// todo_
+### License
+[MIT License](LICENSE)
 
 ---
 
