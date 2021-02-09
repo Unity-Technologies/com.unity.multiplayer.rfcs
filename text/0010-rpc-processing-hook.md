@@ -1,7 +1,7 @@
-- Feature Name: `network-update-loop-system`
+- Feature Name: `rpc-processing-hook`
 - Start Date: 2021-01-19
 - RFC PR: [RFC#10](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/10)
-- Issue: [Unity-Technologies/com.unity.multiplayer#0000](https://github.com/Unity-Technologies/com.unity.multiplayer/issues/0000)
+- Issue: [MLAPI#477](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/issues/477)
 
 # Summary
 [summary]: #summary
@@ -26,29 +26,29 @@ The Network Game Update Loop diagram below shows a comparison of the various upd
 
 (*Network*) **PostUpdate**: Things like sending out queued messages, getting the results of a batched job (i.e. snapshots or the like) would occur here.
 
-![](0010-NetworkProcessingHook/NetworkUpdateLoopStages.png)
+![](0010-rpc-processing-hook/NetworkUpdateLoopStages.png)
 
 *The original implementation only allowed for a single method to be registered per stage via the `InternalNetworkUpdateEngine` (legacy) format.  This had limitations to its design, and as such it was proposed to further extend this functionality to any [`INetworkUpdateLoopSystem`](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/develop/com.unity.multiplayer.mlapi/Runtime/Core/NetworkUpdateLoopSystem.cs) such that any class could register for any of the new network update loop stages.*
 
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
 In order to provide a more modular mechanism for registering with the network game update loop system, it is proposed that a new [`INetworkUpdateLoopSystem`](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/develop/com.unity.multiplayer.mlapi/Runtime/Core/NetworkUpdateLoopSystem.cs) interface be used to define the underlying methods that would be used for this process.
-![](0010-NetworkProcessingHook/InterfaceNetworkUpdateLoopSystem.png)
+![](0010-rpc-processing-hook/InterfaceNetworkUpdateLoopSystem.png)
 Where the RegisterUpdate method is called for each of the four new network loop update stages (PreUpdate, FixedUpdate, Update, and LateUpdate).  The class that defines the RegisterUpdate method would either return an action for the update stage in question or null for no updates during the stage being queried for registration.  This approach not only provides a wider area of coverage (i.e. any class could register), but it also provides the ability to not register thus not adding the additional overhead of invoking an action for a stage not being used by the class.
 
 The class defined below provides one potential way to both define the [`INetworkUpdateLoopSystem`'s](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/develop/com.unity.multiplayer.mlapi/Runtime/Core/NetworkUpdateLoopSystem.cs) methods while providing additional class relative helper methods for registering and deregistering from the network update loop system.
 
-![](0010-NetworkProcessingHook/GenericUpdateLoopSystem.png)
+![](0010-rpc-processing-hook/GenericUpdateLoopSystem.png)
 
 Both the `RegisterUpdate` and the `RegisterUpdateLoopSystemDestroyCallback` methods are called by the [`NetworkUpdateManager`](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/develop/com.unity.multiplayer.mlapi/Runtime/Core/NetworkUpdateManager.cs) during the registration process.  Below is a diagram to help better understand the network update loop system registration process:
-![](0010-NetworkProcessingHook/NULSRegistrationProcess.png)
+![](0010-rpc-processing-hook/NULSRegistrationProcess.png)
 1. Class instance registers with the NetworkUpdateMananger.
 2. During registration, the [`NetworkUpdateManager`](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/develop/com.unity.multiplayer.mlapi/Runtime/Core/NetworkUpdateManager.cs) calls the class instance’s `RegisterUpdate` method that will either return null or an Action to be registered for the particular update stage in question.  (*the diagram above shows only the Update and LateUpdate were registered for example purposes*)
 3. If any update stage was registered, then the [`NetworkUpdateManager`](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/develop/com.unity.multiplayer.mlapi/Runtime/Core/NetworkUpdateManager.cs) will invoke the class instance’s `RegisterUpdateLoopSystemDestroyCallback` method passing the callback action to be invoked upon the class instance being destroyed or if the class instance just wants to remove itself from the network update loop system stages.
 So, any [`INetworkUpdateLoopSystem`](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/develop/com.unity.multiplayer.mlapi/Runtime/Core/NetworkUpdateLoopSystem.cs) derived class can opt to register or deregister from network loop update stages during runtime.  This can be useful if a network object has associated [`INetworkUpdateLoopSystem`](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/develop/com.unity.multiplayer.mlapi/Runtime/Core/NetworkUpdateLoopSystem.cs) based components and is not considered ‘active’ but is still considered enabled.  Under this situation, one could deregister the [`INetworkUpdateLoopSystem`](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/develop/com.unity.multiplayer.mlapi/Runtime/Core/NetworkUpdateLoopSystem.cs) based components to be removed from any network loop system update stages until the network object becomes activated (“active”) again.  The registration and deregistration process provides runtime control over when the network update stages for a specific class will be invoked.  Under other circumstances, one might want to register for only specific network loop update stages depending on certain events or states.  This too can be accomplished by simply deregistering (if already registered) and then re-registering with the new update stages.
 
 Currently, the [`NetworkingManager`](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/develop/com.unity.multiplayer.mlapi/Runtime/Core/NetworkingManager.cs) and the [`RpcQueueContainer`](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/develop/com.unity.multiplayer.mlapi/Runtime/Messaging/RPCQueue/RPCQueueContainer.cs) derive from two predefined [`INetworkUpdateLoopSystem`](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/develop/com.unity.multiplayer.mlapi/Runtime/Core/NetworkUpdateLoopSystem.cs) derived classes (`UpdateLoopBehaviour` and `GenericUpdateLoopSystem`).
-![](0010-NetworkProcessingHook/UpdatedClassesNULS.png)
+![](0010-rpc-processing-hook/UpdatedClassesNULS.png)
 **NetworkingManager:** Now derives from the `UpdateLoopBehaviour` and registers for the following network update loop stages:
 1. **PreUpdate:** Transport event polling occurs here
 2. **Update:** The remainder of the [`NetworkingManager's`](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/develop/com.unity.multiplayer.mlapi/Runtime/Core/NetworkingManager.cs) update occurs here.
@@ -63,11 +63,11 @@ Currently, the [`NetworkingManager`](https://github.com/Unity-Technologies/com.u
 **Invoking RPCs at specific Network Update Loop Stages:**
 While there are many future possibilities for this new feature, one of the several driving purposes for this added capability was to provide an intuitive way to invoke RPCs at specific stages during runtime (i.e. dynamically).  In order to accomplish this, the network update loop registration process needed to be enhanced (as explained above) and some minor adjustments to the RPC send parameters were needed.
 
-![](0010-NetworkProcessingHook/SendParamsNULS.png)
+![](0010-rpc-processing-hook/SendParamsNULS.png)
 
 In order to specify what network update stage one might want an RPC to be invoked, adding the [`ServerRpcParams`](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/develop/com.unity.multiplayer.mlapi/Runtime/Messaging/RpcParams.cs) or [`ClientRpcParams`](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/develop/com.unity.multiplayer.mlapi/Runtime/Messaging/RpcParams.cs) as the last RPC method’s parameter and setting the UpdateStage is all that is needed:
 
-![](0010-NetworkProcessingHook/SendParamsNULSExample.png)
+![](0010-rpc-processing-hook/SendParamsNULSExample.png)
 
 The above code snippet shows that the `ServerRpc`, `UpdateMyRigidBodyPosition`, will be invoked during the network FixedUpdate stage when invoked on the receiver side (in this case the server).  The class containing the Rpc method itself does not need to be registered with the [`NetworkUpdateManager`](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/develop/com.unity.multiplayer.mlapi/Runtime/Core/NetworkUpdateManager.cs) as the [`RpcQueueContainer`](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/develop/com.unity.multiplayer.mlapi/Runtime/Messaging/RPCQueue/RPCQueueContainer.cs) handles this portion of the RPC invocation process.
 # Drawbacks
@@ -94,10 +94,15 @@ N/A
 
 # Future possibilities
 [future-possibilities]: #future-possibilities
-**AtomicNetworkTether (ANT)**
+
+### AtomicNetworkTether (ANT)
 
 The ANT would derive from the [`NetworkUpdateLoopBehaviour:MonoBehaviour, INetworkUpdateLoopSystem`](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/develop/com.unity.multiplayer.mlapi/Runtime/Core/NetworkUpdateLoopSystem.cs)  class which would provide both the basic [`MonoBehaviour`](https://docs.unity3d.com/ScriptReference/MonoBehaviour.html) functionality and further automate the Network Update Loop system registration process for any ANT derived child classes.  From an ease of use perspective, registration would only require one to override the `InternalRegisterNetworkUpdateStage` (name would most likely change) and to return Actions for any update stages that the ANT child class instance needs to perform its function.
 
 Since a [`NetworkedObject`](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/develop/com.unity.multiplayer.mlapi/Runtime/Core/NetworkedObject.cs) or [`NetworkedBehaviour`](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/develop/com.unity.multiplayer.mlapi/Runtime/Core/NetworkedBehaviour.cs) would be children of ANT, they would become more closely knit into the network loop update system itself.  This would provide users with a whole new set of updates that network game/entity objects could leverage from.  Since Job's can be kicked off at any time during any of the network update stages, network based job systems could  be designed such that any ANT derived class could register for specific "network related" job queues that could be processed throughout the `PlayerLoop` (i.e. provide a "Network Lerping" job queue that any NetworkedObject could "subscribe" to). 
 
 This type of functionality could lead to a "network job queue module" that provided the means to creating customized network job queue modules.  In the likeness of a GPU shader that receives data in byte streams and has access to video memory, network job queue modules could have access to the "network frames or snapshot frames" as well as any byte streams (native arrays) with associated data structures to parse the byte streams with.  
+
+### Separating Network Update Loop from RPC Processing Hook
+
+Currently, this RFC is proposing a design to hook RPCs to be processed at specific stages. However it also suggests a mechanism to inject methods into Player Loop to enable that functionality. Network Update Loop design could be separated, refactored and treated as a standalone feature on its own.
