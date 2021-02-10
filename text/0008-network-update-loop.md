@@ -1,7 +1,7 @@
 - Feature Name: `network-update-loop`
 - Start Date: 2021-01-31
-- RFC PR: [Unity-Technologies/com.unity.multiplayer.rfcs#0000](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/0000)
-- Issue: [Unity-Technologies/com.unity.multiplayer#0000](https://github.com/Unity-Technologies/com.unity.multiplayer/issues/0000)
+- RFC PR: [RFC#8](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/8)
+- Issue: [MLAPI#479](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/issues/479)
 
 # Summary
 [summary]: #summary
@@ -750,4 +750,4 @@ Network variables need to know when they should be written and when they should 
 
 ## Other Tick/Update Dependent Network Systems
 
-With this network update loop pipeline, it's natural to register any tick/frame/update based network systems into relevant stages. We are expecting lots of upcoming network systems to utilizing this infrastructure in the future.
+With this network update loop pipeline, it's natural to register any tick/frame/update based network systems into relevant stages. We are expecting lots of upcoming network systems utilizing this infrastructure in the future.
