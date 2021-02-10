@@ -8,7 +8,7 @@
 
 Often there is a need to update netcode systems like RPC queue, transport, and others outside the standard [`MonoBehaviour` event cycle](https://docs.unity3d.com/Manual/ExecutionOrder.html).
 
-This RFC proposes a new **Network Update Loop** infrastructure that utilizes [Unity's low-level Player Loop API](https://docs.unity3d.com/ScriptReference/LowLevel.PlayerLoop.html) and allows for registering `INetworkUpdateSystem`s with `NetworkUpdate()` methods to be executed at specific `NetworkUpdateStage`s which may also be before or after `MonoBehaviour`-driven game logic execution.
+This RFC proposes a new **Network Update Loop** infrastructure that utilizes [Unity's low-level Player Loop API](https://docs.unity3d.com/ScriptReference/LowLevel.PlayerLoop.html) and allows for registering `INetworkUpdateSystem`s with `NetworkUpdate` methods to be executed at specific `NetworkUpdateStage`s which may also be before or after `MonoBehaviour`-driven game logic execution.
 
 Implementation is expected to have a minimal yet flexible API that would allow further systems such as network tick to be easily developed.
 
@@ -50,18 +50,25 @@ After injection, player loop will look like this:
   - RunNetworkInitialization
     - `UpdateStage = NetworkUpdateStage.Initialization`
     - `foreach (INetworkUpdateSystem in m_Initialization_Array)`
-      - `INetworkUpdateSystem.NetworkUpdate()`
+      - `INetworkUpdateSystem.NetworkUpdate(UpdateStage)`
 - **EarlyUpdate**
+  - // other systems
   - RunNetworkEarlyUpdate
     - `UpdateStage = NetworkUpdateStage.EarlyUpdate`
     - `foreach (INetworkUpdateSystem in m_EarlyUpdate_Array)`
-      - `INetworkUpdateSystem.NetworkUpdate()`
+      - `INetworkUpdateSystem.NetworkUpdate(UpdateStage)`
+  - ScriptRunDelayedStartupFrame
+    - `foreach (MonoBehaviour in m_Behaviours)`
+      - `MonoBehaviour.Awake()`
+      - `MonoBehaviour.OnEnable()`
+      - `MonoBehaviour.Start()`
   - // other systems
 - **FixedUpdate**
+  - // other systems
   - RunNetworkFixedUpdate
     - `UpdateStage = NetworkUpdateStage.FixedUpdate`
     - `foreach (INetworkUpdateSystem in m_FixedUpdate_Array)`
-      - `INetworkUpdateSystem.NetworkUpdate()`
+      - `INetworkUpdateSystem.NetworkUpdate(UpdateStage)`
   - ScriptRunBehaviourFixedUpdate
     - `foreach (MonoBehaviour in m_Behaviours)`
       - `MonoBehaviour.FixedUpdate()`
@@ -70,36 +77,46 @@ After injection, player loop will look like this:
   - RunNetworkPreUpdate
     - `UpdateStage = NetworkUpdateStage.PreUpdate`
     - `foreach (INetworkUpdateSystem in m_PreUpdate_Array)`
-      - `INetworkUpdateSystem.NetworkUpdate()`
+      - `INetworkUpdateSystem.NetworkUpdate(UpdateStage)`
+  - PhysicsUpdate
+    - `GetPhysicsManager().Update();`
+    - Rigidbody Interpolation
+  - Physics2DUpdate
+    - `GetPhysicsManager2D().Update();`
+    - Rigidbody2D Interpolation
   - // other systems
 - **Update**
   - RunNetworkUpdate
     - `UpdateStage = NetworkUpdateStage.Update`
     - `foreach (INetworkUpdateSystem in m_Update_Array)`
-      - `INetworkUpdateSystem.NetworkUpdate()`
+      - `INetworkUpdateSystem.NetworkUpdate(UpdateStage)`
   - ScriptRunBehaviourUpdate
     - `foreach (MonoBehaviour in m_Behaviours)`
       - `MonoBehaviour.Update()`
   - // other systems
 - **PreLateUpdate**
+  - // other systems
   - RunNetworkPreLateUpdate
     - `UpdateStage = NetworkUpdateStage.PreLateUpdate`
     - `foreach (INetworkUpdateSystem in m_PreLateUpdate_Array)`
-      - `INetworkUpdateSystem.NetworkUpdate()`
-  - // other systems
+      - `INetworkUpdateSystem.NetworkUpdate(UpdateStage)`
   - ScriptRunBehaviourLateUpdate
     - `foreach (MonoBehaviour in m_Behaviours)`
       - `MonoBehaviour.LateUpdate()`
 - **PostLateUpdate**
   - // other systems
+  - PlayerSendFrameComplete
+    - `GetDelayedCallManager().Update(DelayedCallManager::kEndOfFrame);`
+    - continue coroutine: `yield WaitForEndOfFrame`
   - RunNetworkPostLateUpdate
     - `UpdateStage = NetworkUpdateStage.PostLateUpdate`
     - `foreach (INetworkUpdateSystem in m_PostLateUpdate_Array)`
-      - `INetworkUpdateSystem.NetworkUpdate()`
+      - `INetworkUpdateSystem.NetworkUpdate(UpdateStage)`
+  - // other systems
 
-As seen above, player loop executes `Initialization` stage and that invokes `NetworkUpdateLoop`'s `RunNetworkInitialization` method which iterates over registered `INetworkUpdateSystem`s in `m_Initialization_Array` and calls `INetworkUpdateSystem.NetworkUpdate()` on them.
+As seen above, player loop executes `Initialization` stage and that invokes `NetworkUpdateLoop`'s `RunNetworkInitialization` method which iterates over registered `INetworkUpdateSystem`s in `m_Initialization_Array` and calls `INetworkUpdateSystem.NetworkUpdate(UpdateStage)` on them.
 
-In all stages, iterate over a static array and call `NetworkUpdate()` method over `INetworkUpdateSystem` interface pattern is repeated.
+In all stages, iterate over a static array and call `NetworkUpdate` method over `INetworkUpdateSystem` interface pattern is repeated.
 
 ## INetworkUpdateSystem
 
@@ -119,9 +136,9 @@ public class MyPlainScript : IDisposable, INetworkUpdateSystem
     }
 
     // will be called on EarlyUpdate, FixedUpdate and Update stages as registered above
-    public void NetworkUpdate()
+    public void NetworkUpdate(NetworkUpdateStage updateStage)
     {
-        Debug.Log($"{nameof(MyPlainScript)}.{nameof(NetworkUpdate)}({NetworkUpdateLoop.UpdateStage})");
+        Debug.Log($"{nameof(MyPlainScript)}.{nameof(NetworkUpdate)}({updateStage})");
     }
 
     public void Dispose()
@@ -158,9 +175,9 @@ public class MyGameScript : MonoBehaviour, INetworkUpdateSystem
     }
 
     // will be called on EarlyUpdate, FixedUpdate and Update stages as registered above
-    public void NetworkUpdate()
+    public void NetworkUpdate(NetworkUpdateStage updateStage)
     {
-        Debug.Log($"{nameof(MyGameScript)}.{nameof(NetworkUpdate)}({NetworkUpdateLoop.UpdateStage})");
+        Debug.Log($"{nameof(MyGameScript)}.{nameof(NetworkUpdate)}({updateStage})");
     }
 
     private void FixedUpdate()
@@ -202,7 +219,7 @@ MyGameScript.Update()
 
 ## Injecting NetworkUpdateLoop Systems Into PlayerLoop
 
-![](https://www.plantuml.com/plantuml/svg/tLbBSzis4BxxL_2OpDIP99DBCsrdP4bMrKg9Ayg9RncON8aOWm0BWBRPNzy5I4dK4qlv5Fia0xiBO7U_VT4yS5ampV8ejfM0o5ZD4rlcuiAiTt8bLP9fbKDaTGcjdHGMh1JsMaaRy_yW-l3fua8g2v5w11tT25Q1dYXLV8vk9RTLzF7zXr_VVOecyxX5zWNiaz8FjqNABDJKir9QdiCOcJWJAFchd2YMJi5cAhtOOuWk_pWaPSD-cALzln7OVgarIBjPFS3rs-LbT98WS1DckPBlUcdwfg7QtdbBbZXaMbJrmhknDA3jc_U_h0XRctI9r_mPqcCIMvjqYJSQZibRRz6b7HDrngqc-C-9csssEqXLnhR4jYoylVCsx8enTFB1fLPbiUDX5n7-RMXsJwX_roBdYBC0-O1hIApICSiBGM7ecKecjuL0o3hgMF1avJq1pXWPCT98nEnO5gKrTFhOXiNVpLhGE41xE1GTXAhdxkQxUCCbHByVifLmlFcFxPqVFQrPvVUF7ZRUMeqhOo7_l4rwGe1pfKCIF0l8T5T5ZdvFoeKZhBtm1ThTPJrFjRjI6hssbdyMfGOGh8Ie_-yhAH6T1D1hjU02DAfAsslCtY6mZ8hIeTTOX7q8y9A9olB4z9NsG3GajFkYu3lSp-3V4iyXyGoV8IajJ1cNyqm3I_zIzoRyz0ICcQhIO5ZvpcMgdW8iVG5CZwK5dKFAyLepj1neq8R2EE4ImfS2W-N65IpKAXa6E6R8K5lEgxYtmDirKaAAzk9zM9wXokvPyZ1b4Y6ZIOonHKNdN2wxCCtXsPRwF5vybKiUo1LKIMsLByhoHJMMZzpmUm6a_ESi9SkYpv8CqW6pZ7GrvtWZDC4t3ayp11w9gS_a8pEEVAwPD6ZnF9YfQ0ZoH3vLqlJRG646kMhuGXasqRom6AS7u5PJ7pxAWX90wilzpMLOJIYSOoymLWPNhTFFy17TEeIXEPDBHLBKW9k2sIJpOlyfeGJI0JTPPJ2iUUJvQ50el1-aQpDYTSS9mJSkD4S0Mi5COoVIhMz0kqEOJ60TOXl6JT9jrUPTa-ukwtb9TrTAatHRowyZwP93-nTuyj0wRPb39RRdeDVPPSeL_P0rbAyWOuzSbVhC2v8u9h1aIUNfUvBdlg8bCTxDw8Sq-EpCy77GcQKlbCrUf33N2JR2EWPTByI7tDaszczEb0udaR_DU1xkjsKqg5yllf92kxPNDzyYKVSpI1wmIBhc859A9XvFHxVZ6D_bqrTAob-hI4IB3oZRryWaqRqnIQYhjZkKCjzu2ghbuETvzujTUz-lNvDJxoU2RlcZYKg3Ic9bdspYKZVsEJCFXXX5zugUhJ7T6S5lX_di0BWZPnC4DnklmsTMS7T9hBPa9zEjIu0hM799AXswLGr7ZXlkl_u8um0MeBMBgqoKX3c4J4UQ5Ha6V3U1yCruhHTQz5VIM8szfEtK3s3lnHFHcDUhidcl49qnttBT5gwsfjMaFjgbZTLKGcDlHDGt-PGNXfqcAySFN4f8VHNNKXmfANLftDkpzRhj3xOBZGbTCH-W_7PzTuQV35SPEEmbnxsQRAxcwQMnAg_7CyqaYAW68QYZjg4KV9bPaCtdmWxNmrCQXvY2oO0uGFmEzxv6mfy8sM0Hhz08SZbok39TIw1EEgkB9XhiQkMEStm0oPE7ERUr7uz0vM1rrHrlrrnoav5KK9FMsFOt3Sy0hznSPwhIis9MNxbUc-hKhF0ZpKG3I9CfInlnUXGDDAFDdFEE0-UT1_aciyDGU0P6YP8mml9znB0v9JINqto9EGsflovgDJCXtDGvz1ZiSBmMI1r8d37Kq9zCfWA6MgkWgfen7hwZzyo3iqN_TG7IIJs87i1zkQH-Ojd-AXawQGgvqfNNavikOq1p0p_QTn0tYkw3cqnILRowv0bJdYwUzok4CwldVK6hydbhvoVw3Fe_)
+![](https://www.plantuml.com/plantuml/svg/tLf1L-Cs4BxpAto4m_AwlBsKRVjUI09DItPf0ilUzWbx4kj5bbn91jnVtv7i97OIqDZqKZWPIJCQZMQ-cT74hBZCcMPPDBUbWCXOpMDRPEB8R6Oo9LMSQfL1P7K1ZPa45gmGzb99E-V_GFJnqz6HL1OYzGWwkX6i17sjL7uUtKbko-Zifuy_dtwAhc_dZMLVm3uflRhB4sQXMZqhfEKPJ928Cu6SlyfhnP8fs5GbHti4qOVV3d7PaXycQSft1NPOQ0tIRaSFKFtouKFqweA09Cno9Kydqe2sn_N2zkG9cUcOQL5M0piS6pDqTfVy6PA3x1epT7Ot6WuosupJMHtaqqEUQ_pd9PcsSnrOAcDVvjcQF0bRu1mwcTvIgoBVCQoZ2F-sQtPtgBuhbhVeNe7b8wuXjahFMPOB2i70b3A-omLwgbiz5pnUsqs0Sew4230INNKYyy8Q-lgv3RF_Fcjun86rXn7ee7jwwcw6Yn8k8Vhrq5q9HvlzQC_y66ZDIZ__ucQJrkYyD1Qoy_RILnWuKph4mPE0J7PLvDRlSJbo2oihV5sxBHDKGbJ_3vMKQ5u4gzLgmGLeLAEsbnXrGdjSvOKpFsFHRaCMAvaeBO_DK6blIOPq2X_Cxk5X1dyNk0-9PlmCSM5XohYyJJMmv0_rOC97Zy6OgIeC-iKzbubw2f0C1J0zaHPq1Wb7iMPuJQ116mhXDPSG5WeCXiaBMAWrb0SePaXGtPnNyM21qjLSGehsx3skp51b3onUJPb4Tz8amhb5HMTSBhiGtSApBNG_MZoLGp-a2ggakfKlol95EP6FtF070IG0TpSbYtp8uXII4REC99epl2kyWcySdcReU2IY8PEFpBZbjvf9WpUU1Q6Mva5-aSTwcdvhLvX1fcgwhZY-2rBzG7oNIutWZU7_2tm78coiUMvHUoDmeub7toBVug_FtpLVfZPIYnRf5Ck52qZP8rU5FXqyiHKSdtIY-Ih7ag4xT2JpCjOq8TFxaykm4-3PELOe4sLmr3hh7pyYQ8KGyfR9fIAvmOYRdDauzMp_Ag00qWOtQMamQ7bSzLYVAvGFaesJOlB9Dw7rPVLXqLEpgftm-EGqpFJuv7F8U7BD4RQjO6l6jEG0jDk7oHWsWRactEOQZMBalufeN-398mgTzJerzXJq_BX8k7fzarSHR9Uq7uBjSgaHh37ypX1i0n2x9wVYIeCkY2ujoo3PqZKiMLpwzGF9Cry2a0Y_p-YRr6vEry0XQ6ZfuNCF1dEU5Q917PJtRFG6YSz6RvRPi-WizL0ec_O4apgFL6OjISSuxPduA3rhu-RDAydwgwZJ9ko7EMqUDU9i1jy7tjJtrTkxg4OwuqkUFAYaZBPHcb15hntg3RxKMSApKISPXod4Aoo_BZc8vAKSlqamcLxTJUPuVpvrIaYvqphOqzwbaBUllaci1nCIKrV7ToYIll44LCEH-tdncrrutt_VTxBG8qyWfWYxa3qg9Sjul0NjRkItpAmCCSJiPTEjbs-YURlWL0dHQTTDSdC1Iov9IL6tVEY5xSRx5l82uGWMeBN34IOAmekUJAuqorD4IVUMvv-rAhtGoXCbZTMCIzkfHi8IbyUYTW6lolgyGlI8x3kNtpkwx_3PHlZjn7i5YfsZKy5YIuQ0qN38Ljk8z1xeWjJwTLLZmKwqTl8kRyIhEf6OhxYKaFZSk66sf13OvG6osUIgdY-3zN_jGAuw3wpyTlczXvUEr_7-i8_IC8LyNVNH2sDLLZqpro_QH3K8GMqPZALmTWwoRjTt40ztgGrY2YO5OYFa7XvyHeQVY3p1qaZX9SZbbVChqpNXwgIpAaMZkLsbt4c61o1PyZZZjhBZAr0PM5rszxTBBhb9IIgebbQ-xIKDzp8kt0lcL2MzC6ketECPfI2fqMV8XDWhclRdpizNw4jV5twJOCKIApHWMG1-eBNW9vn7fQj2edl6xQNIMrwTW-m-eFUCilkCrc6sDVC-ukmQm7FVYuirW3IfihJUf8VDaMQqPcdMiLEwOy7-hQP3DtC6Hec2K0xxCdLSxn9gEQ1PezLlpTIvWckNXWw31RJN0gd0dQSCDVGxauc0iTOggAgwcO3d63ppODl4jyKXkQuwg2DuA9RKtmQqVmyIscaAcTAbrvDhYs84Spq7MWFVzL27u5urg2fU2xcvIhISVm40)
 
 <details>
   <summary>UML Source</summary>
@@ -217,13 +234,13 @@ note over NetworkUpdateLoop: RuntimeInitializeOnLoadMethod
 NetworkUpdateLoop -> NetworkUpdateLoop: Initialize
 NetworkUpdateLoop -> PlayerLoop: GetCurrentPlayerLoop
 NetworkUpdateLoop <-- PlayerLoop
-NetworkUpdateLoop -> NetworkUpdateLoop: Initialization.Add(NetworkInitialization)
-NetworkUpdateLoop -> NetworkUpdateLoop: EarlyUpdate.Insert(0, NetworkEarlyUpdate)
-NetworkUpdateLoop -> NetworkUpdateLoop: FixedUpdate.Insert(0, NetworkFixedUpdate)
-NetworkUpdateLoop -> NetworkUpdateLoop: PreUpdate.Insert(0, NetworkPreUpdate)
-NetworkUpdateLoop -> NetworkUpdateLoop: Update.Insert(0, NetworkUpdate)
-NetworkUpdateLoop -> NetworkUpdateLoop: PreLateUpdate.Insert(0, NetworkPreLateUpdate)
-NetworkUpdateLoop -> NetworkUpdateLoop: PostLateUpdate.Add(NetworkPostLateUpdate)
+NetworkUpdateLoop -> NetworkUpdateLoop: Initialization.Insert(NetworkInitialization)
+NetworkUpdateLoop -> NetworkUpdateLoop: EarlyUpdate.Insert(NetworkEarlyUpdate)
+NetworkUpdateLoop -> NetworkUpdateLoop: FixedUpdate.Insert(NetworkFixedUpdate)
+NetworkUpdateLoop -> NetworkUpdateLoop: PreUpdate.Insert(NetworkPreUpdate)
+NetworkUpdateLoop -> NetworkUpdateLoop: Update.Insert(NetworkUpdate)
+NetworkUpdateLoop -> NetworkUpdateLoop: PreLateUpdate.Insert(NetworkPreLateUpdate)
+NetworkUpdateLoop -> NetworkUpdateLoop: PostLateUpdate.Insert(NetworkPostLateUpdate)
 NetworkUpdateLoop -> PlayerLoop: SetPlayerLoop
 NetworkUpdateLoop <-- PlayerLoop
 group Initialization
@@ -242,13 +259,6 @@ group Initialization
     PlayerLoop <-- NetworkUpdateLoop
 end
 group EarlyUpdate
-    PlayerLoop -> NetworkUpdateLoop: RunNetworkEarlyUpdate
-    NetworkUpdateLoop -> NetworkUpdateLoop: UpdateStage = EarlyUpdate
-    loop m_EarlyUpdate_Array
-        NetworkUpdateLoop -> INetworkUpdateSystem: NetworkUpdate
-        NetworkUpdateLoop <-- INetworkUpdateSystem
-    end
-    PlayerLoop <-- NetworkUpdateLoop
     PlayerLoop -> PlayerLoop: PollPlayerConnection
     PlayerLoop -> PlayerLoop: ProfilerStartFrame
     PlayerLoop -> PlayerLoop: GpuTimestamp
@@ -271,16 +281,31 @@ group EarlyUpdate
     PlayerLoop -> PlayerLoop: XRUpdate
     PlayerLoop -> PlayerLoop: UpdateInputManager
     PlayerLoop -> PlayerLoop: ProcessRemoteInput
+    PlayerLoop -> NetworkUpdateLoop: RunNetworkEarlyUpdate
+    NetworkUpdateLoop -> NetworkUpdateLoop: UpdateStage = EarlyUpdate
+    loop m_EarlyUpdate_Array
+        NetworkUpdateLoop -> INetworkUpdateSystem: NetworkUpdate
+        NetworkUpdateLoop <-- INetworkUpdateSystem
+    end
+    PlayerLoop <-- NetworkUpdateLoop
     PlayerLoop -> PlayerLoop: ScriptRunDelayedStartupFrame
+    note right of PlayerLoop: MonoBehaviour.Awake()
+    note right of PlayerLoop: MonoBehaviour.OnEnable()
+    note right of PlayerLoop: MonoBehaviour.Start()
     PlayerLoop -> PlayerLoop: UpdateKinect
     PlayerLoop -> PlayerLoop: DeliverIosPlatformEvents
     PlayerLoop -> PlayerLoop: TangoUpdate
     PlayerLoop -> PlayerLoop: DispatchEventQueueEvents
     PlayerLoop -> PlayerLoop: PhysicsResetInterpolatedTransformPosition
+    note right of PlayerLoop: GetPhysicsManager().ResetInterpolatedTransformPosition();
     PlayerLoop -> PlayerLoop: SpriteAtlasManagerUpdate
     PlayerLoop -> PlayerLoop: PerformanceAnalyticsUpdate
 end
 group FixedUpdate
+    PlayerLoop -> PlayerLoop: ClearLines
+    PlayerLoop -> PlayerLoop: NewInputFixedUpdate
+    PlayerLoop -> PlayerLoop: DirectorFixedSampleTime
+    PlayerLoop -> PlayerLoop: AudioFixedUpdate
     PlayerLoop -> NetworkUpdateLoop: RunNetworkFixedUpdate
     NetworkUpdateLoop -> NetworkUpdateLoop: UpdateStage = FixedUpdate
     loop m_FixedUpdate_Array
@@ -288,16 +313,17 @@ group FixedUpdate
         NetworkUpdateLoop <-- INetworkUpdateSystem
     end
     PlayerLoop <-- NetworkUpdateLoop
-    PlayerLoop -> PlayerLoop: ClearLines
-    PlayerLoop -> PlayerLoop: NewInputFixedUpdate
-    PlayerLoop -> PlayerLoop: DirectorFixedSampleTime
-    PlayerLoop -> PlayerLoop: AudioFixedUpdate
     PlayerLoop -> PlayerLoop: ScriptRunBehaviourFixedUpdate
+    note right of PlayerLoop: MonoBehaviour.FixedUpdate()
     PlayerLoop -> PlayerLoop: DirectorFixedUpdate
     PlayerLoop -> PlayerLoop: LegacyFixedAnimationUpdate
     PlayerLoop -> PlayerLoop: XRFixedUpdate
     PlayerLoop -> PlayerLoop: PhysicsFixedUpdate
+    note right of PlayerLoop: GetPhysicsManager().FixedUpdate();
+    note right of PlayerLoop: GetPhysicsManager().Simulate();
     PlayerLoop -> PlayerLoop: Physics2DFixedUpdate
+    note right of PlayerLoop: GetPhysicsManager2D().FixedUpdate();
+    note right of PlayerLoop: GetPhysicsManager2D().Simulate();
     PlayerLoop -> PlayerLoop: PhysicsClothFixedUpdate
     PlayerLoop -> PlayerLoop: DirectorFixedUpdatePostPhysics
     PlayerLoop -> PlayerLoop: ScriptRunDelayedFixedFrameRate
@@ -311,7 +337,11 @@ group PreUpdate
     end
     PlayerLoop <-- NetworkUpdateLoop
     PlayerLoop -> PlayerLoop: PhysicsUpdate
+    note right of PlayerLoop: GetPhysicsManager().Update();
+    note right of PlayerLoop: Rigidbody Interpolation
     PlayerLoop -> PlayerLoop: Physics2DUpdate
+    note right of PlayerLoop: GetPhysicsManager2D().Update();
+    note right of PlayerLoop: Rigidbody2D Interpolation
     PlayerLoop -> PlayerLoop: CheckTexFieldInput
     PlayerLoop -> PlayerLoop: IMGUISendQueuedEvents
     PlayerLoop -> PlayerLoop: NewInputUpdate
@@ -329,18 +359,12 @@ group Update
     end
     PlayerLoop <-- NetworkUpdateLoop
     PlayerLoop -> PlayerLoop: ScriptRunBehaviourUpdate
+    note right of PlayerLoop: MonoBehaviour.Update()
     PlayerLoop -> PlayerLoop: ScriptRunDelayedDynamicFrameRate
     PlayerLoop -> PlayerLoop: ScriptRunDelayedTasks
     PlayerLoop -> PlayerLoop: DirectorUpdate
 end
 group PreLateUpdate
-    PlayerLoop -> NetworkUpdateLoop: RunNetworkPreLateUpdate
-    NetworkUpdateLoop -> NetworkUpdateLoop: UpdateStage = PreLateUpdate
-    loop m_PreLateUpdate_Array
-        NetworkUpdateLoop -> INetworkUpdateSystem: NetworkUpdate
-        NetworkUpdateLoop <-- INetworkUpdateSystem
-    end
-    PlayerLoop <-- NetworkUpdateLoop
     PlayerLoop -> PlayerLoop: AIUpdatePostScript
     PlayerLoop -> PlayerLoop: DirectorUpdateAnimationBegin
     PlayerLoop -> PlayerLoop: LegacyAnimationUpdate
@@ -349,7 +373,15 @@ group PreLateUpdate
     PlayerLoop -> PlayerLoop: EndGraphicsJobsAfterScriptUpdate
     PlayerLoop -> PlayerLoop: ConstraintManagerUpdate
     PlayerLoop -> PlayerLoop: ParticleSystemBeginUpdateAll
+    PlayerLoop -> NetworkUpdateLoop: RunNetworkPreLateUpdate
+    NetworkUpdateLoop -> NetworkUpdateLoop: UpdateStage = PreLateUpdate
+    loop m_PreLateUpdate_Array
+        NetworkUpdateLoop -> INetworkUpdateSystem: NetworkUpdate
+        NetworkUpdateLoop <-- INetworkUpdateSystem
+    end
+    PlayerLoop <-- NetworkUpdateLoop
     PlayerLoop -> PlayerLoop: ScriptRunBehaviourLateUpdate
+    note right of PlayerLoop: MonoBehaviour.LateUpdate()
 end
 group PostLateUpdate
     PlayerLoop -> PlayerLoop: PlayerSendFrameStarted
@@ -376,6 +408,15 @@ group PostLateUpdate
     PlayerLoop -> PlayerLoop: FinishFrameRendering
     PlayerLoop -> PlayerLoop: BatchModeUpdate
     PlayerLoop -> PlayerLoop: PlayerSendFrameComplete
+    note right of PlayerLoop: GetDelayedCallManager().Update(DelayedCallManager::kEndOfFrame);
+    note right of PlayerLoop: continue coroutine: yield WaitForEndOfFrame
+    PlayerLoop -> NetworkUpdateLoop: RunNetworkPostLateUpdate
+    NetworkUpdateLoop -> NetworkUpdateLoop: UpdateStage = PostLateUpdate
+    loop m_PostLateUpdate_Array
+        NetworkUpdateLoop -> INetworkUpdateSystem: NetworkUpdate
+        NetworkUpdateLoop <-- INetworkUpdateSystem
+    end
+    PlayerLoop <-- NetworkUpdateLoop
     PlayerLoop -> PlayerLoop: UpdateCaptureScreenshot
     PlayerLoop -> PlayerLoop: PresentAfterDraw
     PlayerLoop -> PlayerLoop: ClearImmediateRenderers
@@ -391,13 +432,6 @@ group PostLateUpdate
     PlayerLoop -> PlayerLoop: MemoryFrameMaintenance
     PlayerLoop -> PlayerLoop: ExecuteGameCenterCallbacks
     PlayerLoop -> PlayerLoop: ProfilerEndFrame
-    PlayerLoop -> NetworkUpdateLoop: RunNetworkPostLateUpdate
-    NetworkUpdateLoop -> NetworkUpdateLoop: UpdateStage = PostLateUpdate
-    loop m_PostLateUpdate_Array
-        NetworkUpdateLoop -> INetworkUpdateSystem: NetworkUpdate
-        NetworkUpdateLoop <-- INetworkUpdateSystem
-    end
-    PlayerLoop <-- NetworkUpdateLoop
 end
 ```
 </details>
@@ -407,18 +441,18 @@ end
 ```cs
 public interface INetworkUpdateSystem
 {
-    void NetworkUpdate();
+    void NetworkUpdate(NetworkUpdateStage updateStage);
 }
 
-public enum NetworkUpdateStage
+public enum NetworkUpdateStage : byte
 {
-    Initialization = -4,
-    EarlyUpdate = -3,
-    FixedUpdate = -2,
-    PreUpdate = -1,
+    Initialization = 1,
+    EarlyUpdate = 2,
+    FixedUpdate = 3,
+    PreUpdate = 4,
     Update = 0,
-    PreLateUpdate = 1,
-    PostLateUpdate = 2
+    PreLateUpdate = 5,
+    PostLateUpdate = 6
 }
 
 public static class NetworkUpdateLoop
@@ -435,13 +469,26 @@ public static class NetworkUpdateLoop
             if (playerLoopSystem.type == typeof(Initialization))
             {
                 var subsystems = playerLoopSystem.subSystemList.ToList();
-                subsystems.Add(NetworkInitialization.CreateLoopSystem());
+                {
+                    // insert at the bottom of `Initialization`
+                    subsystems.Add(NetworkInitialization.CreateLoopSystem());
+                }
                 playerLoopSystem.subSystemList = subsystems.ToArray();
             }
             else if (playerLoopSystem.type == typeof(EarlyUpdate))
             {
                 var subsystems = playerLoopSystem.subSystemList.ToList();
-                subsystems.Insert(0, NetworkEarlyUpdate.CreateLoopSystem());
+                {
+                    int indexOfScriptRunDelayedStartupFrame = subsystems.FindIndex(s => s.type == typeof(EarlyUpdate.ScriptRunDelayedStartupFrame));
+                    if (indexOfScriptRunDelayedStartupFrame < 0)
+                    {
+                        Debug.LogError($"{nameof(NetworkUpdateLoop)}.{nameof(Initialize)}: Cannot find index of '{nameof(EarlyUpdate.ScriptRunDelayedStartupFrame)}' under '{nameof(EarlyUpdate)}' subsystems!");
+                        return;
+                    }
+
+                    // insert before `EarlyUpdate.ScriptRunDelayedStartupFrame`
+                    subsystems.Insert(indexOfScriptRunDelayedStartupFrame, NetworkEarlyUpdate.CreateLoopSystem());
+                }
                 playerLoopSystem.subSystemList = subsystems.ToArray();
             }
             // add/insert other loop systems ...
@@ -489,7 +536,7 @@ public static class NetworkUpdateLoop
         int arrayLength = m_Initialization_Array.Length;
         for (int i = 0; i < arrayLength; i++)
         {
-            m_Initialization_Array[i].NetworkUpdate();
+            m_Initialization_Array[i].NetworkUpdate(UpdateStage);
         }
     }
 
@@ -502,7 +549,7 @@ public static class NetworkUpdateLoop
         int arrayLength = m_EarlyUpdate_Array.Length;
         for (int i = 0; i < arrayLength; i++)
         {
-            m_EarlyUpdate_Array[i].NetworkUpdate();
+            m_EarlyUpdate_Array[i].NetworkUpdate(UpdateStage);
         }
     }
 
