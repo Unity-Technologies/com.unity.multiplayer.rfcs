@@ -29,43 +29,54 @@ As this data is largely a Dictionary, accessing its data will be as simple as ac
 [reference-level-explanation]: #reference-level-explanation
 
 
-In order to limit the interface, we are pushing the collected set or performance data to be obtainable only at the end of a tick. The following is roughly what this object could look like. Currently this object will be updated in ```NetworkManager.LateUpdate()``` for the MLAPI and ```Transport.Send()``` and other relevant transport method for the transport layer. At the end of the tick the user will be notified that the relevant data is complete and ready (both the MLAPI data and Transport data). Since MLAPI is responsible for collecting the data, and the data from transports will be generic and apply to all/most transports, MLAPI as  the owner of the collection of performance data will call ```GetProfilerData()``` on the transports through a callback in order to get the data exactly when it needs it in the pipeline before propagating the data out externally.
+In order to limit the interface, we are pushing the collected set or performance data to be obtainable only at the end of a tick. The following is roughly what this object could look like. Currently this object will be updated in ```NetworkManager.LateUpdate()``` for the MLAPI and ```Transport.Send()``` and other relevant transport method for the transport layer. At the end of the tick the user will be notified that the relevant data is complete and ready (both the MLAPI data and Transport data). Since MLAPI is responsible for collecting the data, and the data from transports will be generic and apply to all/most transports, MLAPI as  the owner of the collection of performance data will call ```GetTransportGetData()``` on the transports through an interface in order to get the data exactly when it needs it in the pipeline before propagating the data out externally. Whether or not the data is collected per transport can also be toggled by a runtime flag ‘profilerEnabled’.
 
 ```cs
-const string NumberOfServerRPCs = "numberOfServerRPCs";
+namespace MLAPI {
+	class ProfilerConstants {
+		public const string NumberOfServerRPCs = "numberOfServerRPCs";
 
-const string BytesSent = "bytesSent";
-const string BytesReceived = "bytesReceived";
-const string TickDuration = "tickDuration";
-const string NumberOfMessagesOutgoing = "numberOfMessagesOutgoing";
+		public const string TickDuration = "tickDuration";
+		public const string NumberOfBuffMessagesOut = "numberOfBuffMessagesOut";
+		public const string NumberOfBuffMessagesIn = "numberOfBuffMessagesIn";
+		public const string NumberOfUnBuffMessagesOut = "numberOfUnBuffMessagesOut";
+		public const string NumberOfUnBuffMessagesIn = "numberOfUnBuffMessagesIn";
+		public const string NumberBytesSent = "numberBytesSent";
+        public const string NumberBytesReceived = "numberBytesReceived";
+	}
 
-class ProfilerTickData {
-    int tickID;
+	public class ProfilerTickData {
+		public int tickID;
 
-    readonly Dictionary<string, int> tickData = new Dictionary<string, int>();
+		public readonly Dictionary<string, int> tickData = new Dictionary<string, int>();
+	}
+
+	public interface ITransportProfilerData {
+		Dictionary<string, int> GetTransportGetData();
+	}
 }
 
 namespace MLAPI {
-    private static int tickID = 0;
-    
     class NetworkManager{
-         public delegate void PerfomanceDataEventHandler(in ProfilerTickData profilerData);
-         event PerfomanceDataEventHandler PerfomanceDataEvent;
+		
+		private static int tickID = 0;
+		public delegate void PerfomanceDataEventHandler(ProfilerTickData profilerData);
+		event PerfomanceDataEventHandler PerfomanceDataEvent;
          
-         public delegate Dictionary<string, int> TransportGetDataHandler();
-         event TransportGetDataHandler OnTransportGetDataEvent;
-         
-         void LateUpdate(){
+		void LateUpdate() {
              ...
              ProfilerTickData profilerData = new ProfilerTickData();
              profilerData.tickID = tickID++;
              ...
              // Transports do their send and receives
              ...
-             profilerData.tickData[NumberOfServerRPCs] += 1;
-             ...
-             var transportProfilerData = TransportGetDataEvent?.Invoke();
-             transportProfilerData.ForEach(x => { if (!profilerData.tickData.ContainsKey(x.Key)) profilerData.tickData.Add(x.Key, x.Value); });
+             profilerData.tickData[ProfilerConstants.NumberOfServerRPCs] += 1;
+             ...            
+			 var profileTransport = NetworkConfig.NetworkTransport as ITransportProfilerData;
+			 if(profileTransport != null){
+					var transportProfilerData = profileTransport.GetTransportGetData();
+					transportProfilerData.ForEach(x => { if (!profilerData.tickData.ContainsKey(x.Key)) profilerData.tickData.Add(x.Key, x.Value); });
+			  }
              PerfomanceDataEvent?.Invoke(profilerData);
          }
     }
@@ -73,21 +84,23 @@ namespace MLAPI {
 
 
 namespace MLAPI.Transport {
-    class UnetTransport{
+    class UnetTransport: Transport, ITransportProfilerData {
          
-         private static Dictionary<string, int> transportProfilerData;
+        private static Dictionary<string, int> transportProfilerData;
+        private static bool profilerEnabled;
 
         void Init(){
              transportProfilerData = new Dictionary<string, int>();
-             NetworkManager.OnTransportGetDataEvent += GetTransportGetDataEvent;
         }
          
-         TransportProfilerData GetTransportGetDataEvent() {
+         Dictionary<string, int> GetTransportGetData() {
              return transportProfilerData;
          }
          
          void Send(ulong clientId, ArraySegment<byte> data, string channelName){
-             transportProfilerData[NumberOfBuffMessagesOut] += 1;
+             if(profilerEnabled){
+                  transportProfilerData[ProfilerConstants.NumberOfBuffMessagesOut] += 1;
+             }
          }
     }
 }
@@ -98,8 +111,8 @@ namespace ThirdParty {
             NetworkManager.instance.PerfomanceDataEvent += OnPerformanceEvent;
         }
         
-        void OnPerformanceEvent(in ProfilerTickData profilerData){
-            IMGUI.textlabel("Num Server RPCs", profilerData.tickData[NumberOfServerRPCs]);
+        void OnPerformanceEvent(ProfilerTickData profilerData){
+            IMGUI.textlabel("Num Server RPCs", profilerData.tickData[ProfilerConstants.NumberOfServerRPCs]);
         }
     }
 }
@@ -130,8 +143,7 @@ Writing all pertinent data per tick is a similar method to what most rendering p
 # Unresolved questions
 [unresolved-questions]: #unresolved-questions
 
-It is possible that some of this data can be stored as a KV-store (string to object). This would be needed if someone was writing an unusual transport and wanted to place data within the ProfilerTickData and then obtain it to display in their Profiler Stat/Profiler.
-Is this something the community would be interested in for custom transports and custom overlays?
+Some of the design involving profilerEnabled flag and using an interface is based upon the MultPlex Transport which may use other transports underneath. Is this truly necessary?
 
 # Future possibilities
 [future-possibilities]: #future-possibilities
