@@ -42,7 +42,7 @@ namespace MLAPI {
 		public const string NumberOfUnBuffMessagesOut = "numberOfUnBuffMessagesOut";
 		public const string NumberOfUnBuffMessagesIn = "numberOfUnBuffMessagesIn";
 		public const string NumberBytesSent = "numberBytesSent";
-        public const string NumberBytesReceived = "numberBytesReceived";
+		public const string NumberBytesReceived = "numberBytesReceived";
 	}
 
 	public class ProfilerTickData {
@@ -57,28 +57,28 @@ namespace MLAPI {
 }
 
 namespace MLAPI {
-    class NetworkManager{
-		
-		private static int tickID = 0;
-		public delegate void PerfomanceDataEventHandler(ProfilerTickData profilerData);
-		event PerfomanceDataEventHandler PerfomanceDataEvent;
-         
-		void LateUpdate() {
-             ...
-             ProfilerTickData profilerData = new ProfilerTickData();
-             profilerData.tickID = tickID++;
-             ...
-             // Transports do their send and receives
-             ...
-             profilerData.tickData[ProfilerConstants.NumberOfServerRPCs] += 1;
-             ...            
-			 var profileTransport = NetworkConfig.NetworkTransport as ITransportProfilerData;
-			 if(profileTransport != null){
-					var transportProfilerData = profileTransport.GetTransportGetData();
-					transportProfilerData.ForEach(x => { if (!profilerData.tickData.ContainsKey(x.Key)) profilerData.tickData.Add(x.Key, x.Value); });
-			  }
-             PerfomanceDataEvent?.Invoke(profilerData);
-         }
+    class NetworkManager {
+	private static int tickID = 0;
+	
+	public delegate void PerfomanceDataEventHandler(ProfilerTickData profilerData);
+	event PerfomanceDataEventHandler PerfomanceDataEvent;
+
+	void LateUpdate() {
+	   ...
+	   ProfilerTickData profilerData = new ProfilerTickData();
+	   profilerData.tickID = tickID++;
+	   ...
+	   // Transports do their send and receives
+	   ...
+	   profilerData.tickData[ProfilerConstants.NumberOfServerRPCs] += 1;
+	   ...            
+	   var profileTransport = NetworkConfig.NetworkTransport as ITransportProfilerData;
+		 if(profileTransport != null){
+			var transportProfilerData = profileTransport.GetTransportGetData();
+			transportProfilerData.ForEach(x => { if (!profilerData.tickData.ContainsKey(x.Key)) profilerData.tickData.Add(x.Key, x.Value); });
+		 }
+	   PerfomanceDataEvent?.Invoke(profilerData);
+	}
     }
 }
 
@@ -87,9 +87,9 @@ namespace MLAPI.Transport {
     class UnetTransport: Transport, ITransportProfilerData {
          
         private static Dictionary<string, int> transportProfilerData;
-        private static bool profilerEnabled;
+        private static bool profilerEnabled; 
 
-        void Init(){
+        void Init() {
              transportProfilerData = new Dictionary<string, int>();
         }
          
@@ -98,7 +98,7 @@ namespace MLAPI.Transport {
          }
          
          void Send(ulong clientId, ArraySegment<byte> data, string channelName){
-             if(profilerEnabled){
+             if(profilerEnabled) {
                   transportProfilerData[ProfilerConstants.NumberOfBuffMessagesOut] += 1;
              }
          }
@@ -106,12 +106,12 @@ namespace MLAPI.Transport {
 }
 
 namespace ThirdParty {
-    class StatsRenderer{
-        void Start(){
+    class StatsRenderer {
+        void Start() {
             NetworkManager.instance.PerfomanceDataEvent += OnPerformanceEvent;
         }
         
-        void OnPerformanceEvent(ProfilerTickData profilerData){
+        void OnPerformanceEvent(ProfilerTickData profilerData) {
             IMGUI.textlabel("Num Server RPCs", profilerData.tickData[ProfilerConstants.NumberOfServerRPCs]);
         }
     }
