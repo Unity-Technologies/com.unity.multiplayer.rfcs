@@ -77,7 +77,7 @@ We suggest changing:
 
 Below diagram shows a couple NetworkedVariable updates with example tick numbers.
 
-![](0000-sync-networked-vars/netvars.PNG)
+![](0000-sync-networked-vars/netvars.png)
 
 # Drawbacks
 [drawbacks]: #drawbacks
