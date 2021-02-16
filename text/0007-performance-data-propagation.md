@@ -1,7 +1,7 @@
 - Feature Name: `performance-data-propagation`
 - Start Date: 2021-01-29
 - RFC PR: [RFC#7](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/7)
-- Issue: [Unity-Technologies/com.unity.multiplayer#0000](https://github.com/Unity-Technologies/com.unity.multiplayer/issues/0000)
+- Issue: [MLAPI#484](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/issues/484)
 
 # Summary
 [summary]: #summary
