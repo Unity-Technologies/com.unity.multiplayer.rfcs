@@ -17,16 +17,15 @@ We suggest two elements:
 # Motivation
 [motivation]: #motivation
 
-In a client-server topology, any client and the server can modify NetworkedVariables. The server receives the clients' changes and send them back to all clients. In order to retain generality, we'll assume that any variable can be modified by anyone and that the server can also modify the variable as they are received and sent. For example, we could have server-driven physics over client-driven character movement.
+In a client-server topology, any client and the server can modify NetworkedVariables. The server receives the clients' changes and send them back to all of the clients. In order to retain generality, we'll assume that any variable can be modified by anyone and that the server can also modify the variable as they are received and sent. For example, we could have server-driven physics over client-driven character movement.
 
-We would like the game code on the client machine to be able to pick any interpolation system it desires for character movement. We'd like the game code to be able to pick client- or server-authoritative mechanics as it see fit. In order to allow this, we believe that each NetworkedVariable should know:
-- When was I modified by a client?
-- When did this update travel through the server?
-- Do I have more recent local information about my value?
+It is proposed that the NetworkedVariable interpolation algorithm be easily customizable and that the user can chose whether it supports client or server side authoritative mechanics. To account for this, each NetworkedVaraible will keep track of the following:
+- When it was modified by a given client
+- When the server updated or transmitted it
 
-This will enable better client-side interpolation and lag compensation, in the future, and provide flexibility for systems like snapshotting. 
+This will enable better client-side interpolation, lag compensation, and in the future provide the required flexibility for new systems (i.e. like snapshotting).
 
-This will enable the client to tell the difference between receiving its own updates back and receiving updates back with server-side adjustments for things like physics.
+This provides enough information such that the client can distinguish between its own updates from that of server-side adjustments (i.e. like physics).
 
 This will keep the overall bandwidth usage in check, preventing frequent updates for NetworkedVariables.
 
