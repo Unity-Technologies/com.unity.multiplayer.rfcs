@@ -78,6 +78,10 @@ Below diagram shows a couple NetworkedVariable updates with example tick numbers
 
 ![](0000-sync-networked-vars/netvars.png)
 
+The diagram below shows the function calls that would lead to the local and remote ticks being written to the stream, on the send side.
+
+![](0000-sync-networked-vars/netvars.ticksend.png)
+
 # Drawbacks
 [drawbacks]: #drawbacks
 
