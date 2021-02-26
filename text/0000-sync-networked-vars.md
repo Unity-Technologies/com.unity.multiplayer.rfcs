@@ -82,6 +82,10 @@ The diagram below shows the function calls that would lead to the local and remo
 
 ![](0000-sync-networked-vars/netvars.ticksend.png)
 
+The diagram below shows the function calls that would lead to the local and remote ticks being set in the NetworkedVar, on the receive side.
+
+![](0000-sync-networked-vars/netvars.tickrecv.png)
+
 # Drawbacks
 [drawbacks]: #drawbacks
 
