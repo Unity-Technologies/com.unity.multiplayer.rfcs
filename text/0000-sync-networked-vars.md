@@ -116,3 +116,7 @@ The following systems will build up on this:
 - Replay and rollback
 - Interpolation and Extrapolation
 - Lag compensation
+
+This RFC suggests adding ticks to all NetworkedVariable delta updates. One future possibility would be to make those ticks an optional field, to save on bandwidth. When this is considered, it will be important to weight:
+- whether marking the variable as ticked or not would cost the same as actually sending the ticks
+- the implications (extra complexity) to shapshot, interpolation, and lag compensation systems.
