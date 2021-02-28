@@ -108,9 +108,7 @@ Not doing this leaves the transports in a state where they are not easily interc
 # Prior art
 [prior-art]: #prior-art
 
-## Mirror's Transport
-
-Mirror passe the address to the transport in the ClientConnect (StartClient function of MLAPI). Using a similar approach would allow us to not touch the transport class but it moves the responsibilty of handling connection addresses to NetworkingManager.
+Mirror passes the address to the transport in the ClientConnect (StartClient function of MLAPI). Using a similar approach would allow us to not touch the transport class but it moves the responsibilty of handling connection addresses to NetworkingManager.
 
 UNet does not have a concept of transports. A NetworkAddress and NetworkPort can be passed into the NetworkingManager.
 
