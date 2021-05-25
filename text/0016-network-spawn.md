@@ -1,4 +1,4 @@
-- Feature Name: OnNetworkSpawn
+- Feature Name: network-spawn
 - Start Date: 2021-05-25
 - RFC PR: [Unity-Technologies/com.unity.multiplayer.rfcs#0016](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/0016)
 - Issue: [Unity-Technologies/com.unity.multiplayer#0000](https://github.com/Unity-Technologies/com.unity.multiplayer/issues/0000)
