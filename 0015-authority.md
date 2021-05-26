@@ -170,7 +170,7 @@ HasAuthority:
 
 IsServer:
 - The server has permission to change ownership and authority of NetworkObjects.
-- `IsServer` should be avoided for gameplay related code.
+- `IsServer` should be avoided for gameplay related code. HasAuthority should be used instead.
 
 ## NetworkObject Authority
 
