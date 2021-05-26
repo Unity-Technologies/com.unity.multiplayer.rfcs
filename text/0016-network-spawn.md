@@ -54,6 +54,20 @@ The internal function will be used so that NetworkBehaviours can subscribe to in
 
 `OnNetworkDespawn` will also be called on the server when a `NetworkObject` gets destroyed because that also counts as a despawn. 
 
+The implementation of this will work by mirroring what's already there for `NetworkStart`. The following will be introduced to `NetworkObject` to call the despawn event functions on all child NetworkBehaviours:
+```csharp
+internal void InvokeBehaviourNetworkDespawn()
+{
+    for (int i = 0; i < ChildNetworkBehaviours.Count; i++)
+    {
+        ChildNetworkBehaviours[i].InternalOnNetworkDespawn();
+        ChildNetworkBehaviours[i].OnNetworkDespawn();
+    }
+}
+```
+
+MLAPI already has internal code which runs on every despawn. We will leverage that code. The function doing this is `NetworkSpawnManager::OnDestroyObject` (this will be renamed to `OnDespawnObject` because that's actually what this function does. Inside this function there is a line which does: `networkObject.IsSpawned = false;` after that line the following will be added: `networkObject.InvokeBehaviourNetworkDespawn();`. This runs the despawn event function at the correct point in time which is before any PrefabHandlers run.
+
 # Drawbacks
 [drawbacks]: #drawbacks
 
