@@ -195,7 +195,6 @@ There will also be a function to change authority:
 ```csharp
 public void ChangeAuthority(Authority authority)
 {
-    Assert.IsFalse(authority == Authority.FromNetworkObject)
     NetworkManager.SpawnManager.ChangeAuthority(this, authority);
 }
 ```
