@@ -6,7 +6,9 @@
 # Summary
 [summary]: #summary
 
-The snapshot system would store NetworkVariable updates and send them in blocks (called snapshot messages) at regular intervals (called ticks). Unreliable packets would be used for performance reason. An acknowledgement system and a prioritisation mechanism would allow pessimistic re-sends and prioritizing more important traffic. History would be maintained, for interpolation in a first pass and rollback in a later addition. 
+The Snapshot System would store NetworkVariable updates and send them in blocks (called snapshot messages) at regular intervals (called ticks). Unreliable packets would be used for performance reason. An acknowledgement system and a prioritisation mechanism would allow pessimistic re-sends and prioritizing more important traffic. History would be maintained, for interpolation in a first pass and rollback in a later addition. 
+
+The Snapshot System depends on a tick system where machines have a synchronized tick number which quantize the time in discrete ticks. 
 
 # Motivation
 [motivation]: #motivation
@@ -38,6 +40,8 @@ The `SnapshotSystem` maintains every variables sent in a `Snapshot` class. In a 
 Each entry contains a `Key`: the NetworkVariable ObjectId, the Behaviour Index, the Variable Index within that behaviour and the tick written. This basically describes which variable we're talking about, at which tick.  Each entry also has a `Position` and a `Length` parameter. Those parameters specify where, in the buffer, this variable is stored. Two options will be considered:
  1. storing a serialized NetworkVariable. (early prototype showed this as a possibility)
  2. storing a blit'ted NetworkVariable, and serializing it only at send time (most likely)
+
+This Send Snapshot would then be sent by the Snapshot Manager at the next Network Tick.
 
 ### Receive Snapshot
 
