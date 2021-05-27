@@ -141,6 +141,16 @@ public override void OnLostAuthority()
 }
 ```
 
+### SupportedAuthorityModes Attribute
+Some NetworkBehaviours might not support all authority modes. This can be indicated with the SupportedAuthorityModes attribute like this:
+```csharp
+[SupportedAuthorityModes(Authority.Owner | Authority.Server)]
+public class SampleNetworkBehaviour : NetworkBehaviour{}
+```
+
+Setting the supported authority modes will not prevent code or the inspector from assigning a wrong authority. It will just log a warning whenever the authority gets changed to a value which the behaviour does not support.
+
+Supported authority modes is mainly a tool to signal intent on how a component should be used.
 
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
@@ -255,6 +265,32 @@ public bool CanClientRead(ulong clientId)
 ## OnGainedAuthority / OnLostAuthority
 
 Will be implemented by listening to authority mode changes internally and then checking whether the resulting `HasAuthority` flag is different.
+
+## SupportedAuthorityModes Attribute
+```csharp
+    [AttributeUsage(AttributeTargets.Class)]
+    public class SupportedAuthorityModesAttribute : Attribute
+    {
+        private Authority m_AuthorityModes;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool SupportsAuthority(SupportedAuthorityModesAttribute attribute, Authority authority)
+        {
+            // Enum.HasFlag but faster
+            return (((byte)attribute.m_AuthorityModes & (int)authority) != 0);
+        }
+
+        public SupportedAuthorityModesAttribute(Authority authorityModes)
+        {
+            m_AuthorityModes = authorityModes;
+        }
+    }
+```
+
+At runtime modes get cached in a static lookup table `Dictionary<Type, Authority>` to avoid reflection in the hot path.
+
+Supported Authority mode just changes some minor details in NetworkObjectEditor to display components with not supported authority and after changing authority it will check whether the behaviour is still supported. In addition it checks foreach NetworkBehaviour whether the authority mode is still allowed when authority gets changed and if not logs a warning to the console.
+
 
 # Drawbacks
 [drawbacks]: #drawbacks
@@ -379,17 +415,6 @@ public class SampleNetworkBehaviour : NetworkBehaviour{}
 
 The Unity high level components such as `NetworkTransform` and `NetworkAnimator` will not allow for authority override. If a user wants to use them with authority override they should derive from them and add the attribute.
 
-### SupportedAuthorityModes Attribute
-Some NetworkBehaviours might not support all authority modes. This can be indicated with the SupportedAuthorityModes attribute like this:
-```csharp
-[SupportedAuthorityModes(Authority.Owner | Authority.Server)]
-public class SampleNetworkBehaviour : NetworkBehaviour{}
-```
-
-Setting the supported authority modes will not prevent code or the inspector from assigning a wrong authority. It will just log a warning whenever the authority gets changed to a value which the behaviour does not support.
-
-Supported authority modes is mainly a tool to signal intent on how a component should be used.
-
 ## Reference-level explanation
 
 
@@ -433,31 +458,6 @@ internal void ChangeAuthority(NetworkBehaviour networkBehaviour, Authority autho
     ChangeAuthority(networkObject.NetworkObjectId, networkBehaviour.NetworkBehaviourId, serialized, 2);
 }
 ```
-
-### SupportedAuthorityModes Attribute
-```csharp
-    [AttributeUsage(AttributeTargets.Class)]
-    public class SupportedAuthorityModesAttribute : Attribute
-    {
-        private Authority m_AuthorityModes;
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool SupportsAuthority(SupportedAuthorityModesAttribute attribute, Authority authority)
-        {
-            // Enum.HasFlag but faster
-            return (((byte)attribute.m_AuthorityModes & (int)authority) != 0);
-        }
-
-        public SupportedAuthorityModesAttribute(Authority authorityModes)
-        {
-            m_AuthorityModes = authorityModes;
-        }
-    }
-```
-
-At runtime modes get cached in a static lookup table `Dictionary<Type, Authority>` to avoid reflection in the hot path.
-
-Supported Authority mode just changes some minor details in NetworkObjectEditor to display components with not supported authority and after changing authority it will check whether the behaviour is still supported. In addition it checks foreach NetworkBehaviour whether the authority mode is still allowed when authority gets changed and if not logs a warning to the console.
 
 ### AllowAuthorityOverride Attribute
 Per component authority is a feature which can be useful in some rare situations. The `AllowAuthorityOverride` allows a developer to override the network authority of the network object. This is disabled by default because many components could not support with other components on the same  
