@@ -97,13 +97,25 @@ At each network tick, the snapshot system would process the Send Snapshot and ex
 
 It is quite possible that, at some ticks, we require more than one Snapshot message per tick. In those cases, we'd use a new property of NetworkVariable to guarantee correct grouping. Something like `public short Group;` in NetworkVariable. The Snapshot system would not separate NetworkVariables with the same (non-zero) group in different messages.
 
-### Acknowledgement
+### Acknowledgements and resends
 
 Since each connection will carry Snapshot Messages both ways, there's two very direct ways to go about acknowledgements:
 - different channel, specific per-message ack
-- including in each Snapshot Message the information on which Snapshot Message were received
+- including in each Snapshot Message the information on which Snapshot Message were received so far
 
-# Visible changes
+In order to identify a Snapshot Message, two numbers would be used:
+
+`int tick; // the tick this Snapshot Message was sent on`
+
+`int sequence; // unique sequence number. Each Snapshot Message gets a different one`
+
+With this system, each machine can simply acknowledge the latest sequential Snapshot Message it received. If there's any missing received Snapshot Message, it can use an acknowledgement mask to specify which of the previous _n_ Snapshot Messages were received. This allows the other side to know what each machine has and pick which NetworkVariable to prioritize/re-send. 
+
+One important thing to remember is that when a Snapshot Message is lost, it is not necessary to re-send that exact message back. Rather, sending a newer state of the NetworkVariables in it is sufficient. Especially since many of those variables might already carry more recent values in in-transit messages. This update would happen at next tick Snapshot sending. This is illustrated below:
+
+![](0000-snapshot-system/snapshot.ack.png)
+
+# Visible API changes
 
 - NetworkVariables will have a different API for reading interpolated values at specific ticks than for writing a value to be sent. We suggest either:
     - `T NetworkVariable<T>.GetInterpolateValue(float tick);`
@@ -129,16 +141,15 @@ This is necessary so that the Snapshot System can easily copy variables around a
 
 Those existing classes are specialized for behaviours that do not directly align with snapshot. It's probably better to keep them in a working state, but separate and not affected for now.  
 
-
 # Drawbacks
 [drawbacks]: #drawbacks
 
-As a consequence of implementing the Snapshot System, there isn't a possibility of having different channels for different NetworkVariables. The Snapshot Messages get sent on their own unreliable channel.
+As a consequence of implementing the Snapshot System, there isn't a possibility of having different channels for different NetworkVariables. All the Snapshot Messages get sent on the same unreliable channel.
 
 # Rationale and alternatives
 [rationale-and-alternatives]: #rationale-and-alternatives
 
-Two central options:
+For storage, two central options are left regarding the implementation:
 - serialize NetworkVariables directly into the snapshot
 - Keep a blit version of NetworkVariables and serializing as a second pass
 
@@ -148,11 +159,13 @@ Two central options:
 # Unresolved questions
 [unresolved-questions]: #unresolved-questions
 
-- What parts of the design do you expect to resolve through the RFC process before this gets merged?
-- What parts of the design do you expect to resolve through the implementation of this feature before stabilization?
-- What related issues do you consider out of scope for this RFC that could be addressed in the future independently of the solution that comes out of this RFC?
+- How, internally, will fast look-up into the Snapshot structures be implemented? This is probably an implementation detail, but will impact the performance of the resulting solution.
+- Are we better off serializing the NetworkVariables directly into the snapshot or blit'ting them and only serializing. Although the blit solution is probably better in the long term, it increases immediate complexity, and risk, especially around serialization.  
+- When we get to delta compression, having Snapshot Messages carrying the latest modified values will make the solution more complex, as opposed to a solution where the complete state is sent on every tick. Do we want to cut on scalability to make delta encoding easier?
 
 # Future possibilities
 [future-possibilities]: #future-possibilities
 
-Rollback and replay features where intentionally left out of this RFC but would build on top of it. 
+Rollback and replay features should be detailed further in a follow-up RFC, but would build on top of this.
+
+ 
