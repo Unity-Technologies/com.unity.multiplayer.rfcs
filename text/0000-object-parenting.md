@@ -52,7 +52,7 @@ If an invalid/unsupported `NetworkObject` parenting happens, MLAPI will immediat
 
 ## Moves
 
-We will assume our initial scene hierarchy is looking like this:
+We will assume that our initial scene hierarchy is looking like this:
 
 ```
 Sun
@@ -74,24 +74,25 @@ So, let's try a few moves!
 
 ### Root/Axe → RightHand/Axe
 
-In networked gameplay, this is a valid move because `Axe (NetworkObject)` is being moved under `RightHand (NetworkObject)`. We know about their `NetworkObjectId`s and it will be replicated across the network to clients.
+In networked gameplay, this is a valid move because `Axe (NetworkObject)` is being moved under `RightHand (NetworkObject)`. We know about their `NetworkObjectId`s and it will be replicated across the network to clients by the server.
 
-Now, our hierarchy would look like this:
+Now, our hierarchy is looking like this:
 
 ```
 Sun
 Tree
 Camera
 Player (NetworkObject)
-  |_ Head
-  |_ Body
-  |_ Arms
-  | |_ LeftArm
-  | | |_ LeftHand (NetworkObject)
-  | |_ RightArm
-  |   |_ RightHand (NetworkObject)
-  |     |_ Axe (NetworkObject)
-  |_ Legs
+  ├─ Head
+  ├─ Body
+  ├─ Arms
+  │  ├─ LeftArm
+  │  │  └─ LeftHand (NetworkObject)
+  │  └─ RightArm
+  │     └─ RightHand (NetworkObject)
+  │        └─ Axe (NetworkObject) [to] <──┐
+  └─ Legs                                 │ OK
+                                [from] ───┘
 ```
 
 ### RightHand/Axe → Body/Axe
