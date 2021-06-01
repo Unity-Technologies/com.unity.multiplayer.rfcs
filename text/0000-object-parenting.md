@@ -128,6 +128,8 @@ Invalid parenting, NetworkObject moved under a non-NetworkObject parent
 
 This is a **valid** move because `Axe (NetworkObject)` is being moved to the scene root (no parent). Even though there is no `NetworkObjectId` to sync, empty/null parent _can_ be synced across the network on the clients.
 
+Our up-to-date hierarchy is now looking like this:
+
 ```
 Sun
 Tree
@@ -148,13 +150,36 @@ Axe (NetworkObject) [to] <──┘
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
 
-This is the technical portion of the RFC. Explain the design in sufficient detail that:
+We'll utilize [`MonoBehaviour.OnTransformParentChanged()`](https://docs.unity3d.com/ScriptReference/MonoBehaviour.OnTransformParentChanged.html) under `NetworkObject` to catch `transform.parent` changes.
 
-- Its interaction with other features is clear.
-- It is reasonably clear how the feature would be implemented.
-- Corner cases are dissected by example.
+We'll store 3 additional state variables in `NetworkObject`:
 
-The section should return to the examples given in the previous section, and explain more fully how the detailed proposal makes those examples work.
+```cs
+bool m_IsReparented; // did parent change compared to initial scene hierarchy?
+ulong? m_LatestParent; // who (NetworkObjectId) is our latest (current) parent if we changed our parent?
+Transform m_CachedParent; // who (Transform) was our previously assigned parent?
+```
+
+We'll also add another new virtual method into `NetworkBehaviour`:
+
+```cs
+/// <summary>
+/// Gets called when the parent NetworkObject of this NetworkBehaviour's NetworkObject has changed
+/// </summary>
+virtual void OnNetworkObjectParentChanged(NetworkObject parentNetworkObject) { }
+```
+
+There are 2 main codepaths we need to consider when sychronizing `NetworkObject` parenting:
+
+1. At Object Spawn
+    - Client spawns objects including static scene objects and dynamic spawned objects on join.
+    - We serialize `NetworkObject`s with their payloads (such as `NetworkBehaviour`s etc.)
+    - We will also write `m_IsReparented` and `m_LatestParent` fields to sync on the client-side
+2. During Gameplay
+    - When a valid `NetworkObject` reparenting happens during networked gameplay on the server-side, it will be replicated across the network to the connected clients to sync
+    - We will write `m_IsReparented` and `m_LatestParent` fields into a `NetworkBuffer` and send that over to all connected clients with `PARENT_SYNC` message type on `MLAPI_INTERNAL` channel
+
+Transform parent synchronization will rely on initial formation of transforms in the scene hierarchy being identical on all standalone instances (note: this is pre-this-RFC in MLAPI, not introduced by this RFC or feature).
 
 # Drawbacks
 [drawbacks]: #drawbacks
