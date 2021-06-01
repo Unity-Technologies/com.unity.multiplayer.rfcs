@@ -201,9 +201,7 @@ Both scene transform hierarchy and transform reparenting are higher-level and ev
 # Rationale and alternatives
 [rationale-and-alternatives]: #rationale-and-alternatives
 
-- Why is this design the best in the space of possible designs?
-- What other designs have been considered and what is the rationale for not choosing them?
-- What is the impact of not doing this?
+- Given the limited time and scope, we think we cannot re-architect MLAPI fundamentals to support an approach where `NetworkObject` and `NetworkBehaviour` components are simply unaware of scene and transform hierarchy but they are plus parenting to be provided by a higher-level construct outside MLAPI core such as `NetworkTransform`. We wanted to move forward with what we already have.
 
 # Prior art
 [prior-art]: #prior-art
