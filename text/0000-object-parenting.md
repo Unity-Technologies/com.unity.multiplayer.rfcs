@@ -74,7 +74,7 @@ So, let's try a few moves!
 
 ### Root/Axe → RightHand/Axe
 
-In networked gameplay, this is a valid move because `Axe (NetworkObject)` is being moved under `RightHand (NetworkObject)`. We know about their `NetworkObjectId`s and it will be replicated across the network to clients by the server.
+This is a **valid** move because `Axe (NetworkObject)` is being moved under `RightHand (NetworkObject)`. We know about their `NetworkObjectId`s and it will be replicated across the network to clients by the server.
 
 Now, our hierarchy is looking like this:
 
@@ -91,23 +91,42 @@ Player (NetworkObject)
   │  └─ RightArm
   │     └─ RightHand (NetworkObject)
   │        └─ Axe (NetworkObject) [to] <──┐
-  └─ Legs                                 │ OK
+  └─ Legs                                 ├ OK
                                 [from] ───┘
 ```
 
 ### RightHand/Axe → Body/Axe
 
+This is an **invalid** move because `Axe (NetworkObject)` is being moved under `Body` which is _not_ a `NetworkObject`. It does _not_ have a `NetworkObjectId` and it can _not_ be replicated and synced on clients.
+
+So, we tried to do this but it did _not_ succeed:
+
+```
+Sun
+Tree
+Camera
+Player (NetworkObject)
+  ├─ Head
+  ├─ Body
+  │                               [to] <──┐
+  ├─ Arms                                 │
+  │  ├─ LeftArm                           │
+  │  │  └─ LeftHand (NetworkObject)       ├ INVALID
+  │  └─ RightArm                          │
+  │     └─ RightHand (NetworkObject)      │
+  │        └─ Axe (NetworkObject) [from] ─┘
+  └─ Legs
+```
+
+We'd get an error message in the logs similar to this:
+
+```
+Invalid parenting, NetworkObject moved under a non-NetworkObject parent
+```
+
+### RightHand/Axe → Scene Root
+
 todo
-
-Explain the proposal as if it was already included in the Unity Multiplayer and you were teaching it to another Unity developer. That generally means:
-
-- Introducing new named concepts.
-- Explaining the feature largely in terms of examples.
-- Explaining how Unity developers should _think_ about the feature, and how it should impact the way they develop multiplayer projects in Unity. It should explain the impact as concretely as possible.
-- If applicable, provide sample error messages, deprecation warnings, or migration guidance.
-- If applicable, describe the differences between teaching this to existing Unity developers and new Unity developers.
-
-For implementation-oriented RFCs (e.g. for framework internals), this section should focus on how Unity Multiplayer contributors should think about the change, and give examples of its concrete impact. For policy RFCs, this section should provide an example-driven introduction to the policy, and explain its impact in concrete terms.
 
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
