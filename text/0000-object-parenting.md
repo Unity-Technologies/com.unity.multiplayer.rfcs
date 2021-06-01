@@ -184,7 +184,19 @@ Transform parent synchronization will rely on initial formation of transforms in
 # Drawbacks
 [drawbacks]: #drawbacks
 
-Why should we _not_ do this?
+## Limiting Non-Networked NetworkObject Transform Parenting
+
+Rules outlined above are applied and enforced even while not networking (not hosting or connected). More specifically, if you were to try reparenting a `NetworkObject` under a non-`NetworkObject`, that'd be invalid and reverted even though you are not hosting or connected to a server.
+
+This is due to several limitations caused by current MLAPI design and resolving these issues are not in the scope of this proposed feature work.
+
+If framework were to allow any arbitrary `NetworkObject` parenting which might also include invalid moves, player would be desynced upon arrival/join/connect to the server. We might try to keep local changes in a buffer/cache but we still cannot guarantee those moves would be synced without issues on connect — so, we play safe instead of half-working approach here and still apply rules and prevent `NetworkObject` parenting to desync while not networking.
+
+Having said that, we could expect this limitation to change and potentially no longer exist if we were to address fundamental `NetworkObject` & `NetworkBehaviour` architecture in MLAPI.
+
+## Implementing A High-Level Concept In A Low-Level Context
+
+todo
 
 # Rationale and alternatives
 [rationale-and-alternatives]: #rationale-and-alternatives
