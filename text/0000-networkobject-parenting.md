@@ -1,4 +1,4 @@
-- Feature Name: `object-parenting`
+- Feature Name: `networkobject-parenting`
 - Start Date: 2021-05-26
 - RFC PR: [Unity-Technologies/com.unity.multiplayer.rfcs#0000](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/0000)
 - Issue: [Unity-Technologies/com.unity.multiplayer#0000](https://github.com/Unity-Technologies/com.unity.multiplayer/issues/0000)
@@ -196,7 +196,7 @@ Having said that, we could expect this limitation to change and potentially no l
 
 ## Implementing A High-Level Concept In A Low-Level Context
 
-todo
+Both scene transform hierarchy and transform reparenting are higher-level and even arguably non-network concepts but they happened to appear in MLAPI's low-level design primitives. Network framework does not necessarily need to know about the scene hierachy, transforms and other systems in order to synchronize state of network entities (`NetworkObject`s) over the network. However, existing MLAPI architecture forms an hierarchy based on the scene transform hierarchy but it does not fully mirror it. We also have other bespoke `NetworkBehaviour` derived types such as `NetworkTransform`, `NetworkAnimator`, `NetworkRigidbody` etc. which are not considered as core parts of the MLAPI framework but rather supplied utilities/modules. This (re)parenting feature would be implemented at much higher-level as `NetworkTransform`/`NetworkRigidbody` if we were to isolate MLAPI core primitives from higher-level systems and concepts. This might change later in the roadmap or in future releases but FWIW, we still believe delivering `NetworkObject` reparenting out-of-the-box serves some customers and saves their time to better spend on the game they are crafting.
 
 # Rationale and alternatives
 [rationale-and-alternatives]: #rationale-and-alternatives
