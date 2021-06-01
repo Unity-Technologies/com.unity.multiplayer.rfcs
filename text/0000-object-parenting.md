@@ -74,7 +74,7 @@ So, let's try a few moves!
 
 ### Root/Axe → RightHand/Axe
 
-This is a **valid** move because `Axe (NetworkObject)` is being moved under `RightHand (NetworkObject)`. We know about their `NetworkObjectId`s and it will be replicated across the network to clients by the server.
+This is a **valid** move because `Axe (NetworkObject)` is being moved under `RightHand (NetworkObject)`. We know about their `NetworkObjectId`s and it will be replicated across the network to the clients by the server.
 
 Now, our hierarchy is looking like this:
 
@@ -97,7 +97,7 @@ Player (NetworkObject)
 
 ### RightHand/Axe → Body/Axe
 
-This is an **invalid** move because `Axe (NetworkObject)` is being moved under `Body` which is _not_ a `NetworkObject`. It does _not_ have a `NetworkObjectId` and it can _not_ be replicated and synced on clients.
+This is an **invalid** move because `Axe (NetworkObject)` is being moved under `Body` which is _not_ a `NetworkObject`. It does _not_ have a `NetworkObjectId` and it can _not_ be replicated and synced on the clients.
 
 So, we tried to do this but it did _not_ succeed:
 
@@ -126,7 +126,24 @@ Invalid parenting, NetworkObject moved under a non-NetworkObject parent
 
 ### RightHand/Axe → SceneRoot/Axe
 
-todo
+This is a **valid** move because `Axe (NetworkObject)` is being moved to the scene root (no parent). Even though there is no `NetworkObjectId` to sync, empty/null parent _can_ be synced across the network on the clients.
+
+```
+Sun
+Tree
+Camera
+Player (NetworkObject)
+  ├─ Head
+  ├─ Body
+  ├─ Arms
+  │  ├─ LeftArm
+  │  │  └─ LeftHand (NetworkObject)
+  │  └─ RightArm
+  │     └─ RightHand (NetworkObject)
+  │               [from] ───┐
+  └─ Legs                   ├ OK
+Axe (NetworkObject) [to] <──┘
+```
 
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
