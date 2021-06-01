@@ -59,14 +59,14 @@ Sun
 Tree
 Camera
 Player (NetworkObject)
-  |_ Head
-  |_ Body
-  |_ Arms
-  | |_ LeftArm
-  | | |_ LeftHand (NetworkObject)
-  | |_ RightArm
-  |   |_ RightHand (NetworkObject)
-  |_ Legs
+  ├─ Head
+  ├─ Body
+  ├─ Arms
+  │  ├─ LeftArm
+  │  │  └─ LeftHand (NetworkObject)
+  │  └─ RightArm
+  │     └─ RightHand (NetworkObject)
+  └─ Legs
 Axe (NetworkObject)
 ```
 
@@ -124,7 +124,7 @@ We'd get an error message in the logs similar to this:
 Invalid parenting, NetworkObject moved under a non-NetworkObject parent
 ```
 
-### RightHand/Axe → Scene Root
+### RightHand/Axe → SceneRoot/Axe
 
 todo
 
