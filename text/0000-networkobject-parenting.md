@@ -211,17 +211,12 @@ Both UNet and Unreal does not offer a similar solution out-of-the-box and mostly
 # Unresolved questions
 [unresolved-questions]: #unresolved-questions
 
-- What parts of the design do you expect to resolve through the RFC process before this gets merged?
-- What parts of the design do you expect to resolve through the implementation of this feature before stabilization?
-- What related issues do you consider out of scope for this RFC that could be addressed in the future independently of the solution that comes out of this RFC?
+- Why can't we queue up all the changes to a buffer in non-networked gameplay and simply sync all of them on connect/join?
+    - Technical MLAPI limitations, see details above in guide & reference level explanation sections.
+- Why `NetworkObject` parenting can't be client-driven?
+    - Similar to "Ownership" model we have, we trust server to be the source of truth and we simply rely on server-side logic for both ownership and here for parenting too.
 
 # Future possibilities
 [future-possibilities]: #future-possibilities
 
-Think about what the natural extension and evolution of your proposal would be and how it would affect the Unity Multiplayer as a whole in a holistic way. Try to use this section as a tool to more fully consider all possible interactions with the Unity Multiplayer in your proposal. Also consider how the this all fits into the roadmap for the project and the team.
-
-This is also a good place to "dump ideas", if they are out of scope for the RFC you are writing but otherwise related.
-
-If you have tried and cannot think of any future possibilities, you may simply state that you cannot think of anything.
-
-Note that having something written down in the future-possibilities section is not a reason to accept the current or a future RFC; such notes should be in the section on motivation or rationale in this or subsequent RFCs. The section merely provides additional information.
+Potentially, we'll rework low-level core parts of MLAPI which would involve `NetworkObject`, `NetworkBehaviour` etc. and that'd also throw away all scene transform hierarchy related logic out and bump this user-need/feature to a higher-level construct like `NetworkTransform` in the future.
