@@ -28,7 +28,7 @@ The `NetworkManager` exposes a `SnapshotSystem` via a public getter. Under norma
 
 ### Send Snapshot
 
-Where, previously, `NetworkBehaviour` would have internally called `NetworkManager.MessageSender.Send`, it instead calls the following function:
+Where, previously, `NetworkBehaviour::NetworkVariableUpdate` would have internally called `NetworkManager.MessageSender.Send` as it loops around variables from its parent `NetworkBehaviour::NetworkBehaviourUpdate()` call, it instead calls the following function:
 
 `SnapshotSystem.Store(NetworkObjectId, behaviourIndex, k, NetworkVariableFields[k]);`
 
