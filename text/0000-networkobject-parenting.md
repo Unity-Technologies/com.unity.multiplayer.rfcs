@@ -22,6 +22,10 @@ With this RFC implemented, we expect developers to reparent their `NetworkObject
 # Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
 
+## Opt-out
+
+Before we dig deeper into this feature proposal, it needs to be said that this feature is going to be behind a bool flag that can be toggled on the `NetworkObject` inspector UI, which will be enabled by default but experienced developer can opt-out from it and wouldn't be running any of this logic if they were to implement a solution on their own.
+
 ## Rules
 
 Let's list a few basic `NetworkObject` reparenting rules below.
