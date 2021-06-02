@@ -346,10 +346,11 @@ or by accessing the `PredictedTime` and `ServerTime` properties of the `NetworkT
 ## Architecture
 
 ![architecture](0014-network-time/architecture.png)
+_Note: The diagram is out of data, the NetworkTimeSystem now advances itself as a standalone component using NetworkUpdateLoop._
 
 - **INetworkTimeProvider** Open interface, in control of how time advances relative to Time.deltaTime.
-- **NetworkTimeSystem** Closed system to keep track of time, convert them to ticks. Also providers helper functions and APIs to interact with network time.
-- **NetworkManager** Executes logic for each network tick. Advances the `NetworkTimeSystem`.
+- **NetworkTimeSystem** Closed system to keep track of time, convert them to ticks. Also providers helper functions and APIs to interact with network time. The NetworkTimeSystem can be provided with a NetworkUpdateStage which will allow it to manually advanced itself. By default this happens in the NetworkPreUpdate stage.
+- **NetworkManager** subscribes to the NetworkTimeSystem's tick event and executes logic such as NetworkBehaviourUpdate.
 
 ## INetworkTimeProvider
 
