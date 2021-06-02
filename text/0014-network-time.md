@@ -251,10 +251,10 @@ A new struct will be introduced to represent network time. Our time system needs
 public struct NetworkTime
 {
     private int m_TickRate;
-    private float m_TickInterval;
+    private double m_TickInterval;
 
     private int m_Tick;
-    private float m_TickDuration;
+    private double m_TickDuration;
 
     public int Tick => m_Tick;
 
@@ -263,21 +263,21 @@ public struct NetworkTime
     public NetworkTime(int tickRate)
     {
         m_TickRate = tickRate;
-        m_TickInterval = 1f / m_TickRate; // potential floating point precision issue, could result in different interval on different machines
+        m_TickInterval = 1d / m_TickRate; // potential floating point precision issue, could result in different interval on different machines
         m_TickDuration = 0;
         m_Tick = 0;
     }
 
-    public NetworkTime(int tickRate, int tick, float tickDuration = 0f)
+    public NetworkTime(int tickRate, int tick, double tickDuration = 0f)
         : this(tickRate)
     {
-        Assert.IsTrue(tickDuration < 1f / tickRate);
+        Assert.IsTrue(tickDuration < 1d / tickRate);
 
         m_Tick = tick;
         m_TickDuration = tickDuration;
     }
 
-    public NetworkTime(int tickRate, float time)
+    public NetworkTime(int tickRate, double time)
         : this(tickRate)
     {
         this += time;
@@ -291,9 +291,13 @@ The `NetworkTime` struct will give a user access to similar API functionality as
 public struct NetworkTime
 {
     //.....
-    public float Time => m_Tick * m_TickInterval + m_TickDuration;
+    public double TimeAsDouble => m_Tick * m_TickInterval + m_TickDuration;
 
-    public float FixedTime => m_Tick * m_TickInterval;
+    public doulbe FixedTimeAsDouble => m_Tick * m_TickInterval;
+
+    public float Time => (float)(TimeAsDouble);
+
+    public float FixedTime =>(float)(FixedTimeAsDouble);
 
     public float FixedDeltaTime => m_TickInterval;
 
@@ -304,7 +308,7 @@ public struct NetworkTime
 }
 ```
 
-NetworkTime will also provide +- operators for `NetworkTime` and `float` like this:
+NetworkTime will also provide +- operators for `NetworkTime` and `double` like this:
 
 ```csharp
 public static NetworkTime operator +(NetworkTime a, NetworkTime b)
@@ -323,7 +327,7 @@ public static NetworkTime operator +(NetworkTime a, NetworkTime b)
     return new NetworkTime(a.TickRate, tick, tickDuration);
 }
 
-public static NetworkTime operator +(NetworkTime a, float b)
+public static NetworkTime operator +(NetworkTime a, double b)
 {
     a.m_TickDuration += b;
 
