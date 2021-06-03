@@ -5,7 +5,7 @@
 
 # Summary
 
-This feature adds a guarantee of ordering between all types of messages, that, unless the user requests otherwise, all **reliable** messages will be received and processed by the recipient process in the order they were sent by the sender process.
+This feature adds a guarantee of ordering between all types of messages, that, unless the user requests otherwise, all messages sent over a **reliable sequenced** channel will be received and processed by the recipient process in the order they were sent by the sender process. It guarantees that MLAPI itself will not internally change the order of any messages, that they will all reach the transport level in the same order they were initiated/requested. This RFC does **not**, however, make any guarantees on ordering for messageds sent on non-sequenced channels, nor does it provide any new enforcement to force any messages to be sent on sequenced channels.
 
 # Motivation
 
