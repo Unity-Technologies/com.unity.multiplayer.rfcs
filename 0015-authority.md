@@ -23,8 +23,6 @@ The most common and simple way to provide networked physics is to run the dynami
 
 The network physics system will have network rigidbody components which use the authority system to decide whether to run the dynamic simulation on that rigidbody and to replicate the information to the right peers.
 
-## Samples
-
 ## Accessibility
 Right now using MLAPI requires extensive knowledge of multiplayer concepts. Beginners often struggle with simple tasks like figuring out the correct way of moving a player object etc. The authority concept among other features will simplify this.
 
