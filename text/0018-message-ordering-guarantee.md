@@ -1,7 +1,7 @@
 - Feature Name: `message_ordering_guarantee`
 - Start Date: 2021-06-02
-- RFC PR: 
-- Issue: [Unity-Technologies/com.unity.multiplayer.mlapi#700](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/issues/700)
+- RFC PR: [RFC#18](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/18)
+- Issue: [MLAPI#700](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/issues/700)
 
 # Summary
 
