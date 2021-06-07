@@ -101,7 +101,9 @@ In order to complete this refactor, a few things need to happen:
 
 - All RPC-related classes will need to be renamed from Rpc\* to Message\*. This accounts for RpcFrameQueueItem, RpcQueueContainer, RpcQueueProcessor, RpcBatcher, and RpcQueueHistoryFrame.
 
-- All internal commands must be sent through `RpcQueueProcessor.SendFrameQueueItem()`. As a consequence, this also means all internal commands must now build `RpcFrameQueueItem` structs.
+- All internal commands must be sent through `RpcQueueProcessor.SendFrameQueueItem()`. As a consequence, this also means all internal commands must now serialize in a format that can be received via `RpcFrameQueueItem` structs.
+
+- In order to minimize allocations, `RpcFrameQueueItem` will not actually be created on the sender side. Instead, the values necessary to serialize it will be passed as function parameters, just like they currently are in `BeginAddQueueItemToOutboundFrame` and `EndAddQueueItemToOutboundFrame`. Additionally, `RpcFrameQueueItem` has some `class` members within it that don't appear to be used on the sender side, so a new `SendFrameQueueItem` can be introduce containing only the used fields to reference queue data for send processing without needing to allocate those unused class members.
 
 - `RpcQueueContainer.QueueItemType` now contains only three values: `ClientRpc`, `ServerRpc`, and `InternalCommand`. `CreateObject` and `DestroyObject` are removed, and are now a subcategory of `InternalCommand` <sup>[See Question #1]</sup>
 
@@ -124,6 +126,8 @@ In order to complete this refactor, a few things need to happen:
       PostLateUpdate = 7  
   }
   ```
+  
+  The reason for this change is because the `UpdateStage` value in the struct will default to 0. If `Update` is represented by 0, then we won't be able to differentiate between the user not providing a value (in which case we need to set it to the value of `NetworkUpdateLoop.UpdateStage`) or the user intentionally providing a value of `Update` (in which case we _must not_ change it).
 
 - `__beginSendServerRpc` and `__beginSendClientRpc` will then check for `*RpcParams.Send.UpdateStage == NetworkUpdateStage.Unset` and if true, will set `*RpcParams.Send.UpdateStage = NetworkUpdateLoop.UpdateStage` to trigger the recipient to execute the RPC at the same stage as the sender.
 
