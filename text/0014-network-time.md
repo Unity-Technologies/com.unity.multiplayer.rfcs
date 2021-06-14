@@ -191,8 +191,8 @@ The `INetworkTimeProvider` provides the current network time values to other sys
 2. The MLAPI time system has been designed in a way where different clients could use different time providers. The client and server time providers are decoupled and do not directly communicate with each other. This allows cross platform games for instance to use a time provider which better handles bad network conditions for mobile platforms and a time provider which optimizes latency for PC / Console platforms.
 
 The interface itself exposes two functions:
-- `AdvancedTime` should be called once per frame with the delta time to advance the time. `localTime` and `serverTime` reference parameters are passed into the time provider. A stateful time provider can just ignore those inputs and assign output values to the reference parameters. A stateless time provider can operate on the parameters directly. The reason why this passes `NetworkTime` instead of `double` is because the additional information such as fixed time or tick rate can often be useful for a time provider but this information can also be ignored.
-- 
+- `AdvanceTime` should be called once per frame with the delta time to advance the time. `localTime` and `serverTime` reference parameters are passed into the time provider. A stateful time provider can just ignore those inputs and assign output values to the reference parameters. A stateless time provider can operate on the parameters directly. The reason why this passes `NetworkTime` instead of `double` is because the additional information such as fixed time or tick rate can often be useful for a time provider but this information can also be ignored.
+- `InitializeClient` is called when a client connected successfully. After connecting the client will receive the current server tick for the first time. This value will be passed into this function as both `localTime` and `serverTime`. This function should add adequate buffering values to those times based on expected network conditions.
 
 ```csharp
 public interface INetworkTimeProvider
