@@ -117,21 +117,39 @@ In order to complete this refactor, a few things need to happen:
   public enum NetworkUpdateStage : byte  
   {
       Unset = 0, // Default
-      Initialization = 1,  
-      EarlyUpdate = 2,  
-      FixedUpdate = 3,  
-      PreUpdate = 4,  
-      Update = 5, 
-      PreLateUpdate = 6,  
-      PostLateUpdate = 7  
+      Immediate = 1, // Bypasses the queueing system
+      Initialization = 2,  
+      EarlyUpdate = 3,  
+      FixedUpdate = 4,  
+      PreUpdate = 5,  
+      Update = 6, 
+      PreLateUpdate = 7,  
+      PostLateUpdate = 8  
   }
   ```
   
   The reason for this change is because the `UpdateStage` value in the struct will default to 0. If `Update` is represented by 0, then we won't be able to differentiate between the user not providing a value (in which case we need to set it to the value of `NetworkUpdateLoop.UpdateStage`) or the user intentionally providing a value of `Update` (in which case we _must not_ change it).
 
+- An additional value is also added to `NetworkUpdateStage`, as seen above: `NetworkUpdateStage.Immediate`. When this value is set, both the sending and receiving sides bypass the message queue system entirely - messages are sent immediately by the sender, and processed immediately on receipt by the receiver. *Note, of course, that ordering guarantees are only provided between messages that have the same `UpdateStage` value - Two Immediate messages will be ordered correctly, but an Immediate sent after an Update will likely get processed before the Update.*
+  
+  This has the added benefit that RPCs can now also be sent using `NetworkUpdateStage.Immediate`, which exposes to users the ability to bypass the queueing system if they need to.
+
 - `__beginSendServerRpc` and `__beginSendClientRpc` will then check for `*RpcParams.Send.UpdateStage == NetworkUpdateStage.Unset` and if true, will set `*RpcParams.Send.UpdateStage = NetworkUpdateLoop.UpdateStage` to trigger the recipient to execute the RPC at the same stage as the sender.
 
 - Once this is done, all hard-coded stage requirements for internal commands (such as Spawn only processing during Update and Despawn only processing during PostLateUpdate) should be modified so that they occur at whatever stage they were called in, the same as the default behavior for other internal commands and RPCs.
+
+- Because all messages now use the queuing system, the enum `RpcQueueContainer.QueueItemType` now becomes redundant with the constants in `NetworkConstants.cs`. Since enums generally provide better type-safety and extra functionality over constants, the redundancy is removed by eliminating `NetworkConstants.cs` and using the enum for all use cases. The enum is renamed to `MessageQueueContainer.MessageType`.
+
+- Because internal messages are often not associated with a `NetworkObjectId` or a `NetworkBehaviorId`, the message header is adjusted such that `NetworkObjectId` and `NetworkBehaviorId` are now considered part of the message body, rather than the message header, for RPCs.
+  
+  The header format is now:
+  
+  ```C#
+  MessageQueueContainer.MessageType MessageType; // 1 byte
+  NetworkUpdateStage UpdateStage; // 1 byte
+  ```
+  
+  As an added benefit, the current message parsing code logic that passes over the object and behavior IDs to read the update stage, then resets the position of the buffer, is no longer necessary, as the updateStage is right at the top of the buffer and can simply be read directly. The value can then be cached onto the queue item (now renamed to just Message since it will not always come from the queue thanks to `NetworkUpdateStage.Immediate`) and then the buffer position no longer needs to be reset, offering a small optimization to the message processing logic.
 
 # Drawbacks
 
@@ -167,8 +185,7 @@ This modification is fairly MLAPI- and Unity-specific. I'm unaware of any existi
 
 # Unresolved questions
 
-- Currently, there are two different message type values being passed through the system: the `RpcQueueContainer.QueueItemType` value and the value from `NetworkConstants.cs`. It appears the primary reason for this separation was to be able to identify which messages contained the queue item message structure, and which didn't, but is there still value to this separation? Or is there more value now in keeping only one and removing the other entirely?
-- Should internal commands that are triggered by users (such as `Spawn()`, `Despawn()`, and `ChangeOwnership()`) gain optional parameters to allow the user to control which stage they execute on?
+- None
 
 # Future possibilities
 
