@@ -149,7 +149,7 @@ In order to complete this refactor, a few things need to happen:
   NetworkUpdateStage UpdateStage; // 1 byte
   ```
   
-  As an added benefit, the current message parsing code logic that passes over the object and behavior IDs to read the update stage, then resets the position of the buffer, is no longer necessary, as the updateStage is right at the top of the buffer and can simply be read directly. The value can then be cached onto the queue item (now renamed to just Message since it will not always come from the queue thanks to `NetworkUpdateStage.Immediate`) and then the buffer position no longer needs to be reset, offering a small optimization to the message processing logic.
+  As an added benefit, the current message parsing code logic that passes over the object and behavior IDs to read the update stage, then resets the position of the buffer, is no longer necessary, as the updateStage is right at the top of the buffer and can simply be read directly. The value can then be cached onto the `MessageFrameQueueItem` (now renamed to just `MessageFrameItem` since it will not always come from the queue thanks to `NetworkUpdateStage.Immediate`) and then the buffer position no longer needs to be reset, offering a small optimization to the message processing logic.
 
 # Drawbacks
 
