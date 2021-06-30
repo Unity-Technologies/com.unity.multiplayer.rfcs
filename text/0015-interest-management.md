@@ -56,12 +56,114 @@ The core interest scheme functionality happens here.  Its jobs are to:
 ### 3. `InterestSettings`
 This is the least-developed component and doesn't have any settings in it as of this writing, but it is a placeholder for per-`InteresNode` settings that are not specific to any particular `InterestNode`.  For later when prioritization is added this is where we can place data that prioritization system uses when considering results from this node.
 
+## Integration Points
+Apart from the spawn / de-spawn connections mentioned above, the `InterestManager` integrates with the rest of the library in 2 places:
+
+* In `NetworkBehaviour::NetworkBehaviourUpdate()`. In the loop over clients the `InterestManager` is queried resulting in a list of objects.  Then this list is iterated over as the library prepares to transmit variable updates to the client.  This is basically a filter on top of the existing mechanism which updates all variables unconditionally
+* When RPCs are sent from the server, the library queries the `InterestManager` to get a list of objects that a given client can see, so that it can then determine if the object associated with the RPC is relevant to the client. 
+
+
+## Some Sample `InterestNodes`
+
+Let's build an example, starting with some nodes.  First, let's author a 'static' interest node.  Actually, this one included (`InterestStaticNode`) and we'll look at its implementation here:
+
+
+```
+  public class InterestNodeStatic : InterestNode
+    {
+        public void OnEnable()
+        {
+            ManagedObjects = new HashSet<NetworkObject>();
+        }
+
+        // these are the objects under my purview
+        protected HashSet<NetworkObject> ManagedObjects;
+
+        public override void AddObject(in NetworkObject obj)
+        {
+            ManagedObjects.Add(obj);
+        }
+
+        public override void RemoveObject(in NetworkObject obj)
+        {
+            ManagedObjects.Remove(obj);
+        }
+
+        public override void QueryFor(in NetworkClient client, HashSet<NetworkObject> results)
+        {
+            results.UnionWith(ManagedObjects);
+        }
+
+        public override void UpdateObject(in NetworkObject obj)
+        {
+        }
+    }
+```
+
+This node maintains its own storage for the objects it tracks (`ManagedObjects`).  When it is told one of its associated objects is added, it simply adds it to its storage and vice versa when an object is going to be deleted.  At query time, it simply merges the results passed in from the other clients and does no other computation.  A default instance of this node, by the way, is instantiated in the `NetworkingManager` and is where objects go that have no associated `InterestNodes`.
+
+Now let's author a dynamic 'radius' node and compare:
+
+```
+    public class RadiusInterestNode : InterestNodeStatic
+    {
+        public float Radius = 0.0f;
+        public override void QueryFor(in NetworkClient client, HashSet<NetworkObject> results)
+        {
+            foreach (var obj in ManagedObjects)
+            {
+                if (Vector3.Distance(obj.transform.position, client.PlayerObject.transform.position) <= Radius)
+                {
+                    results.Add(obj.GetComponent<NetworkObject>());
+                }
+            }
+        }
+    }
+}
+```
+
+This node extends what we had in the `InterestStaticNode`.  We inherit the storage of managed objects.  But here in the query we iterate over those stored objects and measure the distance between the object and the client.  The results then have the per-client-custom result of objects that are within a desired radius. 
+
+**Note**: `InterestNodes` are implemented as `ScriptableObjects`.  This allows the user to create multiple instances of them in the editor but with different parameters.  More on that as we go through the example.
 
 ## How the `InterestNode`, `InterestManager` and Prefabs relate & connect
 
-Let's explore this by way of an example
+
+Ok, now that we have 2 nodes, let's see how they associate with objects in the actual game.  
+
+As nodes are `ScriptableObjects`, the first step is to create the Nodes in the editor.  In this case, you would do *Assets->Create->Interest->Nodes->Radius*.  You can then click on this newly created Radius node in the inspector and configure its radius, say, to **3**.
+
+***Image needs to go here***
+
+Now we need to associate this node with a prefab that has a `NetworkObject` element.  We then drag this `InterestNode` into the `InterestNodes` section.  Now, any time this prefab is instantiated it will be associated with this node.  Note, you can associcate a prefab with more than one `InterestNode`
 
 
-relationship between nodes and their objects through 
+***Image needs to go here***
 
-default, pass-through
+
+Now that we understand how `InterestNodes` register with prefabs, we can understand how the `InterestManager` can deal with them.  When the `InterestManager's` `AddObject()` method is called, it looks to see which `InterestNodes` are associated with the object being spawned.  If none are associated, then it goes into the default `m_DefaultInterestNode` node mentioned earlier; that is, if you don't register a prefab with an `InterestNode` then it will always be relevant to all connections.  However if there is one or more `InterestNodes`, then:
+
+1. The `InterestNodes` are told about the added object, and
+2. The `InterestManager` adds this new `InterestNode` to its children
+
+## Why can one associate more than one `InterestNode` with a prefab?
+
+Let's imagine you're setting up your player's prefab.  Say you want players can see other players if they're some distance away using the `RadiusInterestNode` we built before.  But let's say we also want to enable players to see other players who are on the same team, regardless of distance.  You could write a special `RadiusOrTeam` combination node that does both.  For better re-use, however, the system allows one to add more than one node; in this case you would have a `RadiusInterestNode` *and* a `TeamInterestNode`.  Then, when the query happens on player prefabs the result from both nodes is merged
+
+
+
+
+-----------------------------
+
+
+
+Let's explore this by way of an example.  Let's author a 'static' interest node.  Actually, there is one included (`InterestStaticNode`) and we'll look at its implementation here:
+
+
+
+- should be a way to query ALL objects or share
+
+- switch InterestNode e.g. on a dead character
+
+Now that we have an `InterestNode`, how do we indicate which spawned objects should be managed by this node?  We don't want to do a per-object runtime check.  And we'd like to take advantage of the Unity Editor workflow. Therefore, we associate this `InterestNode` to objects via a settings in MLAPI's `NetworkObject` found in each MLAPI-registered prefab.  One could say that trees are things that never move, and 
+
