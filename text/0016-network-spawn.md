@@ -1,7 +1,7 @@
-- Feature Name: network-spawn
+- Feature Name: `network-spawn`
 - Start Date: 2021-05-25
-- RFC PR: [Unity-Technologies/com.unity.multiplayer.rfcs#0016](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/0016)
-- Issue: [Unity-Technologies/com.unity.multiplayer#0000](https://github.com/Unity-Technologies/com.unity.multiplayer/issues/0000)
+- RFC PR: [RFC#16](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/16)
+- Issue: [MLAPI#864](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/issues/864)
 
 # Summary
 [summary]: #summary

@@ -1,12 +1,12 @@
-* Feature Name: `rpc-queue`
-* Start Date: 2020-11-01
-* RFC PR: [RFC#5](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/5)
-* Issue: [MLAPI#476](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/issues/476)
+- Feature Name: `rpc-queue`
+- Start Date: 2020-11-01
+- RFC PR: [RFC#5](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/5)
+- Issue: [MLAPI#476](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/issues/476)
 
 # Summary
 [summary]: #summary
 
-Ingress and egress data flow in netcode architectures frequently include synchronization mechanisms that provide further control over when and how messages/packets are processed or sent.   Placing RPCs into queues allows for the refinement of the invocation(inbound) and notification(outbound) process and provides the opportunity to develop more advanced netcode systems that could coalesce messages into specific categories/groups and/or provide additional processing opportunities for more complicated netcode architectures.
+Ingress and egress data flow in netcode architectures frequently include synchronization mechanisms that provide further control over when and how messages/packets are processed or sent. Placing RPCs into queues allows for the refinement of the invocation(inbound) and notification(outbound) process and provides the opportunity to develop more advanced netcode systems that could coalesce messages into specific categories/groups and/or provide additional processing opportunities for more complicated netcode architectures.
 
 # Motivation
 [motivation]: #motivation
@@ -87,7 +87,7 @@ N/A
 
 - What parts of the design do you expect to resolve through the implementation of this feature before stabilization?
     
-    Since MLAPI will be evoling and the way data ingresses and egresses could be further optimized/improved, those additional RPC Queue design considerations (if any) will be further defined in new RFCs.  This RFC is for the initial framework of RPC queueing.
+    Since MLAPI will be evoling and the way data ingresses and egresses could be further optimized/improved, those additional RPC Queue design considerations (if any) will be further defined in new RFCs. This RFC is for the initial framework of RPC queueing.
 
 - What related issues do you consider out of scope for this RFC that could be addressed in the future independently of the solution that comes out of this RFC?
 
