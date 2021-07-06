@@ -3,7 +3,7 @@
 
 - Start Date: `2020-11-16`
 - RFC PR: [#5](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/5)
-- SDK PR: [#476](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/pull/476)
+- SDK PR: [#413](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/pull/413)
 
 # Summary
 [summary]: #summary
