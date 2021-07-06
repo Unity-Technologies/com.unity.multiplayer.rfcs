@@ -1,7 +1,9 @@
-- Feature Name: `networkobject-parenting`
-- Start Date: 2021-05-26
-- RFC PR: [RFC#17](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/17)
-- Issue: [MLAPI#876](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/issues/876)
+# NetworkObject Parenting
+[feature]: #feature
+
+- Start Date: `2021-05-26`
+- RFC PR: [#17](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/17)
+- SDK PR: [#876](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/pull/876)
 
 # Summary
 [summary]: #summary

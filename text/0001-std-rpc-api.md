@@ -1,7 +1,9 @@
-- Feature Name: `std-rpc-api`
-- Start Date: 2020-11-02
-- RFC PR: [RFC#1](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/1)
-- Issue: [MLAPI#406](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/issues/406)
+# Standard RPC API
+[feature]: #feature
+
+- Start Date: `2020-11-02`
+- RFC PR: [#1](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/1)
+- SDK PR: [#406](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/pull/406)
 
 # Summary
 [summary]: #summary

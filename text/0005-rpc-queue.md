@@ -1,7 +1,9 @@
-- Feature Name: `rpc-queue`
-- Start Date: 2020-11-01
-- RFC PR: [RFC#5](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/5)
-- Issue: [MLAPI#476](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/issues/476)
+# RPC Queue
+[feature]: #feature
+
+- Start Date: `2020-11-16`
+- RFC PR: [#5](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/5)
+- SDK PR: [#476](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/pull/476)
 
 # Summary
 [summary]: #summary

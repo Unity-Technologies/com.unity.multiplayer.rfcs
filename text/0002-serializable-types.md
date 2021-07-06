@@ -1,7 +1,9 @@
-- Feature Name: `serializable-types`
-- Start Date: 2020-11-06
-- RFC PR: [RFC#2](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/2)
-- Issue: [MLAPI#454](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/issues/454)
+# Serializable Types
+[feature]: #feature
+
+- Start Date: `2020-11-06`
+- RFC PR: [#2](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/2)
+- SDK PR: [#454](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/pull/454)
 
 # Summary
 [summary]: #summary
