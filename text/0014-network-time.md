@@ -100,41 +100,17 @@ MLAPI sends, receives and processes data at fixed tick intervals. It is importan
 
 MLAPI exposes multiple APIs to allow developers to do so.
 
-- `NetworkManager.Singleton.NetworkTimeSystem.OnNetworkTick` can be subscribed to to run code every tick.
+- The `NetworkManager.Singleton.NetworkTickSystem.Tick` event can be subscribed to to run code every tick.
 - Code running in Update or FixedUpdate could check for the current tick using `NetworkManager.Singleton.NetworkTime.LocalTime.Tick`.
 - In the future we will expose more convenient ways to run logic during the network tick via a `NetworkFixedUpdate` in `NetworkBehaviour`.
 
-### INetworkTimeProvider
-
-While the built in `NetworkTimeSystem` provides a good starting point for a variety of games, sometimes more control over time is needed. `INetworkTimeProvider` is an interface which allows to override the root calculation of all network time. Note that this is an advanced feature, a faulty implementation of `INetworkTimeProvider` can result in a variety of issues.
-
-Here is an example implementation of a very simple custom `INetworkTimeProvider`:
-```csharp
-public class SampleNetworkTimeProvider : INetworkTimeProvider
-{
-    public bool AdvanceTime(ref NetworkTime localTime, ref NetworkTime serverTime, float deltaTime)
-    {
-        serverTime += deltaTime;
-        localTime = serverTime + 0.1f;
-        return true;
-    }
-
-    public void InitializeClient(ref NetworkTime localTime, ref NetworkTime serverTime)
-    {
-        localTime = serverTime + 0.1f;
-    }
-}
-```
-
-This `INetworkTimeProvider` is a very simple provider which increments `ServerTick` and `PredictedTick` at a consistent rate while running the `PredictedTick` 100 ms ahead of the `ServerTick`. This just acts as an example implementation and is not a recommended way to implement a `INetworkTimeProvider`
-
 ### Buffering
 
-When calculating time MLAPI adds additional buffering to delay messages further to smooth out the data stream. The default buffer values are `1f / Tickrate` when the client receives and `2f / Tickrate` when the server receives.
+When calculating time MLAPI adds additional buffering to delay messages further to smooth out the data stream. This buffering is already incorporate in the time values exposed by the `NetworkTimeSystem` The default buffer values are `1f / Tickrate` when the client receives and `1f / Tickrate` when the server receives.
 
 Buffering will only apply on NetworkVariable changes. RPCs, NetworkObject spawns etc. are unaffected.
 
-Buffer time can be manually changed in code to for instance use different buffer sizes for different platforms. `NetworkManager.Singleton.NetworkTimeSystem.ClientBufferTime` and `NetworkManager.Singleton.NetworkTimeSystem.ServerBufferTime` can be used to adjust the time. Note these settings should only be adjusted on a client. The server does not apply any buffering.
+Buffer time can be manually changed in code to for instance use different buffer sizes for different platforms. `NetworkManager.Singleton.NetworkTimeSystem.ClientBufferTime` and `NetworkManager.Singleton.NetworkTimeSystem.ServerBufferTime` can be used to adjust the time. Note these settings should only be adjusted on a client and must be adjusted on each client individually. The server does not apply any buffering.
 
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
@@ -143,9 +119,10 @@ The implementation of time proposed in this RFC is build around a star topology.
 
 This RFC introduces 3 new components to MLAPI. 
 
-- A **NetworkTime** struct. While time is just a double often when dealing with time a broader context is needed (access to last fixed Time, delta time, ticks etc.). The **NetworkTime** struct can be used to created that context from a double time value.
-- A **INetworkTimeProvider** will be added to MLAPI. This interface defines the implementation of a `NetworkTimeProvider`. The `NetworkTimeProvider` controls how the flow of time advances in the game and can adjust time depending on network conditions or other factors.
+
+- A **NetworkTime** struct. This struct allows us to expose time in a more familiar manner to the user in the form of a context which gives access to the last fixed Time, delta time, ticks etc.
 - A **NetworkTimeSystem** class will be added to MLAPI. The NetworkTimeSystem keeps track of networked times and ticks. Other systems can use the NetworkTimeSystem to access time information.
+- A **NetworkTickSystem** class will be added to MLAPI. The tick system takes time values from a time system and whenever the time passes a tick interval, it runs a tick.
 
 ## Network Time Struct
 
@@ -178,165 +155,36 @@ Access to the `NetworkTime` can either be done over the `NetworkManager` for con
 NetworkTime localTime = NetworkManager.Singleton.localTime;
 NetworkTime serverTime = NetworkManager.Singleton.ServerTime;
 ```
-or by accessing the `LocalTime` and `ServerTime` properties of the `NetworkTimeSystem` directly.
-
-## INetworkTimeProvider
-
-The `INetworkTimeProvider` provides the current network time values to other systems such as the NetworkTimeSystem. A network time provider can be either stateless or stateful the interface allows for both implementations.
-
-`INetworkTimeProvider` could just be one specific implementation instead of an interface. The reason why it was decided here to use an interface are:
-
-1. There are a variety of different approaches for handling time. Some approaches might be able to cover 90% of use cases but there is no one size fits all solution. While an interface is not strictly necessary it makes replacing the time provider trivial and signals intent.
-
-2. The MLAPI time system has been designed in a way where different clients could use different time providers. The client and server time providers are decoupled and do not directly communicate with each other. This allows cross platform games for instance to use a time provider which better handles bad network conditions for mobile platforms and a time provider which optimizes latency for PC / Console platforms.
-
-The interface itself exposes two functions:
-- `AdvanceTime` should be called once per frame with the delta time to advance the time. `localTime` and `serverTime` reference parameters are passed into the time provider. A stateful time provider can just ignore those inputs and assign output values to the reference parameters. A stateless time provider can operate on the parameters directly. The reason why this passes `NetworkTime` instead of `double` is because the additional information such as fixed time or tick rate can often be useful for a time provider but this information can also be ignored.
-- `InitializeClient` is called when a client connected successfully. After connecting the client will receive the current server tick for the first time. This value will be passed into this function as both `localTime` and `serverTime`. This function should add adequate buffering values to those times based on expected network conditions.
-
-```csharp
-public interface INetworkTimeProvider
-{
-    /// <summary>
-    /// Called once per frame to advance time.
-    /// </summary>
-    /// <param name="localTime">The predicted time to advance.</param>
-    /// <param name="serverTime">The server time to advance.</param>
-    /// <param name="deltaTime">The real delta time which passed.</param>
-    /// <returns>true if advancing the the time succeeded; otherwise false if there was a hard correction.</returns>
-    public bool AdvanceTime(ref NetworkTime localTime, ref NetworkTime serverTime, float deltaTime);
-
-    /// <summary>
-    /// Called once on clients only to initialize time.
-    /// </summary>
-    /// <param name="localTime">The predicted time to initialize. In value is serverTime.</param>
-    /// <param name="serverTime">the server time to initialize. In value is a time matching the tick of the initial received approval packet.</param>
-    public void InitializeClient(ref NetworkTime localTime, ref NetworkTime serverTime);
-}
-```
-
-MLAPI will come with two default implementations of the `INetworkTimeProvider` interface. A `ServerNetworkTimeProvider` and a `ClientNetworkTimeProvider` There are detailed descriptions about the implementations of those in chapters further ahead.
+or by accessing the `LocalTime` and `ServerTime` properties of the `NetworkTickSystem` directly.
 
 ## NetworkTimeSystem
 
-The NetworkTimeSystem takes the outputs from the `INetworkTimeProvider` to process and expose them to other MLAPI systems. The `NetworkTimeSystem` also handles network ticks which get invoked periodically as network time advances. The reason why there is no separate tick system is because time and ticks must always advance together (to be at time `12.1` we need to have tick `12` invoked first)
+The purpose of the `NetworkTimeSystem` is to provide a `LocalTime`(double) and `ServerTime`(double) value. Like a regular time system it keeps track of a time value and advances this value at the beginning of each frame.
 
-During an update the `NetworkTimeSystem` will do the following:
-1. In the `PreUpdate` network stage. The `INetworkTimeProvider` gets advanced by delta time to update the time value. The new time values get stored in the `NetworkTimeSystem`. The `NetworkTimeSystem` also allows to be advanced in any other `NetworkUpdateStage` or to be manually advanced. The later is useful for testing.
-2. After advancing the time the `NetworkTimeSystem` checks how many ticks have passed since the last time and will invoke the `NetworkTick` and `NetworkTickInternal` events accordingly. The `NetworkTimeSystem` also ensures that its time values (`LocalTime` and `ServerTime`) are set accordingly to the fixed time values which correspond to a tick so that when multiple ticks pass in a frame the gameplay code will still access the correct tick values during the tick events.
+The `Advance` function which takes a `deltaTime` parameter can be used to advance the time. For now this will be done in the `NetworkEarlyUpdate` stage of the `NetworkManager`, in the future we can decouple this from the `NetworkManager` (will need ordering of network update systems). This advance function does not advance local and server time exactly by the `deltaTime` because it also adjusts them to changes in network conditions.
 
-_How the `NetworkTimeSystem` ensures that time is correct during any given tick._
-```csharp
-var cacheLocalTime = m_LocalTime;
-var cacheServerTime = m_ServerTime;
+In addition to that the `NetworkTimeSystem` uses network condition values to calculate the local and server time values.
+It will expose a `Sync` function which takes a `serverTime` and an `RTT` parameter. `Sync` can be called at any time and any number of times per frame / tick and the time system is not opinionated about how the `RTT` is calculated. The time system works with both raw RTT values or smoothed (averaged) RTT values because it has its own interpolation to smooth out RTT.
 
-var currentLocalTick = localTime.Tick;
-var LocalToServerDifference = currentLocalTick - ServerTime.Tick;
+The time system exposes 4 configuration properties which can be adjusted at runtime:
+- `LocalBuffer`: Additional buffer time applied to LocalTime
+- `ServerBuffer`: Buffer time applied to received server time.
+- `HardResetThreshold`: If the difference between current interpolated time values and the desired time values based exceeds this threshold the time system will do a hard reset of the time.
+- `AdjustmentRatio`: The adjustment ration for interpolating the time towards the desired time. Note this is a linear value and not the `T` parameter for a lerp function.
 
-for (int i = previousLocalTick + 1; i <= currentLocalTick; i++)
-{
-    // set exposed time values to correct fixed values
-    m_LocalTime = new NetworkTime(TickRate, i);
-    m_ServerTime = new NetworkTime(TickRate, i - localToServerDifference);
+## NetworkTickSystem
 
-    NetworkTick?.Invoke(m_localTime);
-    NetworkTickInternal.Invoke(m_ServerTime);
-}
+The `NetworkTickSystem` adds a fixed tick on top of the time system. The system works on a fixed tick basis where it invokes a tick a number of times per second based on a tickrate.
 
-m_localTime = cacheLocalTime;
-m_ServerTime = cacheServerTime;
-```
+The tick system has a `UpdateTick` function which takes both a local time and a server time value. The tick system then updates its internally stored tick value to the latest tick before the local time value and invokes a tick event for each tick which has passed. For now the `NetworkManager` will call `UpdateTick` immediately after advancing the `NetworkTimeSystem` in EarlyUpdate.
 
-There is one challenge in the implementation of `AdvanceNetworkTime`. It is not clear how to handle the relation ship between `LocalTime` and `ServerTime` if multiple ticks have passed in the same advance step. The current solution expects that `LocalTime` and `ServerTime` advanced at roughly the same pace which is true for most of the cases but not always. The alternative to solve this problem would be to have a more fine grained `INetworkTimeProvider` but this approach was not chosen to keep the interface simple.
+Because the tick system has access to tick information it can expose `NetworkTime` struct based properties. The tick system exposes both a `LocalTime` and `ServerTime` property. The `NetworkManger` contains get only properties which directly return the value of the tick system for ease of use. During the `UpdateTick` function where the tick system invokes the tick events `LocalTime` and `ServerTime` are set to a correct value for the given tick event. That way when accessing `LocalTime` or `ServerTime` they always contain the relevant value.
 
-## ServerNetworkTimeProvider
+## Jobification
 
-The `ServerNetworkTimeProvider` will be used by the server for a constant time update rate. The servers time will always advance under the same rate. MLAPI will by default use this time provider when running in `host` or `server` mode.
+For now both the time and tick system are classes and cannot be passed into jobs. The idea is that they will get updated at the very beginning of the frame and the resulting time values (both doubles and `NetworkTime` structs) can be passed into jobs.
 
-```csharp
-public class ServerNetworkTimeProvider : INetworkTimeProvider
-{
-    public bool AdvanceTime(ref NetworkTime localTime, ref NetworkTime serverTime, float deltaTime)
-    {
-        localTime += deltaTime;
-        serverTime += deltaTime;
-        return true;
-    }
-
-    public void InitializeClient(ref NetworkTime localTime, ref NetworkTime serverTime)
-    {
-        localTime = serverTime;
-    }
-}
-```
-
-## ClientNetworkTimeProvider
-
-The `ClientNetworkTimeProvider` will be used as the default time provider for non-server peers. The implementation focuses on providing a stable value even under bad networking conditions by sacrificing latency.
-
-The `AdvanceTime` function will do the following
-
-1. Advance time but multiply the delta by a time scale to catch up or slow down if needed.
-```csharp
-localTime += deltaTime * m_localTimeScale;
-serverTime += deltaTime * m_ServerTimeScale;
-
-```
-2. Calculate the ideal target time for the client
-```csharp
-float targetServerTime = lastReceivedSnapshotTime - TargetClientBufferTime;
-float targetlocalTime = lastReceivedSnapshotTime + rtt + TargetServerBufferTime;
-```
-`targetLocalTime` is currently just based on RTT. This is not ideal and not very precises which means we need to apply a lot of buffering to smooth out the data stream which introduces more latency. With the command + ack system we will improve this to instead base the `targetLocalTime` on the size of the command queue of the server.
-
-In addition RTT is currently taken from the `NetworkTransport` which is not ideal. In the future when we have a snapshot ack system we will leverage that system to calculate RTT more accurately and use an exponential moving average or similar to smooth the RTT value.
-
-3. Check whether there is a need for a hard reset/catchup
-
-```csharp
-bool reset = false;
-m_localTimeScale = 1f;
-m_ServerTimeScale = 1f;
-
-// reset because too large predicted offset?
-if (localTime.FixedTime < targetlocalTime - k_HardResetThreshold || localTime.FixedTime > targetlocalTime + k_HardResetThreshold)
-{
-    reset = true;
-}
-
-// reset because too large server offset?
-if (serverTime.FixedTime < targetServerTime - k_HardResetThreshold || serverTime.FixedTime > targetServerTime + k_HardResetThreshold)
-{
-    reset = true;
-}
-
-// Always reset both times to not break simulation integrity.
-if (reset)
-{
-    localTime = new NetworkTime(localTime.TickRate, targetlocalTime);
-    serverTime = new NetworkTime(serverTime.TickRate, targetServerTime);
-    return false;
-}
-```
-
-4. If no hard reset was needed adjust time scale to catch up or slow down
-```csharp
-// Adjust predicted time scale
-if (Mathf.Abs(targetlocalTime - localTime.FixedTime) > k_CorrectionTolerance)
-{
-    m_localTimeScale += targetlocalTime > localTime.FixedTime ? k_AdjustmentRatio : -k_AdjustmentRatio;
-}
-
-// Adjust server time scale
-if (Mathf.Abs(targetServerTime - serverTime.FixedTime) > k_CorrectionTolerance)
-{
-    m_ServerTimeScale += targetServerTime > serverTime.FixedTime ? k_AdjustmentRatio : -k_AdjustmentRatio;
-}
-
-return true;
-```
-
-Most of the values such as correction tolerance and adjustment ration will be configurable by the developer if needed. In addition ClientNetworkTimeProvider will provide a mode where it only does hard resets and no soft catch ups. This is needed for certain types of games like a rhythm game where background music needs to be synced to gameplay.
+Both the time and the tick system could be converted into blittable structs without needing any major changes in the future if we want to jobify time or tick system. The reason why they are reference types at the moment is so that we can easily pass them around between managed types without needing unsafe code and in the future might also consider running them as standalone systems without a dependency on `NetworkManager` and update them directly via the `NetworkUpdateLoop` which works better if they are reference types.
 
 ## Removal of TimeSync
 
@@ -408,9 +256,6 @@ The design of this time system is the best possible design because it does defin
 
 ## What other designs have been considered and what is the rationale for not choosing them?
 
-### Alternative: Don't Base Time on Ticks
-We can keep MLAPI as just a simple messaging/state replication library which does not take control of the game loop via a tick system. This would mean that the developers themselves would have to implement systems to ensure smooth movement and prediction and we won’t be able to provide production grade components like ‘NetworkTransform’ out of the box. The advantages of this would be that changes to NetworkVariables etc. would be synchronized instantly without the need of being aligned to a tick.
-
 ### Client Partial Simulation vs Interpolation
 
 There are two popular ways for dealing with the fixed tick to render frame aliasing issue on the client.
@@ -428,7 +273,7 @@ We need a time system based on fixed ticks for the snapshot system and other sys
 # Prior art
 [prior-art]: #prior-art
 
-The [Source Engine](https://developer.valvesoftware.com/wiki/Source_Multiplayer_Networking) by Valve uses a similar design for network ticks and time. The main difference between our implementation and theirs are that we provide more freedom to the developer for how to handle time with the `INetworkTimeProvider` interface. The Source engine supports using a different snapshot sendrate which is something we could explore.
+The [Source Engine](https://developer.valvesoftware.com/wiki/Source_Multiplayer_Networking) by Valve uses a similar design for network ticks and time. The Source engine supports using a different snapshot sendrate which is something we could explore.
 
 ![source engine tick system](https://developer.valvesoftware.com/w/images/e/ea/Networking1.gif)
 
@@ -448,14 +293,13 @@ Glenn Fiedler explains in [this article](https://gafferongames.com/post/fix_your
 [future-possibilities]: #future-possibilities
 
 - We will probably expose a way in `NetworkBehaviour` to run logic for each fixed tick with a function such as `NetworkFixedUpdate`.
-- We will improve the time provider to calculated predicted time based on the command buffer size of the command system. This is commonly done in action and FPS games.
+- We can improve the calculation of predicted time by basing it on the command buffer size once we have a command system. This is commonly done in action and FPS games.
 - We will tie the physics simulation to the network tick and run it after each fixed tick.
 - The time system provides a single tick value which can be used for anything such as running the gameplay or sending out snapshots but it is by no means restricting any other systems to use it. For instance sending snapshots could be something where we decide to give an option in the future to run only every second tick.
 - In the far future we could look into a tighter engine integration of the time system. Potentially override the values of `Time.time` and `Time.fixedTime` etc.
 - To make RPCs more predictable we could have them expose the predicted tick value of when they were invoked. For instance if an RPC which creates an explosion gets delayed with the current RPC system the explosion would be delayed and out of place. By exposing the tick at invoke time a developer could write code to adjust for that delay and spawn the explosion particle midway through the animation.
 - Profiling tools for time related values. We could display things like buffer sizes or time scale to allow developers to debug time issues.
 - We could explore allowing to change the tickrate of the game during a session. This is sometimes used in games genres like Battle Royale. There the server can only run at a low tickrate at the beginning of the game because it needs to simulate 100+ players. Over the course of the game tickrate can be gradually increased as the server load decreases.
-
 
 # Appendix
 
