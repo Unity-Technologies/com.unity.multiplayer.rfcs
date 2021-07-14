@@ -74,7 +74,7 @@ Apart from the spawn / de-spawn connections mentioned above, the `InterestManage
 * When RPCs are sent from the server, the library queries the `InterestManager` to get a list of objects that a given client can see, so that it can then determine if the object associated with the RPC is relevant to the client. 
 
 
-## Sample: Creating a Radius-based Node 
+## Sample 1: Creating a Radius-based Node 
 
 Let's walk through a sample.  We will establish a node, then a kernel, then associate the kernel with the node and the node with a prefab.  For context while we're here, let's just look at an abbreviated version of the code for `InterestNodeStatic`:
 
@@ -163,33 +163,96 @@ Now that we understand how `InterestNodes` register with prefabs, we can underst
 1. The `InterestNodes` are told about the added object, and
 2. The `InterestManager` adds this new `InterestNode` to its children
 
+
+## Sample 2: Creating a custom storage arrangement
+_Note, this example exists in the `InterestTests.cs` unit test file_
+
+Let's now imagine that we want to have an arrangement where a scheme as simple as in `InterestNodeStatic` isn't sufficient; that is, we want to customize the storage scheme.  Say we break the game playfield into a 100x100 grid (10,000 cells).  We would hope to have these characteristics:
+
+* When it's time to find the objects that a connection can see, we want to very quickly get a 'cached' set of objects in the same cell as the player; we want to simply skip all the other 9,999 cells.
+* We want the game developer to be able to choose how and how often (if ever) that objects are re-assigned to different cells
+
+Without building a full on graph system, we'll use a little bit of imagination and an **odds and evens** setup.  That is, instead of distributing items into cells, we'll simply distribute them by mod-ing their network id.  Odd-numbered objects will go in the odd bucket, and vice versa.  Then our query will, given an odd-numbered player return the odd objects and vice versa.
+
+As before let's start with our node, `OddssEvensNode`, which implements `InterestNode`.  Let's look at the methods gradually
+
+```
+public class OddsEvensNode : InterestNode
+{
+        private InterestNodeStatic m_Odds;
+        private InterestNodeStatic m_Evens;
+        
+        public override void AddObject(in NetworkObject obj)
+        {
+            if (obj.NetworkObjectId % 2 == 0)    m_Evens.AddObject(obj);
+            else                                 m_Odds.AddObject(obj);
+        }
+
+        public override void RemoveObject(in NetworkObject obj)
+        {
+            if (obj.NetworkObjectId % 2 == 0)    m_Evens.RemoveObject(obj);
+            else                                 m_Odds.RemoveObject(obj);
+        }
+        // ...
+```
+Here we see that the node implements its two 'buckets' as 2 `InterestStaticNodes`.  The analog in a grid example is where `m_Evens` and `m_Odds` would be cells in the grid.
+
+Remember, in their default form (with no kernels) these nodes simply store and return the objects they manage.  As you can see, we just look at the object to be added / removed and place it into / remove it from the correct bucket; again, the analogy with a grid would be we are placing those objects in the right (initial) grid spot.  Now let's look how this serves to make queries efficient:
+
+```
+        public override void QueryFor(in NetworkClient client, HashSet<NetworkObject> results)
+        {
+            // if a client with an odd NetworkObjectID queries, we return objects with odd NetworkObjectIDs
+            if (client.PlayerObject.NetworkObjectId % 2 == 0)  m_Evens.QueryFor(client, results);
+            else                                               m_Odds.QueryFor(client, results);
+        }
+```
+
+Now at query time, we are - with no calculation - returing the appropriate results - the odd entries are returned when queried by an odd client and vice versa.  Compare this to the radius example where each query we needed to do a per-object radius calculation.  
+
+One running theme here is to give the users the ability to strategize about how to do the minimum calculations needed.  We did the calculation once at storage time.  And in this case, since network id's never change, it's a safe assumption and we can then much more quickly return the correct odd / even result.
+
+But now let's say the network id of objects *can* change, however it's infrequent.  What's more, the game code knows when this happens to which object.  We can implement that simply with the `UpdateObject` method
+
+```
+        public override void UpdateObject(in NetworkObject obj)
+        {
+            RemoveObject(obj);
+            AddObject(obj);
+        }
+```
+
+Here, the game code can call into the node itself and pass in the changed object.  Here we chose to simply remove it from itself and re-add it, letting the standard processing to determine which bucket it goes in take place.
+
+With this in mind we can think about the analogues in the more realistic graph node example
+
+* in the same way, objects move around from cell to cell.  However, we don't want the Interest Node to have to re-scan all the objects every frame to re-assign them to the proper graph.  We assume the user code will likely know more about when these things happen (e.g. an object teleports instantly).  OR, we imagine the developer will want to strategize; if a player is subscribed as is common to a cluster of overlapping cells with objects sometimes belonging to > 1 cell, then - assuming max object velocity is taken into account - one can safely re-scan objects into cells much, much less often then every frame
+* Developers have the option to avoid every re-scanning some objects at all.  Say we have a 'tree' prefab and an associated grid node associated with it.  The developer could:
+  * make a special `InterestedGraphNodeDormant` or other that has no `UpdateObject` body, and/or
+  * in its own code simply know what objects never need to be updated and not call `UpdateObject` on them.
+
+
+# FAQ
+
 ## Why can one associate more than one `InterestNode` with a prefab?
 
-Let's imagine you're setting up your player's prefab.  Say you want players can see other players if they're some distance away using the `RadiusInterestNode` we built before.  But let's say we also want to enable players to see other players who are on the same team, regardless of distance.  You could write a special `RadiusOrTeam` combination node that does both.  For better re-use, however, the system allows one to add more than one node; in this case you would have a `RadiusInterestNode` *and* a `TeamInterestNode`.  Then, when the query happens on player prefabs the result from both nodes is merged
+Let's imagine you're setting up your player's prefab.  Say you want players can see other players if they're some distance away using a dispatched / custom storage like the second example.  But let's say we also want to enable players to see other players who are on the same team, regardless of distance.  You could write a special `RadiusOrTeam` combination node that does both.  For better re-use, however, the system allows one to add more than one node; in this case you would have a `GraphInterestNode` *and* a `TeamInterestNode`.  Then, when the query happens on player prefabs the result from both nodes is merged
 
 
 
 # Drawbacks
+- The U/X is a bit cumbersome in the `InterestNodeStatic` case in that you must create a node, then create the kernel and then associate both to the prefab
 
 # Prior art
 
 # Unresolved questions
+- as an alternative to having storage of nodes under management in `InterestNodeStatic`, what about an API change to allow a node to simply get access to all spawned objects?
+- or, put another way, should the Interest System become the single source of truth for `SpawnManager.SpawnedObjects`?
+- What happens if we want to re-bind a node?  That is, if initially a player is a type *Player*, but then the player dies and is now type *Corpse* which has different relevancy and replication needs?
+- rather than merge `HashSets`, should we return lists of lists?  Matt has attempted to do high-resolution timing of very high (10,000+ objects and 1000s of nodes) and has seen very little time consumed, but needs to fully validate the compiler isn't eliding results or the timing isn't faulty
+- the binding of RPC sends is work that remains.  It may be clunky to use the current interface to find if a RPC message going from A to B should be transmitted if it means getting a list of objects from A and seeing if 'B' is in it.
+- Some have suggested caching be built into the Interest System.  There already is caching for the objects being managed, but we might consider to have each node cache results from previous queries with the option to dirty it.
 
 # Future possibilities
-
-
-
------------------------------
-
-
-
-Let's explore this by way of an example.  Let's author a 'static' interest node.  Actually, there is one included (`InterestStaticNode`) and we'll look at its implementation here:
-
-
-
-- should be a way to query ALL objects or share
-
-- switch InterestNode e.g. on a dead character
-
-Now that we have an `InterestNode`, how do we indicate which spawned objects should be managed by this node?  We don't want to do a per-object runtime check.  And we'd like to take advantage of the Unity Editor workflow. Therefore, we associate this `InterestNode` to objects via a settings in MLAPI's `NetworkObject` found in each MLAPI-registered prefab.  One could say that trees are things that never move, and 
-
+- should prototype a basic `InterestNodeGraph` to add to the samples
+- In similar systems, replication parameters and settings are also bound to these nodes.  Here I have just put in a placeholder for settings.  But there is an open question as to whether the Interest System should simply return whether an object is in or out OR return a 'strength' (how relevant) score along with 'in' results so that a prioritization system could then sort / act on these scores.  For example with the `Radius` example, if the computed distance was returned in the results with the object the prioritization system could make sure near objects are more likely to go out than further ones without having to repeat the radius calcuation.
