@@ -32,7 +32,7 @@ What we instead would like to achieve:
 
 # Guide-Level Explanation
 
-The interest system consists of 3 main components:
+The interest system consists of 5 main components:
 
 ## Components
 ### 1. `InterestManager`
