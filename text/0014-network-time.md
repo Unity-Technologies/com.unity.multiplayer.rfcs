@@ -1,7 +1,9 @@
-- Feature Name: network-time
-- Start Date: 2021-04-30
-- RFC PR: [Unity-Technologies/com.unity.multiplayer.rfcs#0014](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/0014)
-- Issue: [Unity-Technologies/com.unity.multiplayer#0000](https://github.com/Unity-Technologies/com.unity.multiplayer/issues/0000)
+# Network Time
+[feature]: #feature
+
+- Start Date: `2021-04-30`
+- RFC PR: [#14](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/14)
+- SDK PR: [#845](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/pull/845)
 
 # Summary
 [summary]: #summary
@@ -34,11 +36,11 @@ The default value for `Tickrate` will be `60` instead of `64`. A tickrate of 60 
 ### NetworkTime
 
 `NetworkTime` will be removed from MLAPI. As explained later in the RFC there are some flaws in the concept of a single `NetworkTime` so we will be replacing it with other concepts instead. For a quick fix of existing code instead of:
-```csharp
+```cs
 var time = NetworkManager.Singleton.NetworkTime;
 ```
 use
-```csharp
+```cs
 var time = NetworkManager.Singleton.LocalTime.Time;
 ```
 
@@ -53,7 +55,7 @@ A client receives regular state updates from the server containing data about th
 
 For instance the following code could be used to displaying a moving platform which is aligned with the positions of all player objects from other players or server controlled NPCs:
 
-```csharp
+```cs
 public class MovingPlatform : MonoBehaviour
 {
     // Note moving in Update is only recommended for visual-only, non-networked objects.
@@ -70,7 +72,7 @@ When moving your own player character locally, the character is ahead of time co
 
 Example of using Local Time:
 
-```csharp
+```cs
 public class NetworkChat : NetworkBehaviour
 {
     [ServerRpc(RequireOwnership = false)]
@@ -128,7 +130,7 @@ This RFC introduces 3 new components to MLAPI.
 
 When writing gameplay code it is often necessary to have access to multiple time values such as `Time`, `FixedTime`, `DeltaTime`. Because MLAPI has its own time system the regular Unity time functions cannot be used to access correct values. In addition a client needs access to both the `ServerTime` and `LocalTime`. The `NetworkTime` struct is context information which can be easily constructed from a double value representing time and gives access to other important time values.
 
-```csharp
+```cs
 public struct NetworkTime
 {
     public double Time{ get; }
@@ -141,18 +143,18 @@ public struct NetworkTime
 
     public NetworkTime(int tickRate, double time)
     {
-    //.....
+        // ...
     }
 
-    //....
+    // ...
 }
 ```
 
 `NetworkTime` will also support common operations such as addition and subtraction.
 
 Access to the `NetworkTime` can either be done over the `NetworkManager` for convenience:
-```csharp
-NetworkTime localTime = NetworkManager.Singleton.localTime;
+```cs
+NetworkTime localTime = NetworkManager.Singleton.LocalTime;
 NetworkTime serverTime = NetworkManager.Singleton.ServerTime;
 ```
 or by accessing the `LocalTime` and `ServerTime` properties of the `NetworkTickSystem` directly.
@@ -205,12 +207,12 @@ NetworkTickWrapping as described in RFC-12 will be removed. To save bandwidth wh
 NetworkVariable will no longer carry two ticks. Instead of a `local tick` and a `remote tick` there will be only a `last modified tick`. This change is done because there is no longer a need for multiple ticks. Writing NetworkVariables always happens in `LocalTime` while receiving NetworkVariables happens in `ServerTime`.
 
 How NetworkVariable writes will be changed internally with the time system proposed in this RFC. INetworkVariable will expose a LastModifiedTick value.
-```csharp
+```cs
 int LastModifiedTick { get; }
 ```
 
 The setter of NetworkVariable will set `LastModifiedTick` to predicted tick:
-```csharp
+```cs
 /// <summary>
 /// The value of the NetworkVariable container
 /// </summary>
@@ -307,7 +309,7 @@ Glenn Fiedler explains in [this article](https://gafferongames.com/post/fix_your
 
 There are different ways to define time in multiplayer scenarios. A multiplayer game connects multiple peers together where each peer has a different game engine time `Time.time` and potentially a different system time. This means there is a lack of a consistent time systems between peers and we need to introduce our our concept.
 
-![peers connected to each other](0014-network-time//npeers.png)
+![peers connected to each other](0014-network-time/npeers.png)
 
 ### Networking Topologies
 
@@ -338,8 +340,7 @@ To solve all the problems listed above a different way of handling `local time` 
 
 How can the client send state so that it arrives in `server time` on the server? The client has to adjust `local time` so that it matches `server time` on arrival on the server. This is done by predicting the time at which the packet will arrive on the server. The client knows about the time when the last server packet arrived. To predict its `local time` it can add the `RTT` + a bit of buffering to that time and use that as the new `local time`. This concept of adjusting `local time` to the server is what we call `predicted time` from now on.
 
-
-![predicted time](0014-network-time/localTime.png)
+![predicted time](0014-network-time/predictedtime.png)
 
 ### The Elevator Problem
 
@@ -354,7 +355,7 @@ An example problem which will be solved by this new time system is the `elevator
 *A platform in server space and a server controlled non player character (NPC)*
 
 Example code of moving a platform in server time:
-```csharp
+```cs
 public class MovingPlatform : MonoBehaviour
 {
     [SerializeField]
@@ -381,7 +382,7 @@ When adding a client authoritative player character to a platform the result is 
 This is less than ideal since other players will be a full RTT behind the platform. The problem here is that the player character moves in `predicted time` but the platform is in `server time`. This causes the player movement to look correct locally but wrong on all the other clients because once the player movement arrives on the server, the platform is already at another place.
 
 Another way of approaching this could be to run the platform in predicted time. Here is an example code of moving a platform in predicted time:
-```csharp
+```cs
 // This is just for illustration purposes, not recommended to use for gameplay code
 void Update()
 {
