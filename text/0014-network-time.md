@@ -340,6 +340,8 @@ To solve all the problems listed above a different way of handling `local time` 
 
 How can the client send state so that it arrives in `server time` on the server? The client has to adjust `local time` so that it matches `server time` on arrival on the server. This is done by predicting the time at which the packet will arrive on the server. The client knows about the time when the last server packet arrived. To predict its `local time` it can add the `RTT` + a bit of buffering to that time and use that as the new `local time`. This concept of adjusting `local time` to the server is what we call `predicted time` from now on.
 
+![predicted time](0014-network-time/predictedtime.png)
+
 ### The Elevator Problem
 
 An example problem which will be solved by this new time system is the `elevator problem`. The elevator problem works in the following way.
