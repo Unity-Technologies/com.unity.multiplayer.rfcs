@@ -253,6 +253,7 @@ Let's imagine you're setting up your player's prefab.  Say you want players can 
 - the binding of RPC sends is work that remains.  It may be clunky to use the current interface to find if a RPC message going from A to B should be transmitted if it means getting a list of objects from A and seeing if 'B' is in it.
 - Some have suggested caching be built into the Interest System.  There already is caching for the objects being managed, but we might consider to have each node cache results from previous queries with the option to dirty it.
 
-# Future possibilities
+# Future possibilities / Work to do
+- should attempt to replace the `NetworkShow()` / `NetworkHide()` with this framework
 - should prototype a basic `InterestNodeGraph` to add to the samples
 - In similar systems, replication parameters and settings are also bound to these nodes.  Here I have just put in a placeholder for settings.  But there is an open question as to whether the Interest System should simply return whether an object is in or out OR return a 'strength' (how relevant) score along with 'in' results so that a prioritization system could then sort / act on these scores.  For example with the `Radius` example, if the computed distance was returned in the results with the object the prioritization system could make sure near objects are more likely to go out than further ones without having to repeat the radius calcuation.
