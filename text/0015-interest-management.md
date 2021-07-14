@@ -44,16 +44,27 @@ There is one and only one `InterestManager` per `NetworkManager`.  It is defined
 * Via the `QueryFor()` method, it is the entry point for getting the "which objects for this client" answer.  It is designed such that, if a user does not implement any schemes it produces the same result as if there was no interest system (e.g. all clients get all objects)
 * It listens to all MLAPI object spawns / de-spawns so that it can tell associated the `InterestNodes` (see below) it manages about them.  Logic for this lives in `AddObject()` and `RemoveObject()`, which are linked to via `NetworkSpawnManager's`  `SpawnNetworkObjectLocally()` and `OnDespawnObject()` methods respectively
 
-### 2. `InterestNode`
+### 2. `InterestNode` (abstract class, scriptable object)
 
-The core interest scheme functionality happens here.  Its jobs are to:
+The core interest scheme functionality happens here in derivations of `InterestNode`  Its jobs are to:
 
 * return its results in for the per-connection queries that come in from the `InterestManager`
 * respond to `AddObject` / `RemoveObject` from `InterestManager`.  How it responds to this is totally up to the node, as illustrated in examples below
 * respond to `UpdateObject` calls when came code wants to make specific triggers to the node
 * Multiple `InterestNode`s can be instantiated of the same kind with different settings.  For instance, one could define a Radius-based node with a value of 10 for shotgun shell casings (only interesting if you're very close by) but 100 for rockets.
 
-### 3. `InterestSettings`
+#### 2A. `InterestNodeStatic` (derived from `InterestNode`)
+This is a special verson of `InterestNode` that adds 2 special capabilities
+
+* It has bulit-in storage for the objects it manages.  That is, implements `AddObject` / `RemoveObject` for you and stores / removes the corresponding object in its own store.  As we will see later, if you want to devise your own storage means (e.g. for a graph-based node) instead override the `InterestNode`
+* It has a framework for adding one or more `InterestKernels`.  These are simple functions that will be called in succession in the `QueryFor` call.  If no `InterestKernels` are implemented, then all the nodes that have been added (and not removed) are returned in the query.
+   * one might wonder "why the separation between `InterestNode`s and `InterestKernels`?"  Consider the classic case where, for a given prefab we want to consider it relevant if it is within a given radius and on the same team as the querying connection's object.  If we implemented this with 2 `InterestNodes` both associated with the prefab, then the storage for both `InterestNodes` would be unnecessarily duplicated - both nodes would be tracking all the same objects that came in via `AddObject` / `RemoveObject`.  By keeping the kernels separate from the storage we can have the same storage shared with any number of kernels
+   * one might wonder, why not also have `InterestKernels` in non-`InterestNodeStatic` nodes?  They too will have some kind of kernel running.  And the answer (currently) is that, in practice, these non-`InterestModeStatic` nodes should work as a dispatch (e.g. a Graph node that dispatches to the correct graph cell - which itself should be a `InterestNodeStatic` node - example shown later).
+
+### 3. `InterestKernel` (scriptable object)
+As described above, this is where the user expresses the computation that happens in a `InterestNodeStatic` node.  It is a class (so that it can be Scriptable Object-instantiated) with one function to override, `QueryFor`, which takes in the `NetworkClient` and object under consideration and returns the answer in the same hashset format as the other queries.
+
+### 4. `InterestSettings`
 This is the least-developed component and doesn't have any settings in it as of this writing, but it is a placeholder for per-`InteresNode` settings that are not specific to any particular `InterestNode`.  For later when prioritization is added this is where we can place data that prioritization system uses when considering results from this node.
 
 ## Integration Points
@@ -63,80 +74,86 @@ Apart from the spawn / de-spawn connections mentioned above, the `InterestManage
 * When RPCs are sent from the server, the library queries the `InterestManager` to get a list of objects that a given client can see, so that it can then determine if the object associated with the RPC is relevant to the client. 
 
 
-## Some Sample `InterestNodes`
+## Sample: Creating a Radius-based Node 
 
-Let's build an example, starting with some nodes.  First, let's author a 'static' interest node.  Actually, this one included (`InterestStaticNode`) and we'll look at its implementation here:
-
+Let's walk through a sample.  We will establish a node, then a kernel, then associate the kernel with the node and the node with a prefab.  For context while we're here, let's just look at an abbreviated version of the code for `InterestNodeStatic`:
 
 ```
-  public class InterestNodeStatic : InterestNode
+public class InterestNodeStatic : InterestNode
+{
+    public List<InterestKernel> InterestKernels = new List<InterestKernel>();
+
+    // these are the objects under my purview
+    protected HashSet<NetworkObject> ManagedObjects;
+
+    public override void AddObject(in NetworkObject obj)
     {
-        public void OnEnable()
-        {
-            ManagedObjects = new HashSet<NetworkObject>();
-        }
-
-        // these are the objects under my purview
-        protected HashSet<NetworkObject> ManagedObjects;
-
-        public override void AddObject(in NetworkObject obj)
-        {
-            ManagedObjects.Add(obj);
-        }
-
-        public override void RemoveObject(in NetworkObject obj)
-        {
-            ManagedObjects.Remove(obj);
-        }
-
-        public override void QueryFor(in NetworkClient client, HashSet<NetworkObject> results)
-        {
-            results.UnionWith(ManagedObjects);
-        }
-
-        public override void UpdateObject(in NetworkObject obj)
-        {
-        }
+        ManagedObjects.Add(obj);
     }
-```
 
-This node maintains its own storage for the objects it tracks (`ManagedObjects`).  When it is told one of its associated objects is added, it simply adds it to its storage and vice versa when an object is going to be deleted.  At query time, it simply merges the results passed in from the other clients and does no other computation.  A default instance of this node, by the way, is instantiated in the `NetworkingManager` and is where objects go that have no associated `InterestNodes`.
-
-Now let's author a dynamic 'radius' node and compare:
-
-```
-    public class RadiusInterestNode : InterestNodeStatic
+    public override void RemoveObject(in NetworkObject obj)
     {
-        public float Radius = 0.0f;
-        public override void QueryFor(in NetworkClient client, HashSet<NetworkObject> results)
+        ManagedObjects.Remove(obj);
+    }
+
+    public override void QueryFor(in NetworkClient client, HashSet<NetworkObject> results)
+    {
+        if (InterestKernels.Count > 0)
         {
             foreach (var obj in ManagedObjects)
             {
-                if (Vector3.Distance(obj.transform.position, client.PlayerObject.transform.position) <= Radius)
+                foreach (var ik in InterestKernels)
                 {
-                    results.Add(obj.GetComponent<NetworkObject>());
+                    ik.QueryFor(client, obj, results);
                 }
             }
+        }
+        else
+        {
+            results.UnionWith(ManagedObjects);
         }
     }
 }
 ```
 
-This node extends what we had in the `InterestStaticNode`.  We inherit the storage of managed objects.  But here in the query we iterate over those stored objects and measure the distance between the object and the client.  The results then have the per-client-custom result of objects that are within a desired radius. 
+As we described earlier, this node maintains its own storage for the objects it tracks (`ManagedObjects`).  When it is told one of its associated objects is added, it simply adds it to its storage and vice versa when an object is going to be deleted.  At query time, if we have no kernels we simply merge the results passed in from the other clients with all the objects we manage and do no other computation.  Otherwise we invoke our kernel(s) and merge in those results.
 
-**Note**: `InterestNodes` are implemented as `ScriptableObjects`.  This allows the user to create multiple instances of them in the editor but with different parameters.  More on that as we go through the example.
+A default instance of this node, by the way, is instantiated in the `NetworkingManager` and is where objects go that have no associated `InterestNodes`.
 
-## How the `InterestNode`, `InterestManager` and Prefabs relate & connect
+Now let's author the `RadiusInterestKernel`.  Actually, this file is included but let's look at its implementation:
 
+```
+public class RadiusInterestKernel : InterestKernel
+{
+    public float Radius = 0.0f;
+    public override void QueryFor(in NetworkClient client, in NetworkObject obj, HashSet<NetworkObject> results)
+    {
+        if (Vector3.Distance(obj.transform.position, client.PlayerObject.transform.position) <= Radius)
+        {
+            results.Add(obj.GetComponent<NetworkObject>());
+        }
+    }
+}
+```
+Here, we have a `Radius` variable.  When we instantiate this kernel as a scriptable object we then can enter in the desired radius _for this instance_.  
 
-Ok, now that we have 2 nodes, let's see how they associate with objects in the actual game.  
+The `InterestNodeStatic` calls `QueryFor` as the inner function as it iterates over its managed objects.  Then this kernel simply measures the distance between the object and the client.  The results then have the per-client-custom result of objects that are within a desired radius. 
 
-As nodes are `ScriptableObjects`, the first step is to create the Nodes in the editor.  In this case, you would do *Assets->Create->Interest->Nodes->Radius*.  You can then click on this newly created Radius node in the inspector and configure its radius, say, to **3**.
+**Note**: `InterestKernels` are implemented as `ScriptableObjects`.  This allows the user to create multiple instances of them in the editor but with different parameters (e.g. a different radius for each).  More on that as we go through the example.
+
+## How the `InterestNode`, `InterestManager`, `InterestKernels` and Prefabs relate & connect
+
+Ok, now that we have the node and the kernel, let's see how they associate with objects in the actual game.  
+
+1. As nodes are `ScriptableObjects`, the first step is to create the Nodes in the editor.  In this case, you would do *Assets->Create->Interest->Nodes->Static*.  Now we have a blank node.
 
 ***Image needs to go here***
 
-Now we need to associate this node with a prefab that has a `NetworkObject` element.  We then drag this `InterestNode` into the `InterestNodes` section.  Now, any time this prefab is instantiated it will be associated with this node.  Note, you can associcate a prefab with more than one `InterestNode`
+2. Now let's instantiate a `InterestRadiusKernel`:  *Assets->Create->Interest->Kernels->Radius*.  Then click on this newly created Radius node in the inspector and configure its radius, say, to **3**.
 
+***Image needs to go here***
+
+3. Now we need to associate this node from step 1 with a prefab that has a `NetworkObject` element.  We drag this `InterestNode` into the `InterestNodes` section.  Now, any time this prefab is instantiated it will be associated with this node.  Note, you can associcate a prefab with more than one `InterestNode`.  This may seen unnecessary since a node can have more than one kernel.  On the other hand, you might want to have a combination of one node that is a `InterestNodeStatic` with 1 or more kernels AND a custom `InterestNode` with its own storage.
 
 ***Image needs to go here***
 
@@ -151,9 +168,6 @@ Now that we understand how `InterestNodes` register with prefabs, we can underst
 Let's imagine you're setting up your player's prefab.  Say you want players can see other players if they're some distance away using the `RadiusInterestNode` we built before.  But let's say we also want to enable players to see other players who are on the same team, regardless of distance.  You could write a special `RadiusOrTeam` combination node that does both.  For better re-use, however, the system allows one to add more than one node; in this case you would have a `RadiusInterestNode` *and* a `TeamInterestNode`.  Then, when the query happens on player prefabs the result from both nodes is merged
 
 
-
-# Reference-Level Explanation
-The 
 
 # Drawbacks
 
