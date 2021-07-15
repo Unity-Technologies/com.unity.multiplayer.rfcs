@@ -18,6 +18,7 @@ In the existing MLAPI Interest system, every networked object (i.e. `NetworkedOb
 
 For example, a leading FPS game begins with around 100 clients and 50,000 replicated objects.  With the current scheme, one would need to store 20 MB of client / object data and do 50,000*100 = 5 million client/object checks each tick.
 
+
 ## Desired Outcome
 
 What we instead would like to achieve:
@@ -33,6 +34,8 @@ What we instead would like to achieve:
 # Guide-Level Explanation
 
 The interest system consists of 5 main components:
+
+![](0015-interest-management/interestComponents.png)
 
 ## Components
 ### 1. `InterestManager`
@@ -145,13 +148,14 @@ The `InterestNodeStatic` calls `QueryFor` as the inner function as it iterates o
 
 Ok, now that we have the node and the kernel, let's see how they associate with objects in the actual game.  
 
-1. As nodes are `ScriptableObjects`, the first step is to create the Nodes in the editor.  In this case, you would do *Assets->Create->Interest->Nodes->Static*.  Now we have a blank node.
+1. As nodes are `ScriptableObjects`, the first step is to create the Nodes in the editor.  In this case, you would do *Assets->Create->Interest->Nodes->Static*.  Now we have a blank node.  Note, other user-defined nodes would appear hear if they are annotated with the corresponding `CreateAssetMenu`.
 
-***Image needs to go here***
+![](0015-interest-management/createStatic.png)
 
 2. Now let's instantiate a `InterestRadiusKernel`:  *Assets->Create->Interest->Kernels->Radius*.  Then click on this newly created Radius node in the inspector and configure its radius, say, to **3**.
 
-***Image needs to go here***
+![](0015-interest-management/createRadiusKernel.png)
+
 
 3. Now we need to associate this node from step 1 with a prefab that has a `NetworkObject` element.  We drag this `InterestNode` into the `InterestNodes` section.  Now, any time this prefab is instantiated it will be associated with this node.  Note, you can associcate a prefab with more than one `InterestNode`.  This may seen unnecessary since a node can have more than one kernel.  On the other hand, you might want to have a combination of one node that is a `InterestNodeStatic` with 1 or more kernels AND a custom `InterestNode` with its own storage.
 
