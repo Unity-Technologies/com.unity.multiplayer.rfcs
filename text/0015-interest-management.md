@@ -61,7 +61,7 @@ This is a special verson of `InterestNode` that adds 2 special capabilities
 
 * It has bulit-in storage for the objects it manages.  That is, implements `AddObject` / `RemoveObject` for you and stores / removes the corresponding object in its own store.  As we will see later, if you want to devise your own storage means (e.g. for a graph-based node) instead override the `InterestNode`
 * It has a framework for adding one or more `InterestKernels`.  These are simple functions that will be called in succession in the `QueryFor` call.  If no `InterestKernels` are implemented, then all the nodes that have been added (and not removed) are returned in the query.
-   * one might wonder "why the separation between `InterestNode`s and `InterestKernels`?"  Consider the classic case where, for a given prefab we want to consider it relevant if it is within a given radius and on the same team as the querying connection's object.  If we implemented this with 2 `InterestNodes` both associated with the prefab, then the storage for both `InterestNodes` would be unnecessarily duplicated - both nodes would be tracking all the same objects that came in via `AddObject` / `RemoveObject`.  By keeping the kernels separate from the storage we can have the same storage shared with any number of kernels
+   * one might wonder "why the separation between `InterestNode`s and `InterestKernels`?"  Consider the classic case where, for a given prefab we want to consider it relevant if it is within a given radius **OR** on the same team as the querying connection's object.  If we implemented this with 2 `InterestNodes` both associated with the prefab, then the storage for both `InterestNodes` would be unnecessarily duplicated - both nodes would be tracking all the same objects that came in via `AddObject` / `RemoveObject`.  By keeping the kernels separate from the storage we can have the same storage shared with any number of kernels
    * one might wonder, why not also have `InterestKernels` in non-`InterestNodeStatic` nodes?  They too will have some kind of kernel running.  And the answer (currently) is that, in practice, these non-`InterestModeStatic` nodes should work as a dispatch (e.g. a Graph node that dispatches to the correct graph cell - which itself should be a `InterestNodeStatic` node - example shown later).
 
 ### 3. `InterestKernel` (scriptable object)
@@ -156,11 +156,9 @@ Ok, now that we have the node and the kernel, let's see how they associate with 
 
 ![](0015-interest-management/createRadiusKernel.png)
 
-
 3. Now we need to associate this node from step 1 with a prefab that has a `NetworkObject` element.  We drag this `InterestNode` into the `InterestNodes` section.  Now, any time this prefab is instantiated it will be associated with this node.  Note, you can associcate a prefab with more than one `InterestNode`.  This may seen unnecessary since a node can have more than one kernel.  On the other hand, you might want to have a combination of one node that is a `InterestNodeStatic` with 1 or more kernels AND a custom `InterestNode` with its own storage.
 
-***Image needs to go here***
-
+![](0015-interest-management/prefabInspector.png)
 
 Now that we understand how `InterestNodes` register with prefabs, we can understand how the `InterestManager` can deal with them.  When the `InterestManager's` `AddObject()` method is called, it looks to see which `InterestNodes` are associated with the object being spawned.  If none are associated, then it goes into the default `m_DefaultInterestNode` node mentioned earlier; that is, if you don't register a prefab with an `InterestNode` then it will always be relevant to all connections.  However if there is one or more `InterestNodes`, then:
 
