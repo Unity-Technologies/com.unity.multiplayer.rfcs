@@ -8,7 +8,7 @@
 # Summary
 [summary]: #summary
 
-This RFC proposes upgraded interpolation options from the old NetworkTransform's interpolation.
+This RFC proposes upgraded interpolation options from the old NetworkTransform's interpolation that's resistent to jitter and clearer for users.
 
 
 
