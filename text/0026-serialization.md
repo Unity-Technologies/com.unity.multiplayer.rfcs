@@ -349,7 +349,6 @@ There are certainly some good reasons not to take this approach:
 - The proposed design uses fixed-size receive queues, which will use memory even when empty (though the size of the ReceiveQueueItem is relatively small, so the memory use should be reasonable)
 - The proposed design expects the user to accurately create a `GetSizeUpperBound()` method for each message type
 - The proposed design encourages (though it does not require) messages to be unmanaged types
-- The proposed design does move us a step away from jobifying message serialization (but also may in fact eliminate the need or value of jobifying message serialization)
 
 However...
 
@@ -385,4 +384,4 @@ I do not currently have any unresolved questions around this RFC.
 
 [future-possibilities]: #future-possibilities
 
-I believe this RFC represents a fairly comprehensive plan for handling serialization in a high-performance, zero-allocation approach. Aside from the possibility of incorporating jobification (which is an open question - not to be answered by this RFC - as to determine what parts of our codebase can find value from jobification and whether it will be beneficial or detrimental to move serialization to jobs after this work is done), I have no current thoughts on future work to add to this.
+I believe this RFC represents a fairly comprehensive plan for handling serialization in a high-performance, zero-allocation approach. Aside from the possibility of incorporating jobification (which is an open question - not to be answered by this RFC - as to determine what parts of our codebase can find value from jobification and whether it will be beneficial or detrimental to move serialization to jobs after this work is done - the cost of the context switch to a job thread may actually be more expensive than the serialization itself after these changes), I have no current thoughts on future work to add to this.
