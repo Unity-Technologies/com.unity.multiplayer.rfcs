@@ -3,7 +3,7 @@
 [feature]: #feature
 
 - Start Date: `2021-07-12`
-- RFC PR: [#0000](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/0000)
+- RFC PR: [#26](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/26)
 - SDK PR: [#0000](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/pull/0000)
 
 # Summary
@@ -56,7 +56,7 @@ interface IMessage
     int GetSizeUpperBound();
 
     // Serialize to a buffer
-    void Serialize(ref FastNetworkWriter writer, in NetworkContext context);
+    void Serialize(ref FastBufferWriter writer, in NetworkContext context);
     
     // Handle the message
     void Handle(in NetworkContext context);
@@ -65,9 +65,9 @@ interface IMessage
 
 Additionally, each message should have a method on it as follows:
 
-```
+```c#
 [MessageHandler(IMessage.MessageType.MyMessageType)]
-static void Receive(ref FastNetworkReader reader, in NetworkContext context);
+static void Receive(ref FastBufferReader reader, in NetworkContext context);
 ```
 
 This static method is responsible for constructing an instance of the received type and handling it. The `[MessageHandler]` attribute statically registers this handler to be responsible for this type via ILPP code generation, just like `[ServerRpc]` and `[ClientRpc] `
@@ -98,7 +98,7 @@ struct Message : IMessage
         return IMessage.MessageType.Message;
     }
 
-    void Serialize(ref FastNetworkWriter writer)
+    void Serialize(ref FastBufferWriter writer)
     {
         writer.WriteValue(this);
     }
@@ -114,7 +114,7 @@ struct Message : IMessage
     }
 
     [MessageHandler(IMessage.MessageType.Message)]
-    static void Receive(ref FastNetworkReader reader, in NetworkContext context)
+    static void Receive(ref FastBufferReader reader, in NetworkContext context)
     {
         Message message;
         reader.ReadValue(message);
@@ -125,7 +125,7 @@ struct Message : IMessage
 
 ## Serialization and Deserialization
 
-The serialization and deserialization is done via `FastNetworkWriter` and `FastNetworkReader`. These are similar in interface to `NetworkReader` and `NetworkWriter`, having methods for serializing individual types and methods for serializing packed numbers, but in particular provide a high-performance method called `WriteValue()`/`ReadValue()` (for Writers and Readers, respectively) that can extremely quickly write an entire unmanaged struct to a buffer. There's a trade-off of CPU usage vs bandwidth in using this: Writing individual fields is slower (especially when it includes operations on unaligned memory), but allows the buffer to be filled more efficiently.
+The serialization and deserialization is done via `FastBufferWriter` and `FastBufferReader`. These are similar in interface to `NetworkReader` and `NetworkWriter`, having methods for serializing individual types and methods for serializing packed numbers, but in particular provide a high-performance method called `WriteValue()`/`ReadValue()` (for Writers and Readers, respectively) that can extremely quickly write an entire unmanaged struct to a buffer. There's a trade-off of CPU usage vs bandwidth in using this: Writing individual fields is slower (especially when it includes operations on unaligned memory), but allows the buffer to be filled more efficiently.
 
 Taking an example class:
 
@@ -136,14 +136,14 @@ struct Message : IMessage
     private bool b;
     private int i;
 
-    void Serialize(ref FastNetworkWriter writer);
+    void Serialize(ref FastBufferWriter writer);
 }
 ```
 
 Serialize can be implemented in two ways:
 
 ```C#
-void Serialize(ref FastNetworkWriter writer)
+void Serialize(ref FastBufferWriter writer)
 {
     writer.WriteSingle(f);
     writer.WriteBool(b);
@@ -152,7 +152,7 @@ void Serialize(ref FastNetworkWriter writer)
 ```
 
 ```C#
-void Serialize(ref FastNetworkWriter writer)
+void Serialize(ref FastBufferWriter writer)
 {
     writer.WriteValue(this);
 }
@@ -169,7 +169,7 @@ struct Message : IMessage
     private short i;
     private bool b;
 
-    void Serialize(ref FastNetworkWriter writer);
+    void Serialize(ref FastBufferWriter writer);
 }
 ```
 
@@ -191,7 +191,7 @@ struct Message : IMessage
     public float f;
     public short i;
 
-    void Serialize(ref FastNetworkWriter writer)
+    void Serialize(ref FastBufferWriter writer)
     {
         writer.WriteValue(embedded);
         writer.WriteSinglePacked(f);
@@ -211,7 +211,7 @@ This allows the four bytes of the embedded struct to be rapidly serialized as a 
 When sending messages, instead of working directly with buffers, messages are created on the stack as struct instances, populated with data, and then serialized to the buffer from there. There are a few reasons for doing it this way:
 
 - The primary reason is readability and maintainability. Putting all the code related to serializing, deserializing, and handling a message in one place makes it easy to understand how that message works. Building the message as a struct, which should match the network transfer format as closely as possible, makes it easy to understand what the data going across the wire will look like.
-- The secondary reason is performance - structs can be created on the stack with no heap allocations, and with FastNetworkWriter and FastNetworkReader, they can be rapidly serialized as whole units.
+- The secondary reason is performance - structs can be created on the stack with no heap allocations, and with FastBufferWriter and FastBufferReader, they can be rapidly serialized as whole units.
 - The third reason is easier debugging - for situations where a lot of packed integers are being used, a preprocessor flag can be used to switch between optimal byte packing and simple whole-struct serialization. At debug time, when there's no dynamic data involved, the buffer in a reader or writer can be simply cast to the desired type by adding a watch of `*(MessageType*)reader.GetUnsafePtrAtCurrentPosition()`
 - The fourth reason is to improve the interface by which messages are sent - instead of needing a Begin...() to add header information and an End...() to perform sending logic, MessageQueueContainer now simply has `public void SendMessage<TMessageType>(in TMessageType message) where TMessageType: IMessage{}`, which can handle both responsibilities, as well as message batching responsibilities, all in one location.
 
@@ -239,18 +239,13 @@ In addition to the message header, there's also a batch header - the batch heade
 
 As mentioned above, the interface for sending message changes from "begin add item, populate buffer, end add item" to "create struct, pass struct to SendMessage". However, there are more changes beyond just the interface to the way messages are sent:
 
-In order to avoid allocations, message sending is no longer deferred to the end of the frame. The send buffer is sized to contain one MTU worth of data, and when the send buffer is full, the data is sent immediately.[^1][^2]
-
-[^1]: There are two alternatives to this that would require allocations: placing struct instances on a queue (stack memory cannot outlive its stack context, so a boxing allocation would be required) or allowing the buffer to grow (in addition to requiring allocations, this would also require checks on buffer bounds at every write, which significantly slows down serialization performance)
-[^2]: This does mean that serialization cannot be jobified. However, with the new serializers, serialization is likely to be fast enough that the overhead of the context switch to move the data to a job is likely more expensive than the cost of serializing it. However, should profiling continue to show serialization as a hotspot, having everything in one location should make it easy to refactor later to jobify it.
+Each client object holds on it a fixed-size `SendQueue` of FastBufferWriters associated with that client (fixed-size so as to avoid allocations, but large enough to reasonably hold all the messages that would need to be sent in a single frame, and with the size adjustable by game teams if it turns out to still be too small). At the start of each frame, this queue size is `0`, and the writer in index 0 persists from frame to frame, wrapping a `NativeArray<byte>` allocated with `Allocator.Persistent`. When we need to write a message, if the writer in `SendQueue[queueSize]` doesn't have enough remaining capacity to hold the message we're attempting to write, we increment the queue size and create a new writer wrapping a new `NativeArray<byte>` allocated with `Allocator.TempJob`. This allocator is much faster than GC allocation, approaching the speed of stack allocation, and doesn't create an object that's garbage collected (instead, it must be manually deallocated).
 
 There are three special cases for how the sending logic serializes the message.
 
 ### Sending to a single remote client
 
-Each client object holds on it a FastNetworkWriter associated with that client. When sending to a single remote client, this writer can be trivially reused.
-
-The first thing the sending logic does is call the `GetSizeUpperBound()` method on the message and compare the result against the size left in the buffer. If the buffer doesn't have enough space left for the message, **the first two bytes of the writer are overwritten with the value of writer.Position, and then the writer's buffer is immediately sent to the transport and cleared, with the first two bytes being reserved for the total size of the next batch**.
+The first thing the sending logic does is call the `GetSizeUpperBound()` method on the message and compare the result against the size left in the buffer. If the buffer doesn't have enough space left for the message, the first two bytes of the writer are overwritten with the value of writer.Position, and then the writer's buffer is placed onto the client's send queue and a new buffer allocated with `Allocator.TempJob`.
 
 **If at any time, `GetSizeUpperBound()` returns a value larger than `MTU - sizeof(MessageHeader) - sizeof(short)`, an exception is thrown and the message is not sent.**
 
@@ -262,11 +257,11 @@ Finally, the logic stores the actual size of the message onto the message header
 
 ### Sending to multiple remote clients
 
-Sending to remote clients is a bit more complex because each client has its own FastNetworkWriter, and each may or may not be full enough to trigger a batch to be sent.
+Sending to remote clients is a bit more complex because each client has its own FastBufferWriter, and each may or may not be full enough to trigger a batch to be sent.
 
-In this case, `GetSizeUpperBound()` isn't called. Instead, a `NativeArray<byte>` is constructed using `Allocator.Temp` - a bump allocator that effectively operates the same way as allocating stack memory - and a new FastNetworkWriter is created wrapping that NativeArray (which does not cause an allocation, as FastNetworkWriter is a struct). The data is then serialized once to that writer instead of an existing client's writer.
+In this case, `GetSizeUpperBound()` isn't called. Instead, a `NativeArray<byte>` is constructed using `Allocator.Temp` - a bump allocator that effectively operates the same way as allocating stack memory - and a new FastBufferWriter is created wrapping that NativeArray (which does not cause an allocation, as FastBufferWriter is a struct). The data is then serialized once to that writer instead of an existing client's writer.
 
-Afterward, a `MessageHeader` is created and fully initialized with the size of the serialized data, then each requested client destination is iterated. Since we know the actual size of the data, we can skip the call to `GetSizeUpperBound()` in this case (which is meant to be a more efficient alternative to creating a temp buffer and copying), and we can use the actual size to determine whether or not to send the current batch before writing a new one. We then write the header (which is the same for all clients) and then copy the serialized data (using `UnsafeUtility.MemCpy`) into the destination buffer.
+Afterward, a `MessageHeader` is created and fully initialized with the size of the serialized data, then each requested client destination is iterated. Since we know the actual size of the data, we can skip the call to `GetSizeUpperBound()` in this case (which is meant to be a more efficient alternative to creating a temp buffer and copying), and we can use the actual size to determine whether or not to enqueue the current batch and create a new one. We then write the header (which is the same for all clients) and then copy the serialized data (using `UnsafeUtility.MemCpy`) into the destination buffer.
 
 ### Sending to a local client (loopback)
 
@@ -276,19 +271,19 @@ The local client case is the most complicated case, and has some special logic f
 - If the update stage is a later stage than the current stage, a new NativeArray is created with Allocator.TempJob, the message is serialized to it, and its data is placed in the incoming queue for the **current** frame. (See "Receiving Messages" below for elaboration on how the incoming queue works.)
 - If the update stage is an earlier stage than the current stage, a new NativeArray is created with Allocator.TempJob, the message is serialized to it, and its data is placed in the incoming queue for the **next** frame
 
-When the message can't be handled immediately, the use of Allocator.TempJob provides an extremely efficient allocation of the NativeArray that can last long enough for it to be handled before it must be deallocated. Based on benchmarks, Allocator.TempJob is nearly as fast as Allocator.Temp, and orders of magnitude faster than a standard allocation.
+When the message can't be handled immediately, the use of `Allocator.TempJob` provides an extremely efficient allocation of the NativeArray that can last long enough for it to be handled before it must be deallocated. Based on benchmarks, `Allocator.TempJob` is nearly as fast as `Allocator.Temp`, and orders of magnitude faster than a standard allocation.
 
-When serializing messages for loopback, the logic follows the above two cases depending on whether there is only one destination or multiple - if there is only one, the data is serialized directly to the newly created array via a FastNetworkWriter; when there are multiple destinations, it's copied into this array from the one allocated with Allocator.Temp, so there is still only one serialization call.
+When serializing messages for loopback, the logic follows the above two cases depending on whether there is only one destination or multiple - if there is only one, the data is serialized directly to the newly created array via a FastBufferWriter; when there are multiple destinations, it's copied into this array from the one allocated with `Allocator.Temp`, so there is still only one serialization call.
 
-When Allocator.TempJob is used, it must be disposed, so this NativeArray is added to the dispose queue for the relevant frame to ensure it is properly disposed. (See "Receiving Messages" below for more information on the dispose queue.)
+When `Allocator.TempJob` is used, it must be disposed, so this NativeArray is added to the receiver dispose queue for the relevant frame to ensure it is properly disposed. (See "Receiving Messages" below for more information on the receiver dispose queue.)
 
 ### Buffer Overflow Protection
 
-Because FastNetworkWriter and FastNetworkReader do not check for buffer overflow on each and every write, a check is done after the call to `Serialize` - if `writer.Position` has exceeded the size of the buffer, an error is logged **and the application is immediately terminated**. Throwing an exception in this case is not acceptable, as a buffer overflow could potentially have corrupted memory anywhere in the application and is likely to cause unacceptable behavior and potentially expose security risks - the application may not continue running in this case.
+Because FastBufferWriter and FastBufferReader do not check for buffer overflow on each and every write, a check is done after the call to `Serialize` - if `writer.Position` has exceeded the size of the buffer, an error is logged **and the application is immediately terminated**. Throwing an exception in this case is not acceptable, as a buffer overflow could potentially have corrupted memory anywhere in the application and is likely to cause unacceptable behavior and potentially expose security risks - the application may not continue running in this case.
 
 ### Channels
 
-Since messages sent on different channels have different behavior requirements, the data for different channels cannot be stored in the same buffer. To handle this, each client object stores its current channel on its object next to the buffer. If any message is sent for a channel other than the one currently stored, the batch is completed and any data contained in the client's FastNetworkWriter is delivered to the transport and cleared, and a new batch is started for the new channel.
+Since messages sent on different channels have different behavior requirements, the data for different channels cannot be stored in the same buffer. To handle this, each client object stores its current channel on its object next to the buffer. If any message is sent for a channel other than the one currently stored, the batch is completed and any data contained in the client's FastBufferWriter is delivered to the transport and cleared, and a new batch is started for the new channel.
 
 There are two reasons for doing it this way:
 
@@ -298,7 +293,7 @@ The second is to avoid regrem*(  ssions on message ordering. If each channel is 
 
 ### End of Frame
 
-At the end of the frame, each client is iterated once to determine if its writers contain unsent messages. If `writer.Position != 2` (reserved batch header) for any client's writer, it's sent to the transport and then cleared for the next frame.
+At the end of the frame, each client is iterated once to determine if its writers contain unsent messages. It first iterates the `SendQueue` up to the queue size to see if any writers exist in it, and for each writer, if `writer.Position != 2` (reserved batch header), it's finalized (the first two bytes updated to contain the batch size) and also sent to the transport. The writer's `Dispose()` method is then called (unless it's the persistent writer at index 0, which is not disposed until the client disconnects), and once all writers have been sent, the queue size is reset to 0.
 
 ## Receiving Messages
 
@@ -308,20 +303,20 @@ Incoming messages are processed through an incoming message queue, which contain
 struct IncomingMessageItem
 {
 	MessageType MessageType;
-	FastNetworkReader Reader;
+	FastBufferReader Reader;
 	ulong SenderId;
 	NetworkChannel ReceivingChannel;
 	float Timestamp;
 }
 ```
 
-A separate queue of this type exists for each update stage, and exists as a simple array with a fixed size. If it gets full, we begin discarding messages to avoid allocating to resize the array (however, the array is reasonably sized so as to ensure that this will only happen in the case of a malicious actor sending a DoS attack). At the point of receiving, we construct a new `NativeArray<byte>` using `Allocator.TempJob` and copy the received data into it (this one-time copy is to avoid any assumptions about whether or not the data in the array segment will change between receiving and processing it). Then we create a FastNetworkReader from that array segment and read two bytes from it to determine the total size of the message batch. We then iterate the following steps until we've read the full amount of data indicated in the batch size header:
+A separate queue of this type exists for each update stage, and exists as a simple array with a fixed size. If it gets full, we begin discarding messages to avoid allocating to resize the array (however, the array is reasonably sized - and, like the send queue, this size is adjustable by the user - so as to ensure that this will only happen in the case of a malicious actor sending a DoS attack). At the point of receiving, we construct a new `NativeArray<byte>` using `Allocator.TempJob` and copy the received data into it (this one-time copy is to avoid any assumptions about whether or not the data in the array segment will change between receiving and processing it). Then we create a FastBufferReader from that array segment and read two bytes from it to determine the total size of the message batch. We then iterate the following steps until we've read the full amount of data indicated in the batch size header:
 
 - Read a value of type `MessageHeader`
 - Use `header.UpdateStage` to pick the correct incoming message queue
 - Set the value of the array item at the queue's current position to:
   - MessageType = header.MessageType
-  - Reader = reader (since FastNetworkReader is a struct, this will create a copy of the reader pointed at the current position in the buffer)
+  - Reader = reader (since FastBufferReader is a struct, this will create a copy of the reader pointed at the current position in the buffer)
   - SenderId = clientId
   - ReceivingChannel = networkChannel
   - Timestamp = receiveTime
@@ -333,14 +328,14 @@ Finally, an additional queue exists: The dispose queue. Like the incoming messag
 
 At each stage of the network update loop, we iterate through the fixed-size queue for that stage, checking each queue item. At that point, the proper `[MessageHandler]`-tagged method to deserialize and handle the method is discovered via a simple array lookup on the MessageType field, and it's called with a NetworkContext composed of the network manager plus the appropriate values from the IncomingMessageItem. Array lookups are fast, and the MessageHandlerAttribute allows this array to be automatically populated via codegen, eliminating any need to manually maintain this list.
 
-## FastNetworkWriter and FastNetworkReader
+## FastBufferWriter and FastBufferReader
 
-FastNetworkWriter and FastNetworkReader are replacements for the current NetworkWriter and NetworkReader. They have much the same interface, but there are some critical differences:
+FastBufferWriter and FastBufferReader are replacements for the current NetworkWriter and NetworkReader. They have much the same interface, but there are some critical differences:
 
-- FastNetworkWriter and FastNetworkReader are **structs**, not **classes**. This means they can be constructed and destructed without allocations if necessary.
-- FastNetworkWriter and FastNetworkReader both wrap `NativeArray<byte>`, allowing us to take advantage of extremely fast `Allocator.Temp` and `Allocator.TempJob` allocations to create temporary buffers.
-- Neither FastNetworkReader nor FastNetworkWriter inherits from nor contains a `Stream`. Any code that currently operates on streams will have to be rewritten.
-- FastNetworkReader and FastNetworkWriter are heavily optimized for speed, using aggressive inlining and unsafe code to achieve the fastest possible buffer storage and retrieval.
+- FastBufferWriter and FastBufferReader are **structs**, not **classes**. This means they can be constructed and destructed without allocations if necessary.
+- FastBufferWriter and FastBufferReader both wrap `NativeArray<byte>`, allowing us to take advantage of extremely fast `Allocator.Temp` and `Allocator.TempJob` allocations to create temporary buffers.
+- Neither FastBufferReader nor FastBufferWriter inherits from nor contains a `Stream`. Any code that currently operates on streams will have to be rewritten.
+- FastBufferReader and FastBufferWriter are heavily optimized for speed, using aggressive inlining and unsafe code to achieve the fastest possible buffer storage and retrieval.
 
 # Drawbacks
 
@@ -350,10 +345,9 @@ There are certainly some good reasons not to take this approach:
 
 - The proposed serializers use unsafe code to maximize speed (we could use NativeArray's built-in methods to gain its safety checks, but would lose considerable performance in so doing)
 - The proposed design is restrictive and necessitates coding in a style that avoids allocations
-- The proposed design places fixed limits on various values: the size of the send buffer, the number of items that may be received per frame, etc.
+- The proposed design places fixed limits on various values: the size of the send queue, the number of items that may be received per frame, etc.
 - The proposed design uses fixed-size receive queues, which will use memory even when empty (though the size of the ReceiveQueueItem is relatively small, so the memory use should be reasonable)
 - The proposed design expects the user to accurately create a `GetSizeUpperBound()` method for each message type
-- The proposed design removes some control over when messages are sent, since they will be sent any time a buffer becomes full
 - The proposed design encourages (though it does not require) messages to be unmanaged types
 - The proposed design does move us a step away from jobifying message serialization (but also may in fact eliminate the need or value of jobifying message serialization)
 
@@ -377,7 +371,7 @@ Ultimately, this approach not only increases the performance of MLAPI, but also 
 
 This RFC is largely inspired from personal past experience on multiple projects discovering the fastest and most effective ways to serialize data with minimal allocations and minimal copies, applied within the current MLAPI framework.
 
-The implementation of FastNetworkReader and FastNetworkWriter is also similar to DOTS Netcode's DataStream class, which also uses unsafe native pointers to data stored within `NativeArray`s to maximize throughput on their reads and writes.
+The implementation of FastBufferReader and FastBufferWriter is also similar to DOTS Netcode's DataStream class, which also uses unsafe native pointers to data stored within `NativeArray`s to maximize throughput on their reads and writes.
 
 *TODO: Research is in progress to investigate how some of our competitors handle serialization, but I am confident this approach will be a solid solution to MLAPI's specific needs and desires around serialization.*
 
