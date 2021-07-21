@@ -1,3 +1,7 @@
+
+
+
+
 # Network Transform Buffered Interpolation
 [feature]: #feature
 
@@ -21,19 +25,7 @@ The previous implementation handled interpolation but didn't take into account n
 This RFC suggests adding buffering to interpolated NetworkTransforms and suggests an extensible interface for users to use and create different interpolation algorithms.
 After this, users should be able to select the interpolation algorithm that best fits the GameObject they want to sync and they should be able to have a default interpolation that resists network jitter.
 
-<img src="0000-network-transform-buffered-interpolation/5loss_60-100ms_latency.gif" width="640" height="360">
-
-asdf
-
-<video controls
-    width="320"
-    height="240"
-    muted>
-    <source src="0000-network-transform-buffered-interpolation/5loss_60-100ms_latency.mp4" type="video/mp4">
-    This browser does not support the HTML5 video element.
-</video>
-
-ewq
+https://user-images.githubusercontent.com/71790295/126506051-ebfb1974-e4fc-44ca-9923-2be450c722b6.mp4
 
 # Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
