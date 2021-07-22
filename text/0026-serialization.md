@@ -283,7 +283,11 @@ When `Allocator.TempJob` is used, it must be disposed, so this NativeArray is ad
 
 ### Buffer Overflow Protection
 
-Because FastBufferWriter and FastBufferReader do not check for buffer overflow on each and every write, a check is done after the call to `Serialize` - if `writer.Position` has exceeded the size of the buffer, an error is logged **and the application is immediately terminated**. Throwing an exception in this case is not acceptable, as a buffer overflow could potentially have corrupted memory anywhere in the application and is likely to cause unacceptable behavior and potentially expose security risks - the application may not continue running in this case.
+Before writing anything to a `FastBufferWriter`, a `VerifyCanWrite()` method must be called to verify that the amount of bytes you intend to write are available in the buffer. This should be called as infrequently as possible - and in fact, in our network code, this is called before calling `Serialize()` using the result of `GetSizeUpperBound()` (or using the full MTU size when serializing to a temporary buffer). This must be called before writing anything in order to avoid buffer overflow.
+
+This is enforced in editor and development builds only by keeping track of how much space has been verified valid for write and throwing an exception if the user tries to write past that point. After each serialization, we reset the watermark to the current position (as `GetSizeUpperBound()` is allowed to be larger than the actual serialized data) so that further writes after the end of serialization become disallowed.
+
+In production builds, this bounds checking is disabled; however, one extra piece of validation is provided and remains enabled during production builds: when attempting to convert a `FastBufferWriter` to an array or native array, it will check that its current `Position` has not exceeded its `Capacity`, and if it has, it will **terminate the application completely** (an exception is not acceptable in this case, as once a buffer overflow has occurred, memory in unknown areas of the application is already corrupted). When we're serializing messages, we also invoke that check willfully after each call to `message.Serialize()` in order to catch such corruption as quickly as possible.
 
 ### Channels
 
@@ -339,7 +343,7 @@ We're avoiding making `FastBufferReader` do bounds checking on every single read
 
 To enforce this, in editor and developer builds, some checking code will be included that will throw an exception if any amount of data is read from the buffer beyond the point in the buffer for which `VerifyCanRead()` has validated. This code will be stripped out in production builds, but should ensure all of our reads are safe while also keeping them fast since any failure to verify readability before reading will result in the message read getting aborted.
 
-***For uses outside of incoming message processing, this enforcement can be disabled by passing `safe = false` in `FastNetworkReader`'s constructor.*** 
+***For uses outside of incoming message processing, this enforcement can be disabled by passing `safe = false` in `FastBufferReader`'s constructor.*** 
 
 `VerifyCanRead()` will be implemented by simply throwing an exception if the requested size is too large, which will be handled in the code that processes the incoming message queue. Any `MessageHandler` callback that throws `MessageOutOfBoundsException` will be ignored, and the code will move onto the next message in the incoming message queue.
 
@@ -355,6 +359,20 @@ FastBufferWriter and FastBufferReader are replacements for the current NetworkWr
 - FastBufferWriter and FastBufferReader both wrap `NativeArray<byte>`, allowing us to take advantage of extremely fast `Allocator.Temp` and `Allocator.TempJob` allocations to create temporary buffers.
 - Neither FastBufferReader nor FastBufferWriter inherits from nor contains a `Stream`. Any code that currently operates on streams will have to be rewritten.
 - FastBufferReader and FastBufferWriter are heavily optimized for speed, using aggressive inlining and unsafe code to achieve the fastest possible buffer storage and retrieval.
+
+## INetworkSerializable
+
+A new `BufferSerializer` class wrapping `FastBufferReader` and `FastBufferWriter` will replace the existing `NetworkSerializer` to provide the same two-way interface as the existing `NetworkSerializer`, and is rewritten as a **ref struct** so that no allocation overhead is incurred in calling the `INetworkSerializable`'s `Serialize()` method. A **ref struct** is chosen instead of a normal struct to avoid the pitfalls associated with having mutable structs and forgetting to pass them with the ref keyword - we can manage this with `FastBufferReader` and `FastBufferWriter` because those are internal and we can rely on our ability to understand the implications of using them as structs, but our end users may be less experienced and may inadvertently pass this forward to calls that do not take the value by ref. A `ref struct` is always passed by reference rather than copied, but does have the disadvantage of being limited to the stack frame - so we can't use it for `FastBufferWriter` and `FastBufferReader` because we persist those.
+
+`BufferSerializer` has an additional advantage (or disadvantage, depending on your viewpoint) compared to `FastBufferWriter` and `FastBufferReader`: since it's intended to be used by our end users, it performs bounds checking on every operation and throws exceptions if attempting to read or write out of bounds. This, combined with the `IsReader` if-checks, will make `BufferSerializer` slower than `FastBufferReader` and `FastBufferWriter` - but for advanced users, we can expose `FastBufferReader` and `FastBufferWriter` and allow the user to use them directly if they choose (with all appropriate warnings about them delivered).
+
+## Custom Messages
+
+Custom messages will still go through CustomMessagingManager, but the interface for custom messages will change to replace `NetworkBuffer` with `FastBufferWriter`, and the `UnnamedMessageDelegate` and `HandleNamedMessageDelegate` signatures will change to receive `FastBufferReader` instead. This has the benefit not only of providing our users with a fast option for reading and writing, but also of enforcing for the user that all of their message reads are sanitized by `FastBufferReader`'s `VerifyCanRead()`, helping our users avoid security issues with custom messages.
+
+Custom messages are themselves an item that exists only for very advanced users, so unlike `INetworkSerializable`, we won't provide the higher-level `BufferSerializer`, but instead will trust them with `FastBufferReader` and `FastBufferWriter` directly, just as we already trust them with `NetworkBuffer` directly.
+
+
 
 # Drawbacks
 
@@ -397,7 +415,15 @@ The implementation of FastBufferReader and FastBufferWriter is also similar to D
 
 [unresolved-questions]: #unresolved-questions
 
-- There is one large question to be answered: What do we do if the user needs to send a large amount of data in an RPC? Say, for example, they need to send a large string of text to display to the client that exceeds the MTU size (say, for example, server patch notes, or perhaps even user chat). As written here, the buffer is not allowed to expand to accommodate that - do we place the burden on the user to split their text into multiple RPCs that all stay within that specified limit, or will we offer special behavior in our implementation of RPCs to allow the message to be split across multiple buffers and reconcile that ourselves on the receiving end before invoking the RPC?
+- There is one large question to be answered: What do we do if the user needs to send a large amount of data in an RPC, custom message, or INetworkSerializable? Say, for example, they need to send a large string of text to display to the client that exceeds the MTU size (say, for example, server patch notes, or perhaps even user chat). As written here, the buffer is not allowed to expand to accommodate that. There are a few options we can take for this, and I'm not sure which is best:
+
+  - Instead of limiting a message to MTU size, we can allow `FastBufferWriter` to have a `resizable` property that allows `VerifyCanWrite()` to grow when full instead of returning false. We can then rely on the transport with `ReliableFragmentedSequenced` to fragment and reassemble the message. This is probably the most user-friendly option with the least implementation effort and minimal, but non-zero, performance impact (with the main impact being copying the data to a new buffer). The buffer growth can be done using `Allocator.TempJob` (with the persistent buffer in index 0 of the send queue forbidden from growing) so any growth that happens should be very fast from an allocation standpoint, and only incur one memcpy.
+
+    In this scenario, we would use `resizable = false` for most internal commands and would use the batching strategy as discussed above (starting new batches rather than resizing existing ones), but serializing RPCs and `INetworkSerializable`s would pass `resizable = true` to allow us the ability to handle oversized user data. We would also need to change `NetworkChannel.ReliableRpc` to use `NetworkDelivery.ReliableFragmentedSequenced` to support this, and we would have to maintain `resizable = false` when serializing for unreliable RPCs since we can't (and shouldn't try to) support unreliable fragmented delivery.
+
+  - We could also identify specific situations (like RPCs) where the possibility of large message sizes exists and do our own work to fragment these messages. This may be more difficult than it sounds since this would require determining fragment boundaries *before* writing any data. If the user wants to send a single string that's larger than the MTU size, we would have to do the work to split that string up by boundaries ourselves, which potentially adds a lot of overhead to the serialization.
+
+  - Or we can just... tell the user not to do that, and if they need to do that, tell them they have to split their call into multiple RPCs. This seems very unfriendly to the user, since the logic to split apart and reassemble a large message is not trivial to implement, especially if you are having to try to do it within the `Serialize()` call of a single very large `INetworkSerializable`.
 
 # Future possibilities
 
