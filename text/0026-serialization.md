@@ -314,19 +314,34 @@ struct IncomingMessageItem
 }
 ```
 
-A separate queue of this type exists for each update stage, and exists as a simple array with a fixed size. If it gets full, we begin discarding messages to avoid allocating to resize the array (however, the array is reasonably sized - and, like the send queue, this size is adjustable by the user - so as to ensure that this will only happen in the case of a malicious actor sending a DoS attack). At the point of receiving, we construct a new `NativeArray<byte>` using `Allocator.TempJob` and copy the received data into it (this one-time copy is to avoid any assumptions about whether or not the data in the array segment will change between receiving and processing it). Then we create a FastBufferReader from that array segment and read two bytes from it to determine the total size of the message batch. We then iterate the following steps until we've read the full amount of data indicated in the batch size header:
+A separate queue of this type exists for each update stage, and exists as a simple array with a fixed size. If it gets full, we begin discarding messages to avoid allocating to resize the array (however, the array is reasonably sized - and, like the send queue, this size is adjustable by the user - so as to ensure that this will only happen in the case of a malicious actor sending a DoS attack). At the point of receiving, we construct a new `NativeArray<byte>` using `Allocator.TempJob` and copy the received data into it (this one-time copy is to avoid any assumptions about whether or not the data in the array segment will change between receiving and processing it). Then we create a `FastBufferReader` from that array segment and read two bytes from it to determine the total size of the message batch. We then iterate the following steps until we've read the full amount of data indicated in the batch size header:
 
 - Read a value of type `MessageHeader`
 - Use `header.UpdateStage` to pick the correct incoming message queue
 - Set the value of the array item at the queue's current position to:
   - MessageType = header.MessageType
-  - Reader = reader (since FastBufferReader is a struct, this will create a copy of the reader pointed at the current position in the buffer)
+  - Reader = reader (since `FastBufferReader` is a struct, this will create a copy of the reader pointed at the current position in the buffer)
+    - We then call `Reader.SetCapacity(header.MessageSize)` to mark the boundaries of the message so we can read it safely without any buffer overreads.
   - SenderId = clientId
   - ReceivingChannel = networkChannel
   - Timestamp = receiveTime
 - Increment the queue's current position
 
 Finally, an additional queue exists: The dispose queue. Like the incoming message queues, this queue is a fixed-size array of `NativeArray<byte>` objects sized to the combined size of all update queues. Once each buffer has been processed, it's added to the dispose queue, where it will be disposed at the end of the frame after all messages pointing into it have been handled.
+
+As a small security measure, since we know there is an absolute upper bound of MTU size, the following will be rejected:
+
+- Any batch with a size > `(MTU - sizeof(short))`
+- Any message whose size when compared to its position in the batch would put it beyond the `MTU` size boundary
+- Any attempt to read any field with a dynamic size (i.e., a string, a list, etc) in `FastBufferReader` that would exceed the buffer's marked boundary point
+
+We're avoiding making `FastBufferReader` do bounds checking on every single read operation because this would involve a lot of overhead. However, it's still important that bounds checking be done - otherwise a malicious user could send us a message with an empty body, and we could then attempt to read past the end of the buffer even without reading any dynamically-sized data. `FastBufferReader` will provide a `VerifyCanRead()` function on it that should be called to validate that space exist to read memory in blocks - for example, before reading a set of 10 int64 values, the message processing code should call `reader.VerifyCanRead(UnsafeUtility.SizeOf(long) * 10)` as a single operation.
+
+To enforce this, in editor and developer builds, some checking code will be included that will throw an exception if any amount of data is read from the buffer beyond the point in the buffer for which `VerifyCanRead()` has validated. This code will be stripped out in production builds, but should ensure all of our reads are safe while also keeping them fast since any failure to verify readability before reading will result in the message read getting aborted.
+
+***For uses outside of incoming message processing, this enforcement can be disabled by passing `safe = false` in `FastNetworkReader`'s constructor.*** 
+
+`VerifyCanRead()` will be implemented by simply throwing an exception if the requested size is too large, which will be handled in the code that processes the incoming message queue. Any `MessageHandler` callback that throws `MessageOutOfBoundsException` will be ignored, and the code will move onto the next message in the incoming message queue.
 
 ### Processing Messages
 
@@ -382,10 +397,12 @@ The implementation of FastBufferReader and FastBufferWriter is also similar to D
 
 [unresolved-questions]: #unresolved-questions
 
-I do not currently have any unresolved questions around this RFC.
+- There is one large question to be answered: What do we do if the user needs to send a large amount of data in an RPC? Say, for example, they need to send a large string of text to display to the client that exceeds the MTU size (say, for example, server patch notes, or perhaps even user chat). As written here, the buffer is not allowed to expand to accommodate that - do we place the burden on the user to split their text into multiple RPCs that all stay within that specified limit, or will we offer special behavior in our implementation of RPCs to allow the message to be split across multiple buffers and reconcile that ourselves on the receiving end before invoking the RPC?
 
 # Future possibilities
 
 [future-possibilities]: #future-possibilities
 
-I believe this RFC represents a fairly comprehensive plan for handling serialization in a high-performance, zero-allocation approach. Aside from the possibility of incorporating jobification (which is an open question - not to be answered by this RFC - as to determine what parts of our codebase can find value from jobification and whether it will be beneficial or detrimental to move serialization to jobs after this work is done - the cost of the context switch to a job thread may actually be more expensive than the serialization itself after these changes), I have no current thoughts on future work to add to this.
+One thing that may be beneficial in the future is to create a separation at the transport level between NetworkChannel and NetworkDelivery - NetworkChannel would become an MLAPI SDK concept instead of a transport concept, and would be added to the message header for each message, while the Transport's API would be changed so sending is done using the NetworkDelivery value instead of the NetworkChannel value. This would allow for more intelligent batching - right now, even if two channels have the same NetworkDelivery behavior, we can't put them in the same buffer because that would wipe out the information about which channels are used for which messages, since that's encoded at the transport level for the whole batch. With this change, we could have one send queue per delivery mechanism - one shared queue for ReliableSequenced, UnreliableSequenced, and ReliableFragmentedSequenced so that they all remain sequenced relative to each other in the buffers, and then separate queues for Reliable and Unreliable. We would then only ever have to interrupt a buffer before it's full when switching between the three Sequenced delivery types, while Reliable and Unreliable would always be able to go in the same buffer, and different channels of the same delivery type would also be able to share buffers without losing channel identifier information on the receiving side.
+
+Other than that, I believe this RFC represents a fairly comprehensive plan for handling serialization in a high-performance, zero-allocation approach. Aside from the possibility of incorporating jobification (which is an open question - not to be answered by this RFC - as to determine what parts of our codebase can find value from jobification and whether it will be beneficial or detrimental to move serialization to jobs after this work is done - the cost of the context switch to a job thread may actually be more expensive than the serialization itself after these changes), I have no current thoughts on future work to add to this.
