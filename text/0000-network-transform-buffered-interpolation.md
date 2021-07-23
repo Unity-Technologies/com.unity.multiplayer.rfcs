@@ -2,6 +2,9 @@
 
 
 
+
+
+
 # Network Transform Buffered Interpolation
 [feature]: #feature
 
@@ -98,6 +101,10 @@ A default `BufferedLinearInterpolator` is provided. The buffered linear interpol
 If users don't want interpolation, they can use the `NoInterpolator` which will take in new values and present them directly when asked, without doing anything else.
 
 How users set these which interpolator would be an implementation detail. A factory ScriptableObject could be used or a custom inspector UI could be developed for this.
+
+Left: Host with 0.1.0 NetworkTransform and new buffered NetworkTransform
+Right: Client with 60-100ms jitter and 5% packet loss
+https://user-images.githubusercontent.com/71790295/126731436-f9e89d75-4973-49e8-bbb5-84ff67c48a9b.mov
 
 
 
