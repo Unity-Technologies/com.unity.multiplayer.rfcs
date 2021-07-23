@@ -20,15 +20,86 @@ This RFC proposes upgraded interpolation options from the old NetworkTransform's
 # Motivation
 [motivation]: #motivation
 
+
 NetworkTransform needs a way to help users smooth movements that can resist to different network conditions.
 The previous implementation handled interpolation but didn't take into account network jitter. It also didn't offer much flexibility on what interpolation algorithm to use.
+
+![](0000-network-transform-buffered-interpolation/jitter.jpg)
+
+
 This RFC suggests adding buffering to interpolated NetworkTransforms and suggests an extensible interface for users to use and create different interpolation algorithms.
 After this, users should be able to select the interpolation algorithm that best fits the GameObject they want to sync and they should be able to have a default interpolation that resists network jitter.
 
+![](0000-network-transform-buffered-interpolation/jitter_with_buffer.jpg)
+
+
+In addition, this RFC suggests removing the 
+```cs
+        public AnimationCurve DistanceSendrate = AnimationCurve.Constant(0, 500, 20);
+```
+Property (that was used to set interpolation times) to use instead a simple number, which would be less confusing for users.
+
+The following video shows the MLAPI-0.1.0 NetworkTransform under 5% packet loss and 60-100ms jitter.
 https://user-images.githubusercontent.com/71790295/126506051-ebfb1974-e4fc-44ca-9923-2be450c722b6.mp4
+
+Note this RFC only intends to touch "ghost" interpolation. It'll still be up to users to interpolate their authoritative objects however they want.
+If for example I have Client 1 authoritative of a player object, this RFC will add interpolation to the server object and the other clients' objects, not Client 1's object. It'll still be up to users to interpolate that authoritative object (using RigidBody's interpolation for example, or anything else).
+
+TODO
+Doing it directly in netvars right now isn't super useful and would bind our API for nothing. Since there's not a lot of good usecases for interpolation in netvars without snapshots, let's implement this in NetworkTransform until we're more defined in NetVars. 
+rollback/correction event eventually, not now since we don't have any concrete plans for reconciliation APIs. This means a breaking change in the future for everyone that creates custom interpolators, where they'll need to handle an eventual "IsRollingBack" event. Worst comes to worst, we could even have a flag in an eventual prediction system that turns on when you're rolling back and allow interpolators to query it, without being injected with it. 
+could have done 3 values from snapshot in "interpolate" method. This assumes the number of values needed for interpolator. With AddMeasurement, you're allowing more flexibility. However you require your interpolator to track state. Having a reset state event allows to trigger this for future snapshot rollback.
 
 # Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
+
+NetworkTransform will now have these two configurations:
+- Max interpolation time: If set to 200ms, the transform would take 200ms to reach its target position from its current position. (I'm using "position" here, but this applies to rotation and scale as well)
+- Interpolator: Allows users to select the interpolation algorithm they want to use. 
+ 
+An `IInterpolator` interface has been added, to allow users to create their own custom interpolator.
+The implemented interpolator needs to keep its own state and will be given new values each time ones are available to the NetworkTransform's OnValueChanged.
+
+```cs
+public interface IInterpolator<T>
+{
+    public void InterpolationUpdate(float deltaTime);
+    public void AddMeasurement(T newMeasurement);
+    public T GetInterpolatedValue();
+}
+```
+Interpolators would then have to implement their own stateful version
+
+```cs
+    // a user's simple interpolator
+    public void InterpolationUpdate(float deltaTime)
+    {
+        m_CurrentTime += deltaTime;
+        m_UpdatedVector = Vector3.Lerp(m_StartVector, m_EndVector, m_CurrentTime / MaxLerpTime);
+    }
+
+    public void AddMeasurement(Vector3 newMeasurement)
+    {
+        m_EndVector = newMeasurement;
+        m_CurrentTime = 0;
+        m_StartVector = m_UpdatedVector;
+    }
+
+    public Vector3 GetInterpolatedValue()
+    {
+        return m_UpdatedVector;
+    }
+```
+
+Settings for each types of interpolators (like the above `MaxLerpTime`) are exposed in NetworkTransform's inspector, in addition to having a toggle to select which interpolator to use.
+
+A default `BufferedLinearInterpolator` is provided. The buffered linear interpolator will buffer values before making them available to NetworkTransform's value update. This will allow NetworkTransform to accumulate jittered network values without affecting the transform's state and latter be able to consume them at regular intervals.
+
+If users don't want interpolation, they can use the `NoInterpolator` which will take in new values and present them directly when asked, without doing anything else.
+
+How users set these which interpolator would be an implementation detail. A factory ScriptableObject could be used or a custom inspector UI could be developed for this.
+
+
 
 Explain the proposal as if it was already included in the Unity Multiplayer and you were teaching it to another Unity developer. That generally means:
 
@@ -42,6 +113,10 @@ For implementation-oriented RFCs (e.g. for framework internals), this section sh
 
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
+
+
+
+
 
 This is the technical portion of the RFC. Explain the design in sufficient detail that:
 
