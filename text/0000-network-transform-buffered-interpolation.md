@@ -8,7 +8,7 @@
 # Summary
 [summary]: #summary
 
-This RFC proposes upgraded interpolation options from the old NetworkTransform's interpolation that's resistent to jitter and more flexible for users.
+This RFC proposes upgraded interpolation options from the old NetworkTransform's interpolation that hides jitter and is more flexible for users.
 
 
 # Motivation
@@ -16,15 +16,15 @@ This RFC proposes upgraded interpolation options from the old NetworkTransform's
 
 
 NetworkTransform needs a way to help users smooth movements that can resist to different network conditions and allows users to extend it if needed.
-The previous implementation didn't offer much flexibility on what interpolation algorithm to use. If I wanted to create a Kalman Filter interpolator or a Quadratic interpolator instead of a linear interpolator, I would need to reimplement at least part of my own NetworkTransform.
+The previous implementation didn't offer much flexibility on what interpolation algorithm to use. If I wanted to create my custom interpolation that prevents players from going through walls instead of interpolating linearly, I would need to reimplement at least part of my own NetworkTransform.
 
 It also didn't take into account network jitter, which becomes a visible issue on overloaded or unstable networks like you can find with mobile platforms 
 
 The following video shows the MLAPI-0.1.0 NetworkTransform under 5% packet loss and 60-100ms jitter.
+
 https://user-images.githubusercontent.com/71790295/126506051-ebfb1974-e4fc-44ca-9923-2be450c722b6.mp4
 
 ![](0000-network-transform-buffered-interpolation/jitter.jpg)
-
 
 This RFC suggests an extensible interface for users to use and create different interpolation algorithms. It also suggests a default buffered interpolator that'll resist to jitter. 
 After this, users should be able to select the interpolation algorithm that best fits the GameObject they want to sync.
@@ -44,7 +44,7 @@ NetworkTransform now has this new configuration:
 
 A default `BufferedLinearInterpolator` is provided. The buffered linear interpolator will buffer values before making them available to NetworkTransform's value update. This will allow NetworkTransform to accumulate jittered network values without affecting the transform's state and latter be able to consume them at regular intervals.
 
-This will smooth tranforms on jittery connections, however it'll add more latency to your transform updates. This should be used carefully as to not add more latency than needed to your game. Bigger values could be expected when targeting mobile platforms for example, while keeping interpolation times lower for platforms with typically more stable connections.
+This will smooth tranforms on jittery connections, however it'll add more latency to your transform updates. This should be used carefully as to not add more latency than needed to your game. Bigger buffer values could be expected when targeting mobile platforms for example, while keeping interpolation times lower for platforms with typically more stable connections.
 
 You can find the interpolator's configuration in its associated scriptable object factory.
 It is advised to use the same interpolator for all your NetworkTransforms. This way, you're making sure all your objects will be synchronized and use the same delays. Having an interpolator with 100ms delay and another with 500ms delay could cause visible overlaps and desyncs where an object at time say `t=10s` tries to interact with an object buffered at time `t=9.6s`.
@@ -54,7 +54,8 @@ If you have a case where you'd like to use a different configuration, you can cr
 If you don't want interpolation, you can use the `NoInterpolation` interpolator which will take in new values and present them directly when asked, without doing anything else.
 
 - Left: Host with two NetworkTransform: `0.1.0 NetworkTransform` and new `buffered NetworkTransform`
-- Right: Connected client with 60-100ms jitter and 5% packet loss
+- Right: Connected client with 60-100ms jitter and 5% packet loss 
+  - (The smooth one is the buffered one :) )
 
 https://user-images.githubusercontent.com/71790295/126731436-f9e89d75-4973-49e8-bbb5-84ff67c48a9b.mov
  
@@ -130,9 +131,11 @@ public class BufferedLinearInterpolatorVector3Factory : BufferedLinearInterpolat
 ```
 
 Settings for each types of interpolators (like the above `InterpolationTime`) are owned by the interpolator's factory. NetworkTransform allows selecting which interpolator factory to use.
+
 ![](0000-network-transform-buffered-interpolation/InterpolatorConfiguration.png)
 
 This setting is shared by all interpolators.
+
 ![](0000-network-transform-buffered-interpolation/InterpolatorConfigurationSO.png)
 
 
@@ -224,7 +227,7 @@ private void TryConsumeFromBuffer()
 [drawbacks]: #drawbacks
 
 This interpolation doesn't make any assumptions on future server rewind needs.
-This means that any future rewind code we use that wants to correct interpolated values might require new explicit APIs that would break user defined implementations (users would need to implement any new method).
+This means that any future server side rewind code we use that wants to rewind an interpolated object might require new explicit APIs that would break user defined implementations (users would need to implement any new method, if any).
 
 # Rationale and alternatives
 [rationale-and-alternatives]: #rationale-and-alternatives
@@ -248,7 +251,8 @@ Reducing the number of packets sent is a good way to prevent jitter, however the
 Increasing send rate will help reducing the buffer size needed for clean interpolation. With shorter ticks, you need to wait a shorter time before saying you can process a server position. This could be done through education when talking about these issues.
 
 ## Other design
-The interpolator could have been hard coded in NetworkTransform without actually being a separate class. This could have made NetworkTransform more self contained, but would also have been more cumbersome to extend interpolation. With .meta file default values, you can set a ScriptableObject as a default for your class, no extra user action should be needed to use NetworkTransform with default values.
+The interpolator could have been hard coded in NetworkTransform without actually being a separate class. This could have made NetworkTransform more self contained, but would also have been more cumbersome to extend interpolation. Users could for example want to prevent interpolated transforms from going through walls instead of interpolating linearly. They could want to interpolate using their navmesh. Any sort of custom interpolation becomes easy with the current design and would hook directly in NetworkTransform, without being too hard to maintain on our side. 
+With .meta file default values, you can set a ScriptableObject as a default for your class, no extra user action should be needed to use NetworkTransform with default scriptable object values.
 
 ## Impact of not doing this
 Buffered interpolation is simple on paper, but can be frustrating to implement, even for netcode experts. It's a recurring technique to allow resisting to bad network conditions like you can find on mobile platforms.
@@ -262,8 +266,8 @@ Going the NetworkVariable route would make us create APIs we'd need to maintain 
 
 ## Prediction and interpolator.
 Current interpolator only affects ghosts and doesn't affect locally owned objects. An eventual predicted player wouldn't be affected by this interpolation.
-Future prediction might want to interpolate corrected values instead of teleporting players. This should be handled by prediction code and shouldn't touch this interpolator.
-However, since interpolator is a self contained class and isn't a MonoBehaviour, interpolators could be reused for that interpolation.
+Future prediction might want to interpolate corrected values instead of teleporting players. This should be handled by prediction code.
+Since interpolator is a self contained class and isn't a MonoBehaviour, interpolators could be reused for that correction interpolation.
 
 ## Other APIs for interpolator
 The Interpolator's `Update()` method could have been injected with the last 3 positions. 
@@ -307,13 +311,18 @@ If no snapshots are available, it'll use extrapolation to continue lerping value
 HLAPI's interpolation required a Rigidbody being attached to the transform (and was setting that RB's velocity accordingly). This is a simple solution that works for certain cases.
 If a user wants to network any non-physics objects or kinematic objects, they would need to implement their own interpolation, which can be frustrating to implement, even for netcode experts.
 Here's a forum post on these frustrations
+
 https://forum.unity.com/threads/networktransform-interpolation.335155/
 
 ## Mirror
 Mirror just released a few days ago a self contained SnapshotInterpolation on their master branch.
+
 https://github.com/vis2k/Mirror/blob/master/Assets/Mirror/Components/NetworkTransform2k/NetworkTransformBase.cs
+
 https://github.com/vis2k/Mirror/blob/master/Assets/Mirror/Runtime/SnapshotInterpolation/SnapshotInterpolation.cs
+
 https://mirror-networking.gitbook.io/docs/components/network-transform
+
 https://mirror-networking.gitbook.io/docs/guides/snapshot-interpolation
 
 They also use buffered interpolation.
@@ -339,9 +348,13 @@ FPS games require as little added latency as possible. It makes sense Unreal doe
 
 ## Overwatch
 Overwatch buffers inputs server side dynamically.
+
 https://youtu.be/W3aieHjyNvw?t=1530
+
 The buffer size will grow dynamically according how bad network conditions are.
+
 https://youtu.be/W3aieHjyNvw?t=1781
+
 Their solution however includes having dynamic tick intervals that scale accordingly.
 It could be interesting to explore whether something similar could be done client side for received state, to make sure players have state as soon as possible with good network conditions and dynamically grow our buffer when conditions go bad. This could be an addition to our NetworkTickSystem's fixed buffer.
 
@@ -376,13 +389,15 @@ As mentionned earlier, for fast paced games, dissociating visuals from physics m
 This opens the door for different interpolation possibilities. To name the ones that came up during research: 
 - Kalman Filter Extrapolation
   - Realistic extrapolation used in signal processing that takes into account noise probabilities to smooth out "shaky" values while still being physically accurate. This assumes a steady stream of data and could be combined with buffering to then extrapolate transforms (instead of having jerky extrapolation corrections, you'd have a more realistic movement here that'd smooth out the sudden position changes from extrapolation corrections).
-  - Interesting implementation for Unity https://github.com/mplantady/DataFusionKF
-    - With recording
-    - TODO
   - Could be used instead of unclamped lerping for a more realistic extrapolation.
   - Videos to explain this
     - https://www.youtube.com/watch?v=mwn8xhgNpFY
     - https://www.youtube.com/watch?v=bm3cwEP2nUo
+  - Interesting implementation for Unity https://github.com/mplantady/DataFusionKF
+  - With recording
+
+https://user-images.githubusercontent.com/71790295/126914816-9490a6b4-096a-420f-8523-549b195e7a09.mov
+
 - Quadratic interpolation
 - Hermite Interpolation
   - https://gafferongames.com/post/snapshot_interpolation/
