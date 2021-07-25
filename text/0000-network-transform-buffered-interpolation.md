@@ -343,7 +343,7 @@ https://youtu.be/W3aieHjyNvw?t=1530
 The buffer size will grow dynamically according how bad network conditions are.
 https://youtu.be/W3aieHjyNvw?t=1781
 Their solution however includes having dynamic tick intervals that scale accordingly.
-It could be interesting to explore whether something similar could be done client side for received state, to make sure players have state as soon as possible with good network conditions and dynamically grow our buffer when conditions go bad. This could be an addition to our NetworkTickSystem's buffer.
+It could be interesting to explore whether something similar could be done client side for received state, to make sure players have state as soon as possible with good network conditions and dynamically grow our buffer when conditions go bad. This could be an addition to our NetworkTickSystem's fixed buffer.
 
 
 # Unresolved questions
@@ -351,11 +351,11 @@ It could be interesting to explore whether something similar could be done clien
 
 - What parts of the design do you expect to resolve through the RFC process before this gets merged?
 
-Current plan is to offer a simpler configuration than the previous NetworkTransform interpolation (by only using a float to specify the amount of time to interpolate vs the old AnimationCurve which allowed to specify the amount of time to interpolate varying over the distance to interpolate). Users will have less options to configure. I'm still open to adding this back, but it'd need to be clearer.
+  - Current plan is to offer a simpler configuration than the previous NetworkTransform interpolation (by only using a float to specify the amount of time to interpolate vs the old AnimationCurve which allowed to specify the amount of time to interpolate varying over the distance to interpolate). Users will have less options to configure. I'm still open to adding this back, but it'd need to be clearer.
 
 - What parts of the design do you expect to resolve through the implementation of this feature before stabilization?
 
-Will need to experiment with unclamped lerping, to see if we can do extrapolation when we're missing values coming from the server.
+  - Will need to experiment with unclamped lerping, to see if we can do extrapolation when we're missing values coming from the server.
 
 - What related issues do you consider out of scope for this RFC that could be addressed in the future independently of the solution that comes out of this RFC?
 
@@ -369,18 +369,23 @@ Will need to experiment with unclamped lerping, to see if we can do extrapolatio
 ## Server rewind
 Server side rewind (for sniper shots for example) will need to make sure it takes into account what interpolated value the affected client was using.
 
-## Possible interpolation algorithms
+## Physic/Visual dissociation for interactions with predicted players
+As mentionned earlier, for fast paced games, dissociating visuals from physics might be worth it (so the transform and associated colliders are updated as soon as possible without interpolation while having the visual still interpolated).
+
+## Possible interpolation/extrapolation algorithms
 This opens the door for different interpolation possibilities. To name the ones that came up during research: 
 - Kalman Filter Extrapolation
-  - Realistic extrapolation used in signal processing that takes into account probabilities to smooth out "shaky" values while still being physically accurate. This assumes a steady stream of data and could be combined with buffering to then extrapolate transforms.
+  - Realistic extrapolation used in signal processing that takes into account noise probabilities to smooth out "shaky" values while still being physically accurate. This assumes a steady stream of data and could be combined with buffering to then extrapolate transforms (instead of having jerky extrapolation corrections, you'd have a more realistic movement here that'd smooth out the sudden position changes from extrapolation corrections).
   - Interesting implementation for Unity https://github.com/mplantady/DataFusionKF
+    - With recording
+    - TODO
   - Could be used instead of unclamped lerping for a more realistic extrapolation.
+  - Videos to explain this
+    - https://www.youtube.com/watch?v=mwn8xhgNpFY
+    - https://www.youtube.com/watch?v=bm3cwEP2nUo
 - Quadratic interpolation
 - Hermite Interpolation
- - https://gafferongames.com/post/snapshot_interpolation/
+  - https://gafferongames.com/post/snapshot_interpolation/
 - Projective Velocity Blending 
-  - (https://www.researchgate.net/publication/293809946_Believable_Dead_Reckoning_for_Networked_Games)
+  - https://www.researchgate.net/publication/293809946_Believable_Dead_Reckoning_for_Networked_Games
 - Dynamically scaling buffering according to bad network conditions.
-
-## Physic/Visual dissociation
-As mentionned earlier, for fast paced games, dissociating visuals from physics might be worth it (so the transform and associated colliders are updated as soon as possible without interpolation while having the visual still interpolated).
