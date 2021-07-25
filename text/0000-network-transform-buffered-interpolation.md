@@ -323,13 +323,16 @@ I'll need to experiment to see if my current solution has this issue, ideally th
 ## Unreal
 Unreal interpolates CharacterMovementComponent using an offset between its visual and its capsule. The physic capsule keeps updating to the latest position so that it introduces as little physics errors as possible, but it'll still have interpolation using the visual offset (which gradually decreases to reach the capsule's position).
 
-This is great when you have your predicted client that could interact with that interpolated object, this way your prediction interacts with a capsule that's as recent as possible.
+This is great when you have your predicted client that could interact with that interpolated object, this way your prediction interacts with a capsule that's as recent as possible. However this is less self contained and is opinionated on GameObject hierarchy.
 
-From a quick read and experimentation, I couldn't find anything about buffering to hide network jitter. When testing with their default FPS scene, I added artificial jitter using their ` Net PktLagVariance=40` cheat code and saw visible jitter on the other client.
+From a (too) short read and local experimentation, I couldn't find anything about buffering to hide network jitter. When testing with their default FPS scene, I added artificial jitter using their `Net PktLagVariance=40` cheat code and saw visible jitter on the other client.
 
 Unreal with artificial jitter
-
+TODO
 Unreal without artificial jitter
+TODO
+
+FPS games require as little added latency as possible. It makes sense Unreal doesn't use buffering. Current design for buffered interpolator targets small scale coop, a revised design would be needed for FPS.
 
 ## Overwatch
 Overwatch buffers inputs server side dynamically.
@@ -353,7 +356,9 @@ Will need to experiment with unclamped lerping, to see if we can do extrapolatio
 
 - What related issues do you consider out of scope for this RFC that could be addressed in the future independently of the solution that comes out of this RFC?
 
-Dynamic buffer length would be out of scope for this RFC. Having this for fast paced games would be useful, but not for the current small scale coop current target.
+  - Dynamic buffer length would be out of scope for this RFC. Having this for fast paced games would be useful, but not for the current small scale coop current target.
+  - Dissociating transform update from visual update might be more useful for fast paced games (as you want to have your physic to the latest position while still feeling smooth). This would be out of scope for this RFC as we're targeting small scale coop.
+
 
 # Future possibilities
 [future-possibilities]: #future-possibilities
@@ -373,3 +378,6 @@ This opens the door for different interpolation possibilities. To name the ones 
 - Projective Velocity Blending 
   - (https://www.researchgate.net/publication/293809946_Believable_Dead_Reckoning_for_Networked_Games)
 - Dynamically scaling buffering according to bad network conditions.
+
+## Physic/Visual dissociation
+As mentionned earlier, for fast paced games, dissociating visuals from physics might be worth it (so the transform and associated colliders are updated as soon as possible without interpolation while having the visual still interpolated).
