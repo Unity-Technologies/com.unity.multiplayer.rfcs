@@ -328,11 +328,14 @@ This is great when you have your predicted client that could interact with that 
 From a (too) short read and local experimentation, I couldn't find anything about buffering to hide network jitter. When testing with their default FPS scene, I added artificial jitter using their `Net PktLagVariance=40` cheat code and saw visible jitter on the other client.
 
 Unreal with artificial jitter
-TODO
-Unreal without artificial jitter
-TODO
 
-FPS games require as little added latency as possible. It makes sense Unreal doesn't use buffering. Current design for buffered interpolator targets small scale coop, a revised design would be needed for FPS.
+https://user-images.githubusercontent.com/71790295/126914379-93517df5-4147-42ff-b122-d6b55da6947a.mov
+
+Unreal without artificial jitter
+
+https://user-images.githubusercontent.com/71790295/126914365-aa13b2af-0c8f-4a55-a2a6-1bcd73915d23.mov
+
+FPS games require as little added latency as possible. It makes sense Unreal doesn't use buffering. Current design for buffered interpolator targets small scale coop, a revised design would be needed for FPS, maybe using dynamically scaling buffers or no buffers at all.
 
 ## Overwatch
 Overwatch buffers inputs server side dynamically.
