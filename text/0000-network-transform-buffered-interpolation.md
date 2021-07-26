@@ -16,7 +16,7 @@ This RFC proposes upgraded interpolation options from the old NetworkTransform's
 
 
 NetworkTransform needs a way to help users smooth movements that can resist to different network conditions and allows users to extend it if needed.
-The previous implementation didn't offer much flexibility on what interpolation algorithm to use. If I wanted to create my custom interpolation that prevents players from going through walls instead of interpolating linearly, I would need to reimplement at least part of my own NetworkTransform.
+The previous implementation didn't offer much flexibility on what interpolation algorithm to use. If I wanted to create my custom interpolation that prevents players from going through walls instead of interpolating linearly, I would need to reimplement at least part of my own NetworkTransform. If I wanted my object to change direction instantaneously I could use a different interpolation implementation than if I wanted to have wobble and inertia.
 
 It also didn't take into account network jitter, which becomes a visible issue on overloaded or unstable networks like you can find with mobile platforms 
 
@@ -369,6 +369,8 @@ It could be interesting to explore whether something similar could be done clien
 - What parts of the design do you expect to resolve through the implementation of this feature before stabilization?
 
   - Will need to experiment with unclamped lerping, to see if we can do extrapolation when we're missing values coming from the server.
+  - Figure if we actually want to expose interpolator in inspector or just in code.
+    - Do we really want game designers and other non-progs to mess with this?
 
 - What related issues do you consider out of scope for this RFC that could be addressed in the future independently of the solution that comes out of this RFC?
 
