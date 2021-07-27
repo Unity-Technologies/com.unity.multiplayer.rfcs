@@ -52,7 +52,8 @@ interface IMessage
     // Returns an upper bound on the message size.
     // Doesn't have to be exactly accurate to the serialized size
     // (over-estimating is preferred to using more CPU cycles for an exact result)
-    // but must be AT LEAST the message size and AT MOST (MTU - 6) bytes.
+    // but must be AT LEAST the message size.
+    // When sent with a non-fragmenting QoS, it also must be AT MOST (MTU - 6) bytes.
     int GetSizeUpperBound();
 
     // Serialize to a buffer
@@ -228,10 +229,12 @@ struct MessageHeader
     public NetworkUpdateStage UpdateStage;
     // Sized 2 bytes
     public short MessageSize;
+    // Sized 1 byte
+    public NetworkChannel NetworkChannel
 }
 ```
 
-Since the largest value is 2 bytes in size, the struct should be aligned to a 2 byte alignment, which should make the struct packed and the total header size equal to exactly 4 bytes, which can be sent and received using `WriteValue` and `ReadValue` without any wasted bandwidth.
+Since the largest value is 2 bytes in size, the struct should be aligned to a 2 byte alignment, which should make the struct packed and the total header size equal to exactly 5 bytes, which can be sent and received using `WriteValue` and `ReadValue` without any wasted bandwidth.
 
 In addition to the message header, there's also a batch header - the batch header is simply 2 bytes containing the total size of the batch.
 
@@ -251,7 +254,7 @@ There are three special cases for how the sending logic serializes the message.
 
 The first thing the sending logic does is call the `GetSizeUpperBound()` method on the message and compare the result against the size left in the buffer. If the buffer doesn't have enough space left for the message, the first two bytes of the writer are overwritten with the value of writer.Position, and then the writer's buffer is placed onto the client's send queue and a new buffer allocated with `Allocator.TempJob`.
 
-**If at any time, `GetSizeUpperBound()` returns a value larger than `MTU - sizeof(MessageHeader) - sizeof(short)`, an exception is thrown and the message is not sent.**
+**If at any time, `GetSizeUpperBound()` returns a value larger than `MTU - sizeof(MessageHeader) - sizeof(short)` when sending with a non-fragmenting QoS, an exception is thrown and the message is not sent.**
 
 The sending logic then creates a `MessageHeader` storing the MessageType and UpdateStage, and then seeks forward in the buffer an amount equal to `sizeof(MessageHeader)` to reserve space for the header, while storing the original position.
 
@@ -289,15 +292,25 @@ This is enforced in editor and development builds only by keeping track of how m
 
 In production builds, this bounds checking is disabled; however, one extra piece of validation is provided and remains enabled during production builds: when attempting to convert a `FastBufferWriter` to an array or native array, it will check that its current `Position` has not exceeded its `Capacity`, and if it has, it will **terminate the application completely** (an exception is not acceptable in this case, as once a buffer overflow has occurred, memory in unknown areas of the application is already corrupted). When we're serializing messages, we also invoke that check willfully after each call to `message.Serialize()` in order to catch such corruption as quickly as possible.
 
-### Channels
+### Channels/QoS
 
-Since messages sent on different channels have different behavior requirements, the data for different channels cannot be stored in the same buffer. To handle this, each client object stores its current channel on its object next to the buffer. If any message is sent for a channel other than the one currently stored, the batch is completed and a new batch is started for the new channel (i.e., a new NativeArray is added to the send queue).
+The way channels work is going to be rethought - the `NetworkChannel` value sent to the transport will represent a direct one-to-one mapping between a single `NetworkChannel` and a single QoS value. The current `NetworkChannel` values will be lofted up to a higher level and will be represented as a byte-sized value in the message header. This allows us to be a little more intelligent about how we handle network channels - specifically because it allows us to be able to to tell when two channels are behaviorally identical and treat them the same at the transport level.
+
+Since messages sent with different QoS guarantees have different behavior requirements, the data for different QoS guarantees cannot be stored in the same buffer. To handle this, each client object stores its current QoS on its object next to the buffer. If any message is sent for a QoS other than the one currently stored, the batch is completed and a new batch is started for the new QoS (i.e., a new NativeArray is added to the send queue).
 
 There are two reasons for doing it this way:
 
 The first is to avoid allocations. Storing a separate writer for each channel would result in needing to keep a dictionary of writers that can be allocated on demand.
 
-The second is to avoid regrem*(  ssions on message ordering. If each channel is allowed to have its own buffer, then messages created in order A, B, C, D could be sent in order D, A, B, C, if D is sent using a different channel than A, B, and C. Flushing on channel change ensures we don't deliver messages to the transport in a different order than the order requested by the user. 
+The second is to avoid regressions on message ordering. If each QoS is allowed to have its own buffer, then messages created in order A, B, C, D could be sent in order D, A, B, C, if D is sent using a different QoS than A, B, and C. Flushing on QoS change ensures we don't deliver messages to the transport in a different order than the order requested by the user. 
+
+### Fragmenting QoS Behaviors
+
+The handling of message sizes is based on the QoS for the channel currently being used to send the message. As mentioned earlier, on non-fragmenting channels, it is an error (raising a nice, loud exception) to attempt to send any single message larger than the MTU size. Non-fragmenting channels, however, use a larger value, which is the largest size of fragmented message the transport is able to handle (i.e., in the current UNet implementation, this would be ConnectionConfig::FragmentSize * 64 - a standard interface must be created for retrieving this value). This will allow us to support user needs for sending large messages, up to this limit.
+
+Based on experience with poor behavior of UNet's fragmenting QoS, MLAPI will implement a wrapper around any fragmenting QoS that will assume the behavior of non-optimal QoS is better optimized and more efficient than the behavior of fragmenting QoS for any message size <= MTU. In the best case scenario, the two will perform the same; it seems unfathomable to believe that fragmenting QoS will ever out-perform non-fragmenting QoS. Therefore, whenever we're sending a message on a fragmenting QoS but the message size is less than the MTU size, we downgrade the QoS guarantee to be non-fragmenting and send packets over a simple ReliableSequenced channel. This provides for the most optimal CPU and bandwidth usage.
+
+In general, however, we should strive to not use fragmenting QoS for internal messages at all. If we can contain all internal messages within non-fragmenting channels, not only will reliable messages be transmitted more optimally, but we also lower the burden on any user who wishes to implement their own transport: fragmenting QoS is by far the most complex to implement, so if we don't use it, we can document that QoS as optional, letting the user avoid implementing it unless they themselves need it.
 
 ### End of Frame
 
@@ -383,7 +396,7 @@ There are certainly some good reasons not to take this approach:
 
 - The proposed serializers use unsafe code to maximize speed (we could use NativeArray's built-in methods to gain its safety checks, but would lose considerable performance in so doing)
 - The proposed design is restrictive and necessitates coding in a style that avoids allocations
-- The proposed design places fixed limits on various values: the size of the send queue, the number of items that may be received per frame, etc.
+- The proposed design places fixed limits on various values: the size of the send queue, the number of items that may be received per frame, the size of the send buffer in both fragmenting and non-fragmenting QoS, etc.
 - The proposed design uses fixed-size receive queues, which will use memory even when empty (though the size of the ReceiveQueueItem is relatively small, so the memory use should be reasonable)
 - The proposed design expects the user to accurately create a `GetSizeUpperBound()` method for each message type
 - The proposed design encourages (though it does not require) messages to be unmanaged types
@@ -416,15 +429,7 @@ The implementation of FastBufferReader and FastBufferWriter is also similar to D
 
 [unresolved-questions]: #unresolved-questions
 
-- There is one large question to be answered: What do we do if the user needs to send a large amount of data in an RPC, custom message, or INetworkSerializable? Say, for example, they need to send a large string of text to display to the client that exceeds the MTU size (say, for example, server patch notes, or perhaps even user chat). As written here, the buffer is not allowed to expand to accommodate that. There are a few options we can take for this, and I'm not sure which is best:
-
-  - Instead of limiting a message to MTU size, we can allow `FastBufferWriter` to have a `resizable` property that allows `VerifyCanWrite()` to grow when full instead of returning false. We can then rely on the transport with `ReliableFragmentedSequenced` to fragment and reassemble the message. This is probably the most user-friendly option with the least implementation effort and minimal, but non-zero, performance impact (with the main impact being copying the data to a new buffer). The buffer growth can be done using `Allocator.TempJob` (with the persistent buffer in index 0 of the send queue forbidden from growing) so any growth that happens should be very fast from an allocation standpoint, and only incur one memcpy.
-
-    In this scenario, we would use `resizable = false` for most internal commands and would use the batching strategy as discussed above (starting new batches rather than resizing existing ones), but serializing RPCs and `INetworkSerializable`s would pass `resizable = true` to allow us the ability to handle oversized user data. We would also need to change `NetworkChannel.ReliableRpc` to use `NetworkDelivery.ReliableFragmentedSequenced` to support this, and we would have to maintain `resizable = false` when serializing for unreliable RPCs since we can't (and shouldn't try to) support unreliable fragmented delivery.
-
-  - We could also identify specific situations (like RPCs) where the possibility of large message sizes exists and do our own work to fragment these messages. This may be more difficult than it sounds since this would require determining fragment boundaries *before* writing any data. If the user wants to send a single string that's larger than the MTU size, we would have to do the work to split that string up by boundaries ourselves, which potentially adds a lot of overhead to the serialization.
-
-  - Or we can just... tell the user not to do that, and if they need to do that, tell them they have to split their call into multiple RPCs. This seems very unfriendly to the user, since the logic to split apart and reassemble a large message is not trivial to implement, especially if you are having to try to do it within the `Serialize()` call of a single very large `INetworkSerializable`.
+- There are currently no unresolved questions.
 
 # Future possibilities
 
