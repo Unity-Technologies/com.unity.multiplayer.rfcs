@@ -68,8 +68,8 @@ public interface IInterpolator<T>
     public void Update(float deltaTime);
     public void NetworkTickUpdate(float tickDeltaTime);
     public void AddMeasurement(T newMeasurement, NetworkTime sentTime);
-    public void Teleport(T value, NetworkTime sentTime);
     public T GetInterpolatedValue();
+    public void Reset(T value, NetworkTime sentTime);
 }
 ```
 
@@ -95,7 +95,7 @@ public class SimpleInterpolator : IInterpolator<Vector3>
         return m_UpdatedVector;
     }
 
-    public void Teleport(Vector3 value, NetworkTime _)
+    public void Reset(Vector3 value, NetworkTime _)
     {
         m_UpdatedVector = value;
         m_StartVector = value;
@@ -278,11 +278,11 @@ Vector3 Update(Vector3 pos1, Vector3 pos2, Vector3 pos3)
     return interpolatedValue;
 }
 ```
-This assumes the number of values needed for interpolator. What if your interpolator needs 4 values? or just 2?. With `AddMeasurement`, you're allowing more flexibility for user implementations. However you require your interpolator to track state, while state injection in the above example would centralize state in the snapshot system. Having the interpolator track its own state could cause desync issues in the future, however offering a `Teleport` method can serve as a "reset" button for interpolators.
+This assumes the number of values needed for interpolator. What if your interpolator needs 4 values? or just 2?. With `AddMeasurement`, you're allowing more flexibility for user implementations. However you require your interpolator to track state, while state injection in the above example would centralize state in the snapshot system. Having the interpolator track its own state could cause desync issues in the future, however offering a `Reset` method can serve as a "reset" button for interpolators.
 ```C#
 void RewriteHistory(Vector3[] newPositions, int[] newTicks)
 {
-    m_Interpolator.Teleport(newPositions[0], newTicks[0]);
+    m_Interpolator.Reset(newPositions[0], newTicks[0]);
     for(int i=1; i<newPositions.Count; i++)
     {
         m_Inteprolator.AddMeasurement(newPositions[i], newTicks[i]);
