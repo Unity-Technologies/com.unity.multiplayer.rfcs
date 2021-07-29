@@ -382,11 +382,28 @@ A new `BufferSerializer` class wrapping `FastBufferReader` and `FastBufferWriter
 
 ## Custom Messages
 
-Custom messages will still go through CustomMessagingManager, but the interface for custom messages will change to replace `NetworkBuffer` with `FastBufferWriter`, and the `UnnamedMessageDelegate` and `HandleNamedMessageDelegate` signatures will change to receive `FastBufferReader` instead. This has the benefit not only of providing our users with a fast option for reading and writing, but also of enforcing for the user that all of their message reads are sanitized by `FastBufferReader`'s `VerifyCanRead()`, helping our users avoid security issues with custom messages.
+Custom messages as they are, using buffers, no longer need to exist. Since the message handling code is part of the message definition, users have the freedom to define their own messages. Our internal code doesn't need to know anything about the messages themselves in order to send or receive them, so users can create any custom message they want the same way we define our own internal messages, and send them the same way we send ours, and their message handler will be magically invoked when the message is received. The only gotcha is the MessageType enum - since users can't extend the enum itself, we will provide a MessageType.Custom that's always at the end of the enum, and users can operate as such:
 
-Custom messages are themselves an item that exists only for very advanced users, so unlike `INetworkSerializable`, we won't provide the higher-level `BufferSerializer`, but instead will trust them with `FastBufferReader` and `FastBufferWriter` directly, just as we already trust them with `NetworkBuffer` directly.
+```C#
+enum CustomMessageType
+{
+	MyMessage1,
+	MyMessage2,
+	Etc,
+}
 
+struct Message : IMessage
+{
+	MessageType GetMessageType()
+	{
+		return (MessageType)(MessageType.Custom + (int)CustomMessageType.MyMessage1);
+	}
+	
+	// Other funcs and data...
+}
+```
 
+The casting isn't the most elegant interface, but it still provides great extensibility.
 
 # Drawbacks
 
@@ -400,6 +417,7 @@ There are certainly some good reasons not to take this approach:
 - The proposed design uses fixed-size receive queues, which will use memory even when empty (though the size of the ReceiveQueueItem is relatively small, so the memory use should be reasonable)
 - The proposed design expects the user to accurately create a `GetSizeUpperBound()` method for each message type
 - The proposed design encourages (though it does not require) messages to be unmanaged types
+- Since the proposed design puts the message handling inside the message definition itself, and many messages have to interact with other systems (SpawnManager, etc), the proposed design does add one more place where NetworkManager has to be passed around in order to avoid using it as a singleton.
 
 However...
 
@@ -421,9 +439,92 @@ Ultimately, this approach not only increases the performance of MLAPI, but also 
 
 This RFC is largely inspired from personal past experience on multiple projects discovering the fastest and most effective ways to serialize data with minimal allocations and minimal copies, applied within the current MLAPI framework.
 
-The implementation of FastBufferReader and FastBufferWriter is also similar to DOTS Netcode's DataStream class, which also uses unsafe native pointers to data stored within `NativeArray`s to maximize throughput on their reads and writes.
+Below are some comparisons to some of our main competitors in the C#/Unity arena.
 
-*TODO: Research is in progress to investigate how some of our competitors handle serialization, but I am confident this approach will be a solid solution to MLAPI's specific needs and desires around serialization.*
+- **Unity Netcode:**
+  The Unity Netcode implementation of serialization has a lot in common with this one in the underlying nuts and bolts - the implementation of DataStreamWriter and DataStreamReader is very similar to the proposed implementation of FastBufferWriter and FastBufferReader; both use raw `byte*` values under the hood and perform their operations in "unsafe" code blocks.
+
+  Where FastBufferReader and FastBufferWriter differ is primarily at the interface level, where the FastBuffer options provide the `WriteValue<T>()` helpers for any `unmanaged` T, and in how the two handle going over capacity: the DataStream options perform checks on each operation, while the FastBuffer options hoist those checks up to the user level to allow them to be batched, and provides editor/development build-only safeguards to ensure the user is using those checks correctly. At the cost of a little more overhead on the user-side of any given serialization implementation, this allows us to reduce the number of branches we execute, which results in faster code.
+
+  By comparison to FastBufferWriter and FastBufferReader, DataStreamWriter and DataStreamReader are very bare-bones: they contain methods for serializing primitive types, packed types, individual bits, and bytes, but contain no helpers for serializing more complex types. FastBufferWriter and FastBufferReader add built-in support for certain higher level types, such as INetworkSerializable.
+
+  Another difference between Unity Netcode and the proposal here is that Unity Netcode separates the command struct/class definition from the serialization code - rather than having a command struct with the proper serialization and deserialization functions on it, Unity Netcode has a separate struct to contain the serialization code. We're opting not to go this route primarily because it would disallow encapsulation in our message structs - any data that has to be serialized can't be private in this approach.
+
+  In terms of the code around serialization and deserialization - the infrastructure that invokes them - it should be obvious to say that the Unity Netcode library is not entirely comparable to this proposal, primarily because it's built around jobs and designed to operate in parallel. This is something we'd like to do, as well, but are not tackling as part of this proposal. 
+
+- **UNet/HLAPI:**
+  UNet's source repository seems to no longer exist, so I am basing this information on a fork that I hope is accurate to the state of HLAPI prior to the repository being removed.
+
+  UNet's approach to defining messages bears some surface similarities to this proposal: you define it by inheriting a MessageBase class and implementing Serialize and Deserialize methods. There are a few differences, though.
+
+  One difference at the interface level is that UNet's deserialization is a non-static method - meaning UNet will create a version of your struct and ask you to populate it, as opposed to giving you control over the creation of the struct as this proposal does. In practice this may not actually matter from the user perspective, and there could be arguments made to adjust our approach to match this. The big advantage we get from the proposed approach, though, is that the networking code doesn't actually have to know anything about the messages - it simply invokes a callback indexed on the message type and allows that callback to do the rest. This makes it very easy to expand the system to support new messages, as indicated in the custom messages section.
+
+  Another difference at the interface level is that UNet's implementation does not associate the message type with the class in a static way (as this proposal does via the `GetMessageType()` method), which means the correct message type has to be specified manually at each send location. This is a minor detail, but does present an opportunity for error that this design mitigates.
+
+  At the implementation level, one difference is that UNet does not require users to implement their own serialization methods - if the methods are omitted, UNet fills them in automatically via codegen. This is helpful, but it does come at a cost of transparency in being able to tell exactly what the code is going to be doing. This proposal does not recommend codegen due to the presence of `WriteValue()` - since unmanaged types can be trivially written and read with a single method call,  a serializer can be trivially written for those types:
+
+  ```c#
+  public void Serialize(FastBufferWriter writer) => writer.WriteValue(this);
+  ```
+
+  We could consider using a codegen solution; however, since this solution is primarily intended for internal messages, I believe it's better for us to write our own serialization code directly, because that allows our users to better understand exactly what we're doing, whereas codegen creates a black box that our users will struggle to understand (and that we ourselves may indeed struggle to understand when debugging).
+
+  The serializers in UNet use `NetworkReader` and `NetworkWriter` classes very similar to our existing ones, except rather than containing a `Stream`, they contain a simple `byte[]` that they write to one byte at a time. An example for serializing a ulong:
+
+  ```
+  public void Write(ulong value)
+  {
+      m_Buffer.WriteByte8(
+          (byte)(value & 0xff),
+          (byte)((value >> 8) & 0xff),
+          (byte)((value >> 16) & 0xff),
+          (byte)((value >> 24) & 0xff),
+          (byte)((value >> 32) & 0xff),
+          (byte)((value >> 40) & 0xff),
+          (byte)((value >> 48) & 0xff),
+          (byte)((value >> 56) & 0xff));
+  }
+  ```
+
+  Each of call to `WriteByte*()` will have an additional call to `WriteCheckForSpace()`, which verifies there's enough space and resizes and copies the array if necessary, resulting in significant method call overhead and possible allocations. By comparison, FastBufferWriter aggressively inlines all of its writes, and writing any unmanaged type will always be done with a single assignment operation of that type followed by a single position increment (excepting special operations like packed writes that need to do transformation operations). Because we have very clear constraints on how much data can be sent to the transport for one message, we can make allocate buffers that fill those constraints and avoid any overhead of needing to resize them - we simply never will resize them. We also move our capacity checking to outside the write calls, so capacity can be checked just once for a series of several writes, dramatically reducing the overhead of capacity validation.
+
+  UNet does not appear, from what I can tell, to support any form of message batching functionality.
+
+  One interesting thing to note is that UNet actually does avoid using fragmented QoS unless a message is large enough to need it - they don't actually provide an option to request a fragmented QoS, instead only providing Reliable and Unreliable as options, and they send the message as fragmented automatically if it exceeds the fragmentation size. Fragmentation cannot be disabled, resulting in the associated costs always being incurred.
+
+- **Mirror:**
+  Mirror uses Weaver to generate its serialization code. In usage, that results in the serialization itself feeling similar to this proposal when directly reading and writing structs, except that it's able to handle more complex types automatically as well (such as types that use strings or dynamically sized arrays). However, while convenient, this doesn't come without its costs:
+
+  - The code that reads and writes data is completely inaccessible to the user, as Weaver injects it directly into the dll after compiling.
+  - There's little to no transparency as to the format that's actually sent across the wire.
+  - There's no ability to pack integers or make fields optional to optimize bandwidth usage
+    - You can write your own custom serialization code as extension functions and Weaver will use those instead of serializing, but when doing so, you're ultimately falling back on the same behavior as our current code and UNet's code, with all the same drawbacks
+
+  Mirror is not allocation-free - its NetworkReader and NetworkWriter classes must be instantiated. As a result, they do much the same that we do: they create PooledNetworkReader and PooledNetworkWriter classes and get and release them from a pool. By comparison, using mutable structs for FastBufferReader and FastBufferWriter involves no allocations at all, and they cannot be leaked.
+
+  Mirror's NetworkReader and NetworkWriter are built around a managed byte[] array, and each write checks for capacity and grows the array if necessary, then performs copies using Array.ConstrainedCopy() when calling WriteBytes(). When calling other functions, such as WriteULong(), it writes one byte at a time as follows:
+
+  ```c#
+  public static void WriteULong(this NetworkWriter writer, ulong value)
+  {
+      writer.WriteByte((byte)value);
+      writer.WriteByte((byte)(value >> 8));
+      writer.WriteByte((byte)(value >> 16));
+      writer.WriteByte((byte)(value >> 24));
+      writer.WriteByte((byte)(value >> 32));
+      writer.WriteByte((byte)(value >> 40));
+      writer.WriteByte((byte)(value >> 48));
+      writer.WriteByte((byte)(value >> 56));
+  }
+  ```
+
+  Each of those calls to `WriteByte()` will have an additional call to `EnsureCapacity()`, which verifies there's enough space and resizes and copies the array if necessary, resulting in significant method call overhead and possible allocations. This is taken even further than UNet's implementation - where UNet would check for 8 bytes of space in a single check during `WriteByte8()`, Mirror checks for space before writing each and every individual byte. The same comments apply here as the ones I made discussing UNet.
+
+  Mirror also does support message batching functionality. However, a brief analysis of the code shows this involves a series of buffer pool lookups (or allocations if it's empty) and copies in forming each batch: when sending a message, first it's serialized using MessagePacking.Pack using a PooledNetworkWriter, then the result of that is sent to the batcher, which makes a copy of it by creating another PooledNetworkWriter and writing the result to it before enqueuing it onto a Queue (which may potentially incur an allocation to make space in the queue). Then later, the queue is iterated, each PooledNetworkWriter in the queue is pulled out and its data is then copied into yet another PooledNetworkWriter, before finally passing it to the transport (which then makes another copy of it before finally delivering it to the network).
+
+  By comparison, this proposal does the writing directly to the final buffer from the beginning, leaving space in it for any header information that can be filled in necessary with no copies required. Our buffers are created using NativeArrays, which allow for very fast creation, and we never make any copies of them ourselves - the transport may potentially do so, but we do not.
+
+  Mirror uses the KCP protocol as defined here: https://www.programmersought.com/article/11114836523/ Determination of protocol is a transport-level feature, so this proposal doesn't suggest a specific protocol, but this is mentioned because the KCP protocol performs fragmentation automatically. As a result, Mirror, like UNet, provides only two QoS options: Reliable or Unreliable, and fragmentation is something the user cannot disable, resulting in the associated costs always being incurred.
 
 # Unresolved questions
 
