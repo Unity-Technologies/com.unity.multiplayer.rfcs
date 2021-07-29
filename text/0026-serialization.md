@@ -6,6 +6,36 @@
 - RFC PR: [#26](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/26)
 - SDK PR: [#0000](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/pull/0000)
 
+# Contents
+
+- [Summary](#summary)
+- [Motivation](#motivation)
+- [Guide-level explanation](#guide-level-explanation)
+  * [Defining Messages](#defining-messages)
+  * [Serialization and Deserialization](#serialization-and-deserialization)
+- [Reference-level explanation](#reference-level-explanation)
+  * [Messages](#messages)
+  * [Message Header](#message-header)
+    + [FrameTiming](#frametiming)
+  * [Sending Messages](#sending-messages)
+    + [Sending to a single remote client](#sending-to-a-single-remote-client)
+    + [Sending to multiple remote clients](#sending-to-multiple-remote-clients)
+    + [Sending to a local client (loopback)](#sending-to-a-local-client--loopback-)
+    + [Buffer Overflow Protection](#buffer-overflow-protection)
+    + [Channels/QoS](#channels-qos)
+    + [Fragmenting QoS Behaviors](#fragmenting-qos-behaviors)
+    + [End of Frame](#end-of-frame)
+  * [Receiving Messages](#receiving-messages)
+    + [Processing Messages](#processing-messages)
+  * [FastBufferWriter and FastBufferReader](#fastbufferwriter-and-fastbufferreader)
+  * [INetworkSerializable](#inetworkserializable)
+  * [Custom Messages](#custom-messages)
+- [Drawbacks](#drawbacks)
+- [Rationale and alternatives](#rationale-and-alternatives)
+- [Prior art](#prior-art)
+- [Unresolved questions](#unresolved-questions)
+- [Future possibilities](#future-possibilities)
+
 # Summary
 
 [summary]: #summary
