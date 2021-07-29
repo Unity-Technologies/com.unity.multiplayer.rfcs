@@ -58,20 +58,17 @@ interface IMessage
 
     // Serialize to a buffer
     void Serialize(ref FastBufferWriter writer, in NetworkContext context);
-    
-    // Handle the message
-    void Handle(in NetworkContext context);
 }
 ```
 
-Additionally, each message should have a method on it as follows:
+Additionally, each message should have a method associated with it it as follows:
 
 ```c#
 [MessageHandler(IMessage.MessageType.MyMessageType)]
 static void Receive(ref FastBufferReader reader, in NetworkContext context);
 ```
 
-This static method is responsible for constructing an instance of the received type and handling it. The `[MessageHandler]` attribute statically registers this handler to be responsible for this type via ILPP code generation, just like `[ServerRpc]` and `[ClientRpc] `
+This static method is responsible for constructing an instance of the received type and handling it. The `[MessageHandler]` attribute statically registers this handler to be responsible for this type via ILPP code generation, just like `[ServerRpc]` and `[ClientRpc] `. This method does NOT have to be part of the message struct - it can be anywhere, it just has to *exist*; however, making it part of the message struct consolidates all the code related to serializing and deserializing the struct into one location so it's easy to view both ends in the same place, and so by convention, we will make it part of the struct.
 
 Handling will be put in its own method so that it's separate from deserialization, which is important in efficient handling of loopback messages.
 
@@ -226,7 +223,7 @@ struct MessageHeader
     // Sized 1 byte
     public MessageType MessageType;
     // Sized 1 byte
-    public NetworkUpdateStage UpdateStage;
+    public FrameTiming Timing;
     // Sized 2 bytes
     public short MessageSize;
     // Sized 1 byte
@@ -237,6 +234,20 @@ struct MessageHeader
 Since the largest value is 2 bytes in size, the struct should be aligned to a 2 byte alignment, which should make the struct packed and the total header size equal to exactly 5 bytes, which can be sent and received using `WriteValue` and `ReadValue` without any wasted bandwidth.
 
 In addition to the message header, there's also a batch header - the batch header is simply 2 bytes containing the total size of the batch.
+
+### FrameTiming
+
+Based on issues we've seen with UpdateStage recently, rather than the current support for sending messages to be executed at any time in the frame, we will change that to the following options:
+
+```C#
+enum FrameTiming
+{
+    Start,
+    End
+}
+```
+
+`FrameTiming.Start` executes during `EarlyUpdate` just after all the IO for the frame has completed. `FrameTiming.End` executes in `PostLateUpdate` just before outgoing messages are written to the transport. No other frame timings may be specified. `FrameTiming.Start` is the default.
 
 ## Sending Messages
 
@@ -256,7 +267,7 @@ The first thing the sending logic does is call the `GetSizeUpperBound()` method 
 
 **If at any time, `GetSizeUpperBound()` returns a value larger than `MTU - sizeof(MessageHeader) - sizeof(short)` when sending with a non-fragmenting QoS, an exception is thrown and the message is not sent.**
 
-The sending logic then creates a `MessageHeader` storing the MessageType and UpdateStage, and then seeks forward in the buffer an amount equal to `sizeof(MessageHeader)` to reserve space for the header, while storing the original position.
+The sending logic then creates a `MessageHeader` storing the MessageType and FrameTiming, and then seeks forward in the buffer an amount equal to `sizeof(MessageHeader)` to reserve space for the header, while storing the original position.
 
 The sending logic then calls the `Serialize()` method on the message to populate the buffer.
 
@@ -272,13 +283,9 @@ Afterward, a `MessageHeader` is created and fully initialized with the size of t
 
 ### Sending to a local client (loopback)
 
-The local client case is the most complicated case, and has some special logic for it. When an item is destined for a LoopBack destination, what happens is based on the current UpdateStage as compared to the UpdateStage requested for the message.
+The local client case is the most complicated case, and has some special logic for it. When an item is destined for a LoopBack destination, the message is simply added to the incoming message queue for the specified FrameTiming. If the frame timing is FrameTiming.End, that'll cause it to be executed at the end of the current frame; otherwise, it will be executed at the beginning of the next frame.
 
-- If the update stage is the current stage, then message.Handle() is called immediately. If this was the only destination, no serialization is performed at all - the message is simply handled on the spot.
-- If the update stage is a later stage than the current stage, a new NativeArray is created with Allocator.TempJob, the message is serialized to it, and its data is placed in the incoming queue for the **current** frame. (See "Receiving Messages" below for elaboration on how the incoming queue works.)
-- If the update stage is an earlier stage than the current stage, a new NativeArray is created with Allocator.TempJob, the message is serialized to it, and its data is placed in the incoming queue for the **next** frame
-
-When the message can't be handled immediately, the use of `Allocator.TempJob` provides an extremely efficient allocation of the NativeArray that can last long enough for it to be handled before it must be deallocated. Based on benchmarks, `Allocator.TempJob` is nearly as fast as `Allocator.Temp`, and orders of magnitude faster than a standard allocation.
+The use of `Allocator.TempJob` provides an extremely efficient allocation of the NativeArray that can last long enough for it to be handled before it must be deallocated. Based on benchmarks, `Allocator.TempJob` is nearly as fast as `Allocator.Temp`, and orders of magnitude faster than a standard allocation.
 
 When serializing messages for loopback, the logic follows the above two cases depending on whether there is only one destination or multiple - if there is only one, the data is serialized directly to the newly created array via a FastBufferWriter; when there are multiple destinations, it's copied into this array from the one allocated with `Allocator.Temp`, so there is still only one serialization call.
 
@@ -331,10 +338,10 @@ struct IncomingMessageItem
 }
 ```
 
-A separate queue of this type exists for each update stage, and exists as a simple array with a fixed size. If it gets full, we begin discarding messages to avoid allocating to resize the array (however, the array is reasonably sized - and, like the send queue, this size is adjustable by the user - so as to ensure that this will only happen in the case of a malicious actor sending a DoS attack). At the point of receiving, we construct a new `NativeArray<byte>` using `Allocator.TempJob` and copy the received data into it (this one-time copy is to avoid any assumptions about whether or not the data in the array segment will change between receiving and processing it). Then we create a `FastBufferReader` from that array segment and read two bytes from it to determine the total size of the message batch. We then iterate the following steps until we've read the full amount of data indicated in the batch size header:
+A separate queue of this type exists for each of the two FrameTiming options, and exists as a simple array with a fixed size. If it gets full, we begin discarding messages to avoid allocating to resize the array (however, the array is reasonably sized - and, like the send queue, this size is adjustable by the user - so as to ensure that this will only happen in the case of a malicious actor sending a DoS attack). At the point of receiving, we construct a new `NativeArray<byte>` using `Allocator.TempJob` and copy the received data into it (this one-time copy is to avoid any assumptions about whether or not the data in the array segment will change between receiving and processing it). Then we create a `FastBufferReader` from that array segment and read two bytes from it to determine the total size of the message batch. We then iterate the following steps until we've read the full amount of data indicated in the batch size header:
 
 - Read a value of type `MessageHeader`
-- Use `header.UpdateStage` to pick the correct incoming message queue
+- Use `header.Timing` to pick the correct incoming message queue
 - Set the value of the array item at the queue's current position to:
   - MessageType = header.MessageType
   - Reader = reader (since `FastBufferReader` is a struct, this will create a copy of the reader pointed at the current position in the buffer)
@@ -343,6 +350,8 @@ A separate queue of this type exists for each update stage, and exists as a simp
   - ReceivingChannel = networkChannel
   - Timestamp = receiveTime
 - Increment the queue's current position
+
+Each of these queues is cleared after it's iterated, which means for loopback purposes, the `FrameTiming.Start` queue can be pushed to during the frame without issue. It's also guaranteed to be safe to add to the queue while iterating it, meaning that messages we're handling can safely generate loopback messages targeting the same `FrameTiming` and those messages will become part of the current iteration and get processed during the same frame.
 
 Finally, an additional queue exists: The dispose queue. Like the incoming message queues, this queue is a fixed-size array of `NativeArray<byte>` objects sized to the combined size of all update queues. Once each buffer has been processed, it's added to the dispose queue, where it will be disposed at the end of the frame after all messages pointing into it have been handled.
 
