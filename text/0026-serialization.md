@@ -320,7 +320,7 @@ At the end of the frame, each client is iterated once to determine if its writer
 
 Incoming messages are processed through an incoming message queue, which contains items of this type:
 
-```
+```C#
 struct IncomingMessageItem
 {
 	MessageType MessageType;
@@ -471,7 +471,7 @@ Below are some comparisons to some of our main competitors in the C#/Unity arena
 
   The serializers in UNet use `NetworkReader` and `NetworkWriter` classes very similar to our existing ones, except rather than containing a `Stream`, they contain a simple `byte[]` that they write to one byte at a time. An example for serializing a ulong:
 
-  ```
+  ```C#
   public void Write(ulong value)
   {
       m_Buffer.WriteByte8(
