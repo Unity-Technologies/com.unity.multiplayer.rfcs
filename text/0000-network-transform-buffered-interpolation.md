@@ -175,8 +175,10 @@ private void ApplyNetworkState(NetworkState netState)
 
 ```
 
-The interpolated value is updated every frame, only if the game is not allowed to update the transform. (For example with a server driven transform, only the client would be interpolated)
+Note that this value can be applied multiple times. Currently NetworkTransform applies ghost values 2 times:
 
+On Update
+The interpolated value is updated every frame, only if the game is not allowed to update the transform. (For example with a server driven transform, only the client would be interpolated)
 ```C#
 private void Update()
 {
@@ -187,7 +189,44 @@ private void Update()
         PositionInterpolator.Update(Time.deltaTime);
         ApplyNetworkState(m_NetworkState.Value);
     }
+```
+
+In NetworkTick when checking for invalid ghost changes
+```C#
+private void NetworkTickUpdate()
+{
+    // ...
+    if (IsNetworkStateDirty(m_PrevNetworkState))
+    {
+        Debug.LogWarning("A local change without authority detected, revert back to latest network state!");
+        ApplyNetworkState(m_NetworkState.Value);
+```
+
+
+AddMeasurement is called on every transform state change
+```C#
+private void OnNetworkStateChanged(NetworkState oldState, NetworkState newState)
+{
+    // ...
+    PositionInterpolator.AddMeasurement(newState.Position, new NetworkTime(NetworkManager.Singleton.ServerTime.TickRate, newState.SentTick));
 }
+```
+
+Reset is called on Awake to initialize the interpolator
+```C#
+private void Awake()
+{
+    PositionInterpolator.Reset(m_Transform.position, new NetworkTime(NetworkManager.Singleton.ServerTime.TickRate, m_NetworkState.Value.SentTick));
+```
+And on Transform Teleport
+```C#
+private void OnNetworkStateChanged(NetworkState oldState, NetworkState newState)
+{
+    // ...
+    if (newState.Teleporting)
+    {
+        PositionInterpolator.Reset(newState.Position, new NetworkTime(NetworkManager.Singleton.ServerTime.TickRate, newState.SentTick));
+    }
 ```
 
 ## Buffered Interpolator
