@@ -30,9 +30,8 @@ This RFC suggests an extensible interface for users to use and create different 
 After this, users should be able to select the interpolation algorithm that best fits the GameObject they want to sync.
 
 In addition, this RFC suggests removing the 
-```C#
-        public AnimationCurve DistanceSendrate = AnimationCurve.Constant(0, 500, 20);
-```
+```cs
+public AnimationCurve DistanceSendrate = AnimationCurve.Constant(0, 500, 20);
 configuration (that was used to set interpolation times) to use instead a swappable interpolator.
 
 # Guide-level explanation
