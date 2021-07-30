@@ -435,7 +435,7 @@ struct Message : IMessage
 {
 	MessageType GetMessageType()
 	{
-		return (MessageType)(MessageType.Custom + (int)CustomMessageType.MyMessage1);
+		return MessageType.Custom + (int)CustomMessageType.MyMessage1;
 	}
 
     int GetSizeUpperBound()
@@ -453,7 +453,7 @@ struct Message : IMessage
         // Handler code
     }
 
-    [MessageHandler((MessageType)(MessageType.Custom + (int)CustomMessageType.MyMessage1))]
+    [MessageHandler(MessageType.Custom + (int)CustomMessageType.MyMessage1)]
     static void Receive(ref FastBufferReader reader, in NetworkContext context)
     {
         reader.ReadValue(out Message message);
