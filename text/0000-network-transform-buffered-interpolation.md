@@ -30,8 +30,8 @@ This RFC suggests an extensible interface for users to use and create different 
 After this, users should be able to select the interpolation algorithm that best fits the GameObject they want to sync.
 
 In addition, this RFC suggests removing the 
-```C#
-        public AnimationCurve DistanceSendrate = AnimationCurve.Constant(0, 500, 20);
+```cs
+public AnimationCurve DistanceSendrate = AnimationCurve.Constant(0, 500, 20);
 ```
 configuration (that was used to set interpolation times) to use instead a swappable interpolator.
 
@@ -63,7 +63,7 @@ https://user-images.githubusercontent.com/71790295/126731436-f9e89d75-4973-49e8-
 An `IInterpolator` interface has been added, to allow users to create their own custom interpolator.
 The implemented interpolator needs to keep its own state and will be given new values each time ones are available to the NetworkTransform's OnValueChanged.
 
-```C#
+```cs
 public interface IInterpolator<T>
 {
     public void Update(float deltaTime);
@@ -74,7 +74,7 @@ public interface IInterpolator<T>
 }
 ```
 
-```C#
+```cs
 public class SimpleInterpolator : IInterpolator<Vector3>
 {
     // a user's simple interpolator
@@ -107,8 +107,10 @@ public class SimpleInterpolator : IInterpolator<Vector3>
     public void NetworkTickUpdate(float fixedDeltaTime) {}
 }
 ```
+
 A factory is used to select and configure which interpolator to use for the NetworkTransform.
-```C#
+
+```cs
 public abstract class InterpolatorFactory<T> : ScriptableObject
 {
     public const string BaseMenuName = "MLAPI/Interpolator/";
@@ -139,26 +141,30 @@ This setting is shared by all interpolators.
 
 ![](0000-network-transform-buffered-interpolation/InterpolatorConfigurationSO.png)
 
-
-
-
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
 
 ## Interpolator integration with NetworkTransform
+
 Users can select their interpolator using a global configuration set in a scriptable object.
-```C#
+
+```cs
 [SerializeField]
 private InterpolatorFactory<Vector3> m_PositionInterpolator;
 ```
+
 On Awake, NetworkTransform will create its own instance to use.
-```C#
+
+```cs
 private void Awake()
 {
     PositionInterpolator = m_PositionInterpolatorFactory.CreateInterpolator();
+}
 ```
+
 That interpolator can then be used in NetworkTransform.
-```C#
+
+```cs
 private void OnNetworkStateChanged(NetworkState oldState, NetworkState newState)
 {
     // ...
@@ -168,19 +174,20 @@ private void OnNetworkStateChanged(NetworkState oldState, NetworkState newState)
 
 The authoritative value coming from the network is now intercepted by the interpolator. The value applied to the transform is now the interpolated value instead.
 
-```C#
+```cs
 private void ApplyNetworkState(NetworkState netState)
 {
     // ...
     m_Transform.position = PositionInterpolator.GetInterpolatedValue(); // this doesn't update the value, just queries it
-
+}
 ```
 
 Note that this value can be applied multiple times. Currently NetworkTransform applies ghost values 2 times:
 
 On Update
 The interpolated value is updated every frame, only if the game is not allowed to update the transform. (For example with a server driven transform, only the client would be interpolated)
-```C#
+
+```cs
 private void Update()
 {
     // ...
@@ -193,7 +200,8 @@ private void Update()
 ```
 
 In NetworkTick when checking for invalid ghost changes
-```C#
+
+```cs
 private void NetworkTickUpdate()
 {
     // ...
@@ -203,9 +211,9 @@ private void NetworkTickUpdate()
         ApplyNetworkState(m_NetworkState.Value);
 ```
 
-
 AddMeasurement is called on every transform state change
-```C#
+
+```cs
 private void OnNetworkStateChanged(NetworkState oldState, NetworkState newState)
 {
     // ...
@@ -214,13 +222,17 @@ private void OnNetworkStateChanged(NetworkState oldState, NetworkState newState)
 ```
 
 Reset is called on Awake to initialize the interpolator
-```C#
+
+```cs
 private void Awake()
 {
     PositionInterpolator.Reset(m_Transform.position, new NetworkTime(NetworkManager.Singleton.ServerTime.TickRate, m_NetworkState.Value.SentTick));
+}
 ```
+
 And on Transform Teleport
-```C#
+
+```cs
 private void OnNetworkStateChanged(NetworkState oldState, NetworkState newState)
 {
     // ...
@@ -228,6 +240,7 @@ private void OnNetworkStateChanged(NetworkState oldState, NetworkState newState)
     {
         PositionInterpolator.Reset(newState.Position, new NetworkTime(NetworkManager.Singleton.ServerTime.TickRate, newState.SentTick));
     }
+}
 ```
 
 ## Buffered Interpolator
@@ -237,14 +250,16 @@ The buffered interpolator will maintain a list of buffered items, associated wit
 ![](0000-network-transform-buffered-interpolation/jitter_with_buffer.jpg)
 
 
-```C#
+```cs
 public void AddMeasurement(T newMeasurement, int SentTick)
 {
     m_Buffer.Add(new BufferedItem<T>() {item = newMeasurement, tickSent = SentTick});
 }
 ```
+
 Every tick, the interpolator will make a new buffered item available according to how much time it should spend in the buffer.
-```C#
+
+```cs
 private double ServerTickBeingHandledForBuffering => NetworkManager.Singleton.ServerTime.Tick; // override this if you want configurable buffering, right now using ServerTick's own global buffering
 
 private void TryConsumeFromBuffer()
@@ -276,12 +291,15 @@ This means that any future server side rewind code we use that wants to rewind a
 Current configuration is to have everything buffered with the same value. This way, you promote better world consistency, since everyone is on the same timeline.
 However, one might want to have exceptions where you don't care about smoothness for your transform and only want the quickest position update, as soon as you have it and not care about jittery state changes. These objects would then need to have little or no buffer, contrary to the global setting in the time system.
 At this point, users could either create their own interpolator inheriting from buffered interpolator if they still want smaller buffering
-```C#
-    public class MyOwnBufferedInterpolator<T> : IInterpolator<T> where T : struct
-    {
-        // ...
-        protected override double ServerTickBeingHandledForBuffering => ServerTick - OtherBuffering;
+
+```cs
+public class MyOwnBufferedInterpolator<T> : IInterpolator<T> where T : struct
+{
+    // ...
+    protected override double ServerTickBeingHandledForBuffering => ServerTick - OtherBuffering;
+}
 ```
+
 Or they could use `NoInterpolator` which just returns your latest position, without doing anything to it.
 
 ## Other ways to reduce jitter
@@ -291,10 +309,12 @@ Reducing the number of packets sent is a good way to prevent jitter, however the
 Increasing send rate will help reducing the buffer size needed for clean interpolation. With shorter ticks, you need to wait a shorter time before saying you can process a server position. This could be done through education when talking about these issues.
 
 ## Other design
+
 The interpolator could have been hard coded in NetworkTransform without actually being a separate class. This could have made NetworkTransform more self contained, but would also have been more cumbersome to extend interpolation. Users could for example want to prevent interpolated transforms from going through walls instead of interpolating linearly. They could want to interpolate using their navmesh. Any sort of custom interpolation becomes easy with the current design and would hook directly in NetworkTransform, without being too hard to maintain on our side. 
 With .meta file default values, you can set a ScriptableObject as a default for your class, no extra user action should be needed to use NetworkTransform with default scriptable object values.
 
 ## Impact of not doing this
+
 Buffered interpolation is simple on paper, but can be frustrating to implement, even for netcode experts. It's a recurring technique to allow resisting to bad network conditions like you can find on mobile platforms.
 Having this set as a default will allow giving users a NetworkTransform that is smooth by default, on a wide range of network conditions.
 
@@ -305,21 +325,26 @@ Doing it directly in NetworkVariable right now isn't useful. Most of our use cas
 Going the NetworkVariable route would make us create APIs we'd need to maintain for a few years, without having concrete use cases.
 
 ## Prediction and interpolator.
+
 Current interpolator only affects ghosts and doesn't affect locally owned objects. An eventual predicted player wouldn't be affected by this interpolation.
 Future prediction might want to interpolate corrected values instead of teleporting players. This should be handled by prediction code.
 Since interpolator is a self contained class and isn't a MonoBehaviour, interpolators could be reused for that correction interpolation.
 
 ## Other APIs for interpolator
+
 The Interpolator's `Update()` method could have been injected with the last 3 positions. 
-```C#
+
+```cs
 Vector3 Update(Vector3 pos1, Vector3 pos2, Vector3 pos3)
 {
     // interpolate over those 3 positions, even if they are rolledback positions
     return interpolatedValue;
 }
 ```
+
 This assumes the number of values needed for interpolator. What if your interpolator needs 4 values? or just 2?. With `AddMeasurement`, you're allowing more flexibility for user implementations. However you require your interpolator to track state, while state injection in the above example would centralize state in the snapshot system. Having the interpolator track its own state could cause desync issues in the future, however offering a `Reset` method can serve as a "reset" button for interpolators.
-```C#
+
+```cs
 void RewriteHistory(Vector3[] newPositions, int[] newTicks)
 {
     m_Interpolator.Reset(newPositions[0], newTicks[0]);
