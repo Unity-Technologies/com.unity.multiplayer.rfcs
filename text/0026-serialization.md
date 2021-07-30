@@ -437,8 +437,28 @@ struct Message : IMessage
 	{
 		return (MessageType)(MessageType.Custom + (int)CustomMessageType.MyMessage1);
 	}
-	
-	// Other funcs and data...
+
+    int GetSizeUpperBound()
+    {
+        return UnsafeUtility.SizeOf<Message>();
+    }
+    
+    void Serialize(ref FastBufferWriter writer)
+    {
+        writer.WriteValue(this);
+    }
+
+    void Handle(in NetworkContext context)
+    {
+        // Handler code
+    }
+
+    [MessageHandler((MessageType)(MessageType.Custom + (int)CustomMessageType.MyMessage1))]
+    static void Receive(ref FastBufferReader reader, in NetworkContext context)
+    {
+        reader.ReadValue(out Message message);
+        message.Handle();
+    }
 }
 ```
 
