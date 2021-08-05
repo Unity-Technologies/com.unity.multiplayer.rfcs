@@ -15,16 +15,14 @@ This feature describes our approach to serialization. The goals of the serializa
 - Fast
 - Allocation-free
 - Consistent
-- Debuggable
-- Transparent (that is, easy for end users to follow and understand)
+- Easy-to-use
 - Maintainable
-- Future-ready (i.e., for jobs)
 
 # Motivation
 
 [motivation]: #motivation
 
-This is both a performance and architectural change to MLAPI. Currently, serialization is one of our biggest offenders for CPU usage, and we've created pools to avoid allocations.
+This proposes classes to enable performance improvements in MLAPI. Currently, serialization is one of our biggest offenders for CPU usage, and we've created pools to avoid allocations, which are prone to missed Dispose() calls that create leaks. This proposal is to make our serializers much faster by incorporating unsafe code operating directly on `byte*` buffers and relying on `UnsafeUtility` to tap into some native-speed operations, and replace the serializer classes with structs and NativeArrays, making it feasible to create them on the stack as needed without incurring any GC overhead.
 
 # Guide-level explanation
 
@@ -119,7 +117,7 @@ FastBufferWriter and FastBufferReader are replacements for the current NetworkWr
 - FastBufferWriter and FastBufferReader both wrap `NativeArray<byte>`, allowing us to take advantage of extremely fast `Allocator.Temp` and `Allocator.TempJob` allocations to create temporary buffers.
 - Neither FastBufferReader nor FastBufferWriter inherits from nor contains a `Stream`. Any code that currently operates on streams will have to be rewritten.
 - FastBufferReader and FastBufferWriter are heavily optimized for speed, using aggressive inlining and unsafe code to achieve the fastest possible buffer storage and retrieval.
-- FastBufferReader and FastBufferWriter use unsafe typecasts and UnsafeUtil.MemCpy operations on `byte*` values, achieving native memory copy performance with no need to iterate or do bitwise shifts and masks.
+- FastBufferReader and FastBufferWriter use unsafe typecasts and `UnsafeUtility.MemCpy` operations on `byte*` values, achieving native memory copy performance with no need to iterate or do bitwise shifts and masks.
 - FastBufferReader and FastBufferWriter are intended to make data easier to debug - one such thing to support will be a `#define MLAPI_FAST_BUFFER_UNPACK_ALL` that will disable all packing operations to make the buffers for messages that use them easier to read.
 
 A core benefit of `NativeArray<byte>` is that it offers access to the allocation scheme of `Allocator.TempJob`. This uses a special type of allocation that is nearly as fast as stack allocation and involves no GC overhead, while being able to persist for a few frames. In general we will never need them for more than a frame, but this does give us a very efficient option for creating buffers as needed, which avoids the need to use a pool for them. The only downside is that buffers created this way must be manually disposed after use, as they're not garbage collected.
