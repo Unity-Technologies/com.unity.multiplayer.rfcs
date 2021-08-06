@@ -1,13 +1,17 @@
-- Feature Name: `message_ordering_guarantee`
-- Start Date: 2021-06-02
-- RFC PR: [RFC#18](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/18)
-- Issue: [MLAPI#700](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/issues/700)
+# Message Ordering Guarantee
+[feature]: #feature
+
+- Start Date: `2021-06-02`
+- RFC PR: [#18](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/18)
+- SDK PR: [#948](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/pull/948)
 
 # Summary
+[summary]: #summary
 
 This feature adds a guarantee of ordering between all types of messages, that, unless the user requests otherwise, all messages sent over a **reliable sequenced** channel will be received and processed by the recipient process in the order they were sent by the sender process. It guarantees that MLAPI itself will not internally change the order of any messages, that they will all reach the transport level in the same order they were initiated/requested. This RFC does **not**, however, make any guarantees on ordering for messages sent on non-sequenced channels, nor does it provide any new enforcement to force any messages to be sent on sequenced channels.
 
 # Motivation
+[motivation]: #motivation
 
 Prior to implementation of this feature, there were four mechanisms by which messages are sent:
 
@@ -26,6 +30,7 @@ The first mechanism, `InternalMessageSender.Send()`, was processed and placed on
 Because there wasn't a strict order guarantee between messages, in order to ensure certain things happen before others (such as spawning objects before calling RPCs on them), certain internal commands were given specific stages in which they must be processed, and would always be processed in those stages. In order to resolve an immediate need, the internal message queue was created to allow those specific commands to specify the desired update stage in which to be executed; while this resolved the immediate need, it was still in the work-in-progress stage and thus provided an incomplete solution. Internal commands were inconsistent about which ones use the direct send and which use the internal queue - for example, `Spawn()` used the queue, while `ChangeOwnership()` sent directly. Thus, if you used those two on the same object in the same frame, the `ChangeOwnership()` command would be sent before the `Spawn()` command, causing it to be received and processed by the client before the object had been created.
 
 # Guide-level explanation
+[guide-level-explanation]: #guide-level-explanation
 
 To ensure that all commands sent arrive in the same order relative to each other, including relative order between commands and RPC calls (such as ensuring an ownership change arrives before or after an RPC whose function is dependent on the ownership), all messages will be passed through `MessageQueueProcessor` (formerly known as `RpcQueueProcessor`), which will determine based on whether batching is enabled whether to process it using `MessageQueueProcessor.SendFrameQueueItem()` or to pass it to the `MessageBatcher` (formerly `RpcBatcher`) class. Internal commands are wrapped in the same structure as RPCs, allowing them to specify the update stage at which they should be processed.
 
@@ -88,6 +93,7 @@ void LateUpdate()
 In this example, because `Spawn()` is called during `Update()` on the server, and `ChangeOwnership()` is called during `LateUpdate()` on the server, the same will be true on the client - the object will be spawned on the client during the `Update` stage, and its ownership changed during `LateUpdate`.
 
 # Reference-level explanation
+[reference-level-explanation]: #reference-level-explanation
 
 There are two main refactors involved in implementing this change:
 
@@ -152,10 +158,12 @@ In order to complete this refactor, a few things need to happen:
   As an added benefit, the current message parsing code logic that passes over the object and behavior IDs to read the update stage, then resets the position of the buffer, is no longer necessary, as the updateStage is right at the top of the buffer and can simply be read directly. The value can then be cached onto the `MessageFrameQueueItem` (now renamed to just `MessageFrameItem` since it will not always come from the queue thanks to `NetworkUpdateStage.Immediate`) and then the buffer position no longer needs to be reset, offering a small optimization to the message processing logic.
 
 # Drawbacks
+[drawbacks]: #drawbacks
 
 The biggest drawback of this implementation is the standardization of the packet format for all types of messages. This is *mostly* a positive thing from a standpoint of maintainability and ability to expand or refactor the system further in the future, but does potentially involve sending a few extra bytes that may not be required for all internal commands.
 
 # Rationale and alternatives
+[rationale-and-alternatives]: #rationale-and-alternatives
 
 The primary rationale here is to ensure predictable behavior on both sides of the network. One argument in favor is that our SDK allows for (and *should* allow for) `Spawn()` and `ChangeOwnership()` as separate operations, but it is non-obvious that a period of time exists after calling `Spawn()` during which calling `ChangeOwnership()` is an error. It is also not trivial for the code on the sender side to detect when this is the case in order to surface that error to the user. As a result, the lack of strong ordering between these two operations creates a pitfall for our users that is so well-hidden beneath branches and twigs as to make it nearly impossible to know it exists until you have already fallen into it. Ensuring that these two operations are both sent using the same mechanism, and thus both sent in a predictable order, removes this pitfall and makes the operation of `ChangeOwnership()` function as intuitively expected in all use cases.
 
@@ -180,13 +188,16 @@ As **alternatives** go, there are four primary alternatives we discussed:
    However, as mentioned above, when the snapshotting system is better realized to convey these sorts of messages, the consolidation of the message sending logic into a single mechanism should still be of benefit to the integration with snapshotting, as it will reduce the number of different types of messaging logic the snapshotting system needs to integrate down to just one.
 
 # Prior art
+[prior-art]: #prior-art
 
 This modification is fairly MLAPI- and Unity-specific. I'm unaware of any existing implementations that attempt to solve this particular problem.
 
 # Unresolved questions
+[unresolved-questions]: #unresolved-questions
 
 - None
 
 # Future possibilities
+[future-possibilities]: #future-possibilities
 
 As mentioned above in the rationale section, there is a known intention to integrate commands into the snapshot system. While this RFC doesn't attempt to address that yet, the consolidation of message sending mechanisms can be seen as a first step toward realizing that.
