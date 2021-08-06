@@ -37,18 +37,18 @@ This feature will rethink the whole flow of sending a message, from the beginnin
 Messages in MLAPI are represented in-memory using structs containing, as much as possible, only unmanaged POD. Each struct must implement the IMessage interface, which is defined as follows:
 
 ```C#
-interface IMessage
+public interface IMessage
 {
-    enum MessageType
+    public enum MessageType
     {
         //...
     }
 
     // Returns the type of the message, used in automatic message header generation
-    MessageType MessageType { get; };
+    public MessageType MessageType { get; };
 
     // Serialize to a buffer
-    void Serialize(ref FastBufferWriter writer);
+    public void Serialize(ref FastBufferWriter writer);
 }
 ```
 
@@ -56,7 +56,7 @@ Additionally, each message should have a method associated with it it as follows
 
 ```c#
 [MessageHandler(IMessage.MessageType.MyMessageType)]
-static void Receive(ref FastBufferReader reader, NetworkContext context);
+public static void Receive(ref FastBufferReader reader, NetworkContext context);
 ```
 
 This static method is responsible for constructing an instance of the received type and handling it. The `[MessageHandler]` attribute statically registers this handler to be responsible for this type via ILPP code generation, just like `[ServerRpc]` and `[ClientRpc] `. This method does NOT have to be part of the message struct - it can be anywhere, it just has to *exist*; however, making it part of the message struct consolidates all the code related to serializing and deserializing the struct into one location so it's easy to view both ends in the same place, and so by convention, we will make it part of the struct.
@@ -66,7 +66,7 @@ Handling will be put in its own method so that it's separate from deserializatio
 The second parameter, `NetworkContext`, looks like this:
 
 ```C#
-ref struct NetworkContext
+public ref struct NetworkContext
 {
     public NetworkManager NetworkManager;
     public IMessage.MessageType MessageType;
@@ -98,7 +98,7 @@ When sending messages, instead of working directly with buffers, messages are cr
 Each message sent will be prepended with a standardized message header, which is also represented as a struct with the following data:
 
 ```c#
-struct MessageHeader
+internal struct MessageHeader
 {
     // Sized 1 byte
     public MessageType MessageType;
@@ -114,7 +114,7 @@ Since the largest value is 2 bytes in size, the struct should be aligned to a 2 
 In addition to the message header, there's also a batch header:
 
 ```C#
-struct BatchHeader
+internal struct BatchHeader
 {
     // Sized 2 bytes
     public ushort BatchSize;
@@ -160,7 +160,7 @@ The second version *is* able to avoid allocations, though, and is intended to be
 // Causes an allocation, but is flexible to allow runtime determination of delay stage
 // or delaying only part of the logic while processing part immediately
 [ServerRpc]
-MyServerRpc(float a, bool b)
+public void MyServerRpc(float a, bool b)
 {
 	DelayUtility.DelayUntil(
     	DelayUtility.DelayStage.FixedUpdate,
@@ -188,7 +188,7 @@ public static Receive(ref FastBufferReader reader, NetworkContext context)
 
 // No allocation, locked in at compile time
 [ServerRpc(DelayUntil=DelayUtility.DelayStage.FixedUpdate)]
-MyServerRpc(float a, bool b)
+public void MyServerRpc(float a, bool b)
 {
     DoSomeStuff(a);
     if(b)
@@ -246,13 +246,13 @@ At the end of the frame, each client is iterated once to determine if its writer
 Incoming messages are processed through an incoming message queue, which contains items of this type:
 
 ```C#
-struct IncomingMessageItem
+internal struct IncomingMessageItem
 {
-    MessageType MessageType;
-    FastBufferReader Reader;
-    ulong SenderId;
-    NetworkChannel ReceivingChannel;
-    float Timestamp;
+    public MessageType MessageType;
+    public FastBufferReader Reader;
+    public ulong SenderId;
+    public NetworkChannel ReceivingChannel;
+    public float Timestamp;
 }
 ```
 
@@ -271,29 +271,29 @@ Finally, an additional queue exists: The dispose queue. Like the incoming messag
 Custom messages as they are, using buffers, no longer need to exist. Since the message handling code is part of the message definition, users have the freedom to define their own messages. Our internal code doesn't need to know anything about the messages themselves in order to send or receive them, so users can create any custom message they want the same way we define our own internal messages, and send them the same way we send ours, and their message handler will be magically invoked when the message is received. The only gotcha is the MessageType enum - since users can't extend the enum itself, we provide a `MessageType.Custom` that's always at the end of the enum, and users can operate as such:
 
 ```C#
-enum CustomMessageType
+public enum CustomMessageType
 {
 	MyMessage1 = IMessage.MessageType.Custom,
 	MyMessage2,
 	Etc,
 }
 
-struct Message : IMessage
+public struct Message : IMessage
 {
-	MessageType MessageType => (MessageType)CustomMessageType.MyMessage1;
+	public MessageType MessageType => (MessageType)CustomMessageType.MyMessage1;
     
-    void Serialize(ref FastBufferWriter writer)
+    public void Serialize(ref FastBufferWriter writer)
     {
         writer.WriteValue(this);
     }
 
-    void Handle(in NetworkContext context)
+    public void Handle(in NetworkContext context)
     {
         // Handler code
     }
 
     [MessageHandler((MessageType)CustomMessageType.MyMessage1)]
-    static void Receive(ref FastBufferReader reader, in NetworkContext context)
+    public static void Receive(ref FastBufferReader reader, in NetworkContext context)
     {
         reader.ReadValue(out Message message);
         message.Handle();
