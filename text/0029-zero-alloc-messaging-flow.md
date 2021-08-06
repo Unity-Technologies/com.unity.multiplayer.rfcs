@@ -162,8 +162,8 @@ The second version *is* able to avoid allocations, though, and is intended to be
 [ServerRpc]
 public void MyServerRpc(float a, bool b)
 {
-	DelayUtility.DelayUntil(
-    	DelayUtility.DelayStage.FixedUpdate,
+    DelayUtility.DelayUntil(
+        DelayUtility.DelayStage.FixedUpdate,
         () => {
             DoSomeStuff(a);
             if(b)
@@ -273,14 +273,14 @@ Custom messages as they are, using buffers, no longer need to exist. Since the m
 ```C#
 public enum CustomMessageType
 {
-	MyMessage1 = IMessage.MessageType.Custom,
-	MyMessage2,
-	Etc,
+    MyMessage1 = IMessage.MessageType.Custom,
+    MyMessage2,
+    Etc,
 }
 
 public struct Message : IMessage
 {
-	public MessageType MessageType => (MessageType)CustomMessageType.MyMessage1;
+    public MessageType MessageType => (MessageType)CustomMessageType.MyMessage1;
     
     public void Serialize(ref FastBufferWriter writer)
     {
