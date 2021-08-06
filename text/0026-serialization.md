@@ -142,7 +142,7 @@ using(var bitWriter = writer.EnterBitwiseContext())
 {
 	bitWriter.WriteBit(a);
 	bitWriter.WriteBits(b, 5);
-} // Dispose automatically adds 3 more 0 bits to pad to the next byte.
+} // Dispose automatically adds 2 more 0 bits to pad to the next byte.
 ```
 
 ## INetworkSerializable
