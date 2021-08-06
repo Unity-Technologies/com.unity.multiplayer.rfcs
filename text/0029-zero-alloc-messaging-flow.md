@@ -37,25 +37,25 @@ This feature will rethink the whole flow of sending a message, from the beginnin
 Messages in MLAPI are represented in-memory using structs containing, as much as possible, only unmanaged POD. Each struct must implement the IMessage interface, which is defined as follows:
 
 ```C#
+public enum MessageType
+{
+    //...
+}
+
 public interface IMessage
 {
-    public enum MessageType
-    {
-        //...
-    }
-
     // Returns the type of the message, used in automatic message header generation
-    public MessageType MessageType { get; };
+    MessageType MessageType { get; };
 
     // Serialize to a buffer
-    public void Serialize(ref FastBufferWriter writer);
+    void Serialize(ref FastBufferWriter writer);
 }
 ```
 
 Additionally, each message should have a method associated with it it as follows:
 
 ```c#
-[MessageHandler(IMessage.MessageType.MyMessageType)]
+[MessageHandler(MessageType.MyMessageType)]
 public static void Receive(ref FastBufferReader reader, NetworkContext context);
 ```
 
@@ -69,7 +69,7 @@ The second parameter, `NetworkContext`, looks like this:
 public ref struct NetworkContext
 {
     public NetworkManager NetworkManager;
-    public IMessage.MessageType MessageType;
+    public MessageType MessageType;
     public ulong SenderId;
     public NetworkChannel ReceivingChannel;
     public float timestamp;
@@ -260,7 +260,7 @@ A queue of this type exists as a simple array with a configurable fixed size. If
 
 At the point of receiving, we construct a new `NativeArray<byte>` using `Allocator.TempJob` and copy the received data into it, then create a `FastBufferReader` from that NativeArray. The `BatchHeader` is read to determine the total size of the message batch. We then iterate, reading messages (but not processing them) and appending them to the `InternalMessageQueue`, using the `MessageHeader`'s `MessageSize` value to find the beginning of each new message, until we have read the full batch.
 
-We then iterate through `IncomingMessageQueue` as a separate step (thus picking up loopback messages from the previous frame first), looking up each registered `MessageHandler` via a fixed array indexed on `IMessage.MessageType`, and call the handler without any knowledge of the message it will be processing.
+We then iterate through `IncomingMessageQueue` as a separate step (thus picking up loopback messages from the previous frame first), looking up each registered `MessageHandler` via a fixed array indexed on `MessageType`, and call the handler without any knowledge of the message it will be processing.
 
 Finally, an additional queue exists: The dispose queue. Like the incoming message queues, this queue is a fixed-size array of `NativeArray<byte>` objects sized to the combined size of all update queues. Once each buffer has been processed, it's added to the dispose queue, where it will be disposed at the end of the frame after all messages pointing into it have been handled. Disposing is deferred to the end of the frame in order to ensure that the buffers stay alive when `DelayUtility` is used.
 
@@ -273,7 +273,7 @@ Custom messages as they are, using buffers, no longer need to exist. Since the m
 ```C#
 public enum CustomMessageType
 {
-    MyMessage1 = IMessage.MessageType.Custom,
+    MyMessage1 = MessageType.Custom,
     MyMessage2,
     Etc,
 }
