@@ -204,11 +204,11 @@ Sending messages is straightforward: A message struct is created and passed to o
 
 ```C#
 public void SendMessage<TMessageType>(in TMessageType message, ulong clientId, NetworkChannel channel)
-    where TMessageType: IMessage
+    where TMessageType: IMessage;
 
 public void SendMessage<TMessageType, TListType>(in TMessageType message, in TListType clientIds, NetworkChannel channel)
     where TMessageType: IMessage
-    where TListType: IReadOnlyList<ulong>
+    where TListType: IReadOnlyList<ulong>;
 ```
 
 The former of which calls into the latter using `NativeArrayWrapper<ulong>` (a simple ref struct around NativeArray that simply adds an implementation of `IReadOnlyList` and otherwise passes everything through) allocated with `Allocator.Temp` (basically stack allocation).
