@@ -3,10 +3,8 @@
 [feature]: #feature
 
 - Start Date: `2021-07-12`
-- RFC PR: [#26](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/26)
+- RFC PR: [#29](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/29)
 - SDK PR: [#0000](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/pull/0000)
-
-- #future-possibilities)
 
 # Summary
 
@@ -241,7 +239,7 @@ At the end of the frame, each client is iterated once to determine if its writer
 
 
 
-![Sending Messages](0000-zero-alloc-messaging-flow/sending.png)
+![Sending Messages](0029-zero-alloc-messaging-flow/sending.png)
 
 ## Receiving Messages
 
@@ -266,7 +264,7 @@ We then iterate through `IncomingMessageQueue` as a separate step (thus picking 
 
 Finally, an additional queue exists: The dispose queue. Like the incoming message queues, this queue is a fixed-size array of `NativeArray<byte>` objects sized to the combined size of all update queues. Once each buffer has been processed, it's added to the dispose queue, where it will be disposed at the end of the frame after all messages pointing into it have been handled. Disposing is deferred to the end of the frame in order to ensure that the buffers stay alive when `DelayUtility` is used.
 
-![Receiving Messages](0000-zero-alloc-messaging-flow/receiving.png)
+![Receiving Messages](0029-zero-alloc-messaging-flow/receiving.png)
 
 ## Custom Messages
 
