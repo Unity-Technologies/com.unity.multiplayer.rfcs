@@ -1,7 +1,8 @@
-- Feature Name: `snapshot_system_spawns`
+# Snapshot System Spawns
+
 - Start Date: 2021-07-22
-- RFC PR: [Unity-Technologies/com.unity.multiplayer.rfcs#0000](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/0000)
-- Issue: [Unity-Technologies/com.unity.multiplayer#0000](https://github.com/Unity-Technologies/com.unity.multiplayer/issues/0000)
+- RFC PR: [#27](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/27)
+- SDK PR: [#1021](https://github.com/Unity-Technologies/com.unity.multiplayer/pull/1021)
 
 # Summary
 [summary]: #summary
@@ -39,7 +40,7 @@ Each machine will have a snapshot that captures, in-memory, the knowledge it has
 - NetworkVariables values at specific ticks
 - Spawn commands, with all the spawn parameters, the tick and a bitmask of target connections 
 
-![](0000-snapshot-system/snapshot.rfc.png)
+![](0027-snapshot-system/snapshot.rfc.png)
 
 ### The Snapshot Message 
 
@@ -50,7 +51,7 @@ Additionally, a Snapshot Message will include a header that contains:
 - the tick it was sent on
 - acknowledgment for previous messages from this connection (in the form of a bitmask over the _n_ previous sequence numbers)
 
-![](0000-snapshot-system/snapshot.message.rfc.png)
+![](0027-snapshot-system/snapshot.message.rfc.png)
 
 ### Eventual Consistency
 
@@ -165,7 +166,7 @@ Overall this approach is: pessimistically include un’acked spawns, add most re
 
 To illustrate, the diagram below shows Alice and Bob exchange some Snapshot Message. This is for an hypothetical case where Alice needed to send multiple messages per tick, and where two messages were lost.
 
-![](0000-snapshot-system/snapshot.exchange.rfc.png)
+![](0027-snapshot-system/snapshot.exchange.rfc.png)
 
 
 ### - Snapshot Message reception
@@ -205,3 +206,22 @@ As a consequence of implementing the Snapshot System, there isn't a possibility 
 
 As previously mentioned, we also add the limitation of disallowing spawning and despawning the same object on the same Network Tick. 
  
+# Rationale and alternatives
+[rationale-and-alternatives]: #rationale-and-alternatives
+
+N/A
+
+# Prior art
+[prior-art]: #prior-art
+
+N/A
+
+# Unresolved questions
+[unresolved-questions]: #unresolved-questions
+
+N/A
+
+# Future possibilities
+[future-possibilities]: #future-possibilities
+
+N/A
