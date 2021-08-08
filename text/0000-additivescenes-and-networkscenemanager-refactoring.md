@@ -1,7 +1,7 @@
 # (Feature Name Goes Here)
 [feature]: #feature
 
-- Start Date: `20201-07-01`
+- Start Date: `2021-07-01`
 - RFC PR: [#0000](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/0000)
 - SDK PR: [#0000](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/pull/0000)
 
@@ -26,21 +26,21 @@ While this architecture worked with single mode scene loading, additive scene lo
 
 ![](0000-additivescenes-and-networkscenemanager-refactoring/NSM_Reference8.png)
 
-With the existing netcode architecture NetworkObjects are always associated with the currently active scene and are serialized in no specific order nor grouped by any form of scene dependencies.  The above diagram outlines one problematic scenario where  NetworkPrefabHandler spawn generators are additively loaded in **Scene_A-1** and **Scene_B-2**.  On the server or host side, there would be no real issues as the scenes would be loaded in the appropriate order and the NetworkObjects would not need to be synchronized locally.  However, on the client side issues arise when NetworkObjects that were dependent upon either **Scene_A-1** and **Scene_B-2** are instantiated before their dependent additive scenes are loaded.   
+With the existing netcode architecture NetworkObjects are always associated with the currently active scene and are serialized in no specific order nor grouped by any form of scene dependencies.  The above diagram outlines one problematic scenario where  NetworkPrefabHandler spawn generators are additively loaded in **Scene_A-1** and **Scene_B-2**.  On the server or host side, there would be no real issues as the scenes would be loaded in the appropriate order and the NetworkObjects would not need to be synchronized locally.  However, on the client side issues arise when NetworkObjects that were dependent upon either **Scene_A-1** or **Scene_B-2** are instantiated before their dependent additive scenes are loaded.   
 
 By addressing some of the initial NetworkSceneManager dependencies and taking into consideration scenarios like the above, there were several areas identified needed to be improved or completely refactored in order to provide additive scene loading capabilities while also creating better foundation for future Unity Netcode features.
 
 
 # Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
-In order to better consolidate the soft synchronization process, the entire “soft synchronization” methods and related properties were migrated into the NetworkSceneManager.
+In order to better consolidate the soft synchronization process, all “soft synchronization” methods and related properties were migrated into the NetworkSceneManager.
 ![](0000-additivescenes-and-networkscenemanager-refactoring/NSM_Reference4.png)
 
-The entire scene loading and transitioning process is now contained within a single point of entry:  The SceneEventData class.  
+The entire scene loading, transitioning, serialization, and de-serialization process has been greatly simplified down to a single SceneEvent message type that always carries a serialized version of the SceneEventData class.
 
 ![](0000-additivescenes-and-networkscenemanager-refactoring/NSM_Reference5.png)
 
-### **NetworkSceneManager Modifications:**
+### **NetworkSceneManager Modifications/Changes:**
 * [SceneEvent](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/bac7f416ae29624277984c6d2d1eee07bf4afb77/com.unity.multiplayer.mlapi/Runtime/Messaging/MessageQueue/MessageQueueContainer.cs#L37): one scene management message for all scene events.
     * As opposed to having a multitude of Netcode messages, the SceneEventData class contains all scene event related message types and associated data.
 * [SceneEventData class](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/feat/MTT-820-AdditiveSceneLoading/com.unity.multiplayer.mlapi/Runtime/SceneManagement/SceneEventData.cs): all SceneEvent messages contain the state of this class as serialized data.  This migrates all scene loading related serialization and deserialization to a single location which helps to simplify future updates, modifications, and readability.
@@ -52,29 +52,23 @@ The entire scene loading and transitioning process is now contained within a sin
 * [NetworkSceneManager.UnLoadScene](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/bac7f416ae29624277984c6d2d1eee07bf4afb77/com.unity.multiplayer.mlapi/Runtime/SceneManagement/NetworkSceneManager.cs#L328):  This mirrors the SceneManager.UnLoadSceneAsync method that accepts the scene name as string.
 * **SwitchScene**: This is no longer needed and was removed.
 
-### **Client Approval Modifications:**
+### **Client Approval Modifications/Changes:**
 For the most part, scene loading has been decoupled from the client approval process yet it is still started from within the same NetworkManager.HandleApproval method.
 * [HandleApproval](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/bac7f416ae29624277984c6d2d1eee07bf4afb77/com.unity.multiplayer.mlapi/Runtime/Core/NetworkManager.cs#L1387) (Server side):  the client is now only sent its LocalClientId and network time in the ConnectionApproved message.
     * [SynchronizeNetworkObjects](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/bac7f416ae29624277984c6d2d1eee07bf4afb77/com.unity.multiplayer.mlapi/Runtime/SceneManagement/NetworkSceneManager.cs#L734): this method is then called only if EnableSceneManagement is true.  This begins the client synchronization process (late-Joining clients are handled here as well) and is what generates a SceneEvent message of type Event_Sync.
     * [NotifyPlayerConnected:](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/bac7f416ae29624277984c6d2d1eee07bf4afb77/com.unity.multiplayer.mlapi/Runtime/Core/NetworkManager.cs#L1453) If a player NetworkObject was created then any existing clients are notified of the newly connected client.  This code was moved out of HandleApproval for easier readability and future modifications that might change when this message is sent to the existing clients.
 * [HandleConnectionApproved](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/bac7f416ae29624277984c6d2d1eee07bf4afb77/com.unity.multiplayer.mlapi/Runtime/Messaging/InternalMessageHandler.cs#L59) (Client side): the approved client now only sets the NetworkManager.LocalCientId and synchronizes the network time.
 
-### **Local Event Notifications:**
-One of the original NetworkSceneManager’s weak points was the lack of event notifications exposed to the user.  This was addressed in the pre-release via a series of event notifications that focused on notifying the server that all clients had loaded a scene.  In turn, the server would then generate a network message to communicate this event to the rest of the clients. 
+### **New Local Event Notifications:**
+*One of the original NetworkSceneManager’s weak points was the lack of event notifications exposed to the user.  This was partially addressed in the pre-release version of Unity Netcode via a series of event notifications that focused on notifying the server that all clients had loaded a scene.  In turn, the server would then generate a network message to communicate this event to the rest of the clients.*
 
 ![](0000-additivescenes-and-networkscenemanager-refactoring/NSM_Reference9.png)
 
- This process has been improved upon by making all scene events available to both the Unity.Netcode domain and user code domain via [NetworkSceneManager.OnSceneEvent](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/bac7f416ae29624277984c6d2d1eee07bf4afb77/com.unity.multiplayer.mlapi/Runtime/SceneManagement/NetworkSceneManager.cs#L101) that provides a [SceneEvent](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/bac7f416ae29624277984c6d2d1eee07bf4afb77/com.unity.multiplayer.mlapi/Runtime/SceneManagement/NetworkSceneManager.cs#L15) class as a parameter to subscriber(s) of this event.
+ The local event notification process has been improved upon by making all scene events available to both the Unity.Netcode domain and user code domain via [NetworkSceneManager.OnSceneEvent](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/bac7f416ae29624277984c6d2d1eee07bf4afb77/com.unity.multiplayer.mlapi/Runtime/SceneManagement/NetworkSceneManager.cs#L101) that provides a [SceneEvent](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/bac7f416ae29624277984c6d2d1eee07bf4afb77/com.unity.multiplayer.mlapi/Runtime/SceneManagement/NetworkSceneManager.cs#L15) class as a parameter to subscriber(s) of this event.
 
 ![](0000-additivescenes-and-networkscenemanager-refactoring/NSM_Reference10.png)
 
-Also worth noting, the loading or unloading asynchronous operation is now passed along within the SceneEvent parameter and there is no longer a public facing SwitchSceneProgress. Additionally, both NetworkSceneManager.Load and NetworkSceneManager.Unload now only return a [SceneEventProgressStatus](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/bac7f416ae29624277984c6d2d1eee07bf4afb77/com.unity.multiplayer.mlapi/Runtime/SceneManagement/SceneEventProgress.cs#L23) to let users know whether the relative SceneEvent has begun or failed.
-
-
-
-# Reference-level explanation
-[reference-level-explanation]: #reference-level-explanation
-
+Also worth noting, the loading or unloading asynchronous operation is now passed along within the SceneEvent parameter and there is no longer a public facing SwitchSceneProgress. Additionally, both NetworkSceneManager.Load and NetworkSceneManager.Unload now only return a [SceneEventProgressStatus](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/bac7f416ae29624277984c6d2d1eee07bf4afb77/com.unity.multiplayer.mlapi/Runtime/SceneManagement/SceneEventProgress.cs#L23) to let users know whether the relative SceneEvent has started or failed to start.  The rest of the related SceneEvent messages are delivered via NetworkSceneManager.OnSceneEvent.  
 
 ### **Client Synchronization Updates:**
 The SynchronizeNetworkObjects method follows a similar pattern as the previous version of the NetworkSceneManager with some additions to account for the loading of multiple scenes (i.e. additive scenes).
@@ -89,6 +83,29 @@ The SynchronizeNetworkObjects method follows a similar pattern as the previous v
 
 **The Entire Client Connection Approval and Scene Synchronization Process**
 ![](0000-additivescenes-and-networkscenemanager-refactoring/NSM_Reference7.png)
+We can see that the approval process does not include the scene synchronization data and will be processed as a completely separate message.  
+
+With the above modifications, we can now consider the same problematic scenario with NetworkObjects that are dependent upon an additively loaded scene (diagram below).  NetworkObjects are first grouped by their associated scene and then ordered such that NetworkObjects with dependencies will be sorted towards the end of the scene group specific serialized data.  This assures the spawn generators (i.e NetworkPrefabHandler)  will be instantiated before the dependent NetworkObjects.  
+
+![](0000-additivescenes-and-networkscenemanager-refactoring/NSM_Reference11.png)
+
+In order to create a scene dependency between the NetworkObject and the spawn generator, the user is only required to set the scene containing the spawn generator as a dependency when creating their pool of NetworkObjects as such:
+```c#
+if (gameObject.scene != SceneManager.GetActiveScene())
+{
+    var networkObject = obj.GetComponent<NetworkObject>();
+    networkObject.SetSceneAsDependency(gameObject.scene.name);
+}
+```
+Setting each pooled NetworkObject's scene dependency lets the NetworkSceneManager know about the dependency so it can take it into account when handling player scene and NetworkObject synchronization.  
+
+
+
+# Reference-level explanation
+[reference-level-explanation]: #reference-level-explanation
+
+
+
 
 Explain the proposal as if it was already included in the Unity Multiplayer and you were teaching it to another Unity developer. That generally means:
 
