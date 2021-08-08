@@ -81,7 +81,7 @@ The SynchronizeNetworkObjects method follows a similar pattern as the previous v
         * [SynchronizeSceneNetworkObjects](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/bac7f416ae29624277984c6d2d1eee07bf4afb77/com.unity.multiplayer.mlapi/Runtime/SceneManagement/SceneEventData.cs#L518): A method of SceneEventData that is invoked from within the ClientLoadedSynchronization method.  This  handles the instantiation and synchronization of the associated scene’s NetworkObjects.
  3. Finally, a check is done to determine if there are still more scenes to be loaded.  If so, then the synchronization process repeats until the client has loaded all scenes and instantiated or soft-synchronized all NetworkObjects.Once completed, the client responds to the server with a SceneEvent type of S2C_Sync_Complete which includes the NetworkObjects instantiated and synchronized for the server to determine if a re-synchronization is required.
 
-**The Entire Client Connection Approval and Scene Synchronization Process**
+### **The Entire Client Connection Approval and Scene Synchronization Process**
 We can see that the approval process does not include the scene synchronization data and will be processed as a completely separate message.  Then if EnableSceneManagement is true, the SynchronizeNetworkObjects method is invoked which generates the S2C_Sync SceneEvent message.  The client processes all serialized data (i.e. scenes and NetworkObjects) in the S2C_Sync message, and upon finishing informs the server that is is done (complete).
 ![](0000-additivescenes-and-networkscenemanager-refactoring/NSM_Reference7.png)
 
