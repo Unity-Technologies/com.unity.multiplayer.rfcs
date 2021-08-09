@@ -82,6 +82,9 @@ The SynchronizeNetworkObjects method follows a similar pattern as the previous v
 We can see that the approval process does not include the scene synchronization data and will be processed as a completely separate message.  Then if EnableSceneManagement is true, the SynchronizeNetworkObjects method is invoked which generates the S2C_Sync SceneEvent message.  The client processes all serialized data (i.e. scenes and NetworkObjects) in the S2C_Sync message, and upon finishing informs the server that is is done (C2S_SyncComplete).
 ![](0000-additivescenes-and-networkscenemanager-refactoring/NSM_Reference7.png)
 
+In the event that the server determines the client being synchronized missed a DestroyObject message, the server will send a final S2C_ReSync message that contains the NetworkObjectIds of the NetworkObjects that no longer exist.  Upon receiving the S2C_ReSync message, the client will remove the NetworkObjects in question and clean up the local SpawnManager's SpawnObjects lists.
+*This is a placed holder feature until the snapshot system handles the DestroyObject message*.
+
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
 
