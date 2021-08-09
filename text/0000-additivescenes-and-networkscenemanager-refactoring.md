@@ -90,7 +90,7 @@ With the above modifications, we can now consider the same problematic scenario 
 
 ![](0000-additivescenes-and-networkscenemanager-refactoring/NSM_Reference11.png)
 
-In order to create a scene dependency between the NetworkObject and a scene depeendency (in this case the spawn generator), the user is only required to set the scene as a dependency for the dependent NetworkObject when creating their pool as such:
+In order to set a scene dependency for a NetworkObject that has a dependency in a different scene (in this case the spawn generator), the user is only required to set the scene as a dependency for the dependent NetworkObject as such:
 ```c#
     var networkObject = obj.GetComponent<NetworkObject>();
     networkObject.SetSceneAsDependency(sceneName);  // sceneName is the scene that contains an asset the NetworkObject depends upon
