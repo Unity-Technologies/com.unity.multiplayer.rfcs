@@ -85,7 +85,25 @@ We can see that the approval process does not include the scene synchronization 
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
 
+### **The Client Scene Synchronization Process**
+With the above modifications, we can now consider the same problematic scenario with NetworkObjects that are dependent upon an additively loaded scene (diagram below).  While the server is creating the S2C_Sync SceneEvent, NetworkObjects are first grouped by their associated scene and then ordered such that NetworkObjects with dependencies will be sorted towards the end of the scene group specific serialized data.  This assures the spawn generators (i.e NetworkPrefabHandler)  will be instantiated before the dependent NetworkObjects.  
+
+![](0000-additivescenes-and-networkscenemanager-refactoring/NSM_Reference11.png)
+
+In order to create a scene dependency between the NetworkObject and the spawn generator, the user is only required to set the scene containing the spawn generator as a dependency when creating their pool of NetworkObjects as such:
+```c#
+if (gameObject.scene != SceneManager.GetActiveScene())
+{
+    var networkObject = obj.GetComponent<NetworkObject>();
+    networkObject.SetSceneAsDependency(gameObject.scene.name);
+}
+```
+Setting each pooled NetworkObject's scene dependency lets the NetworkSceneManager know about the dependency so it can take it into account when handling player scene and NetworkObject synchronization.  
+
+
 ### **Local Event Notifications:**
+Additional consideration was put towards providing the user with a plethora of options when it comes to scene event notifications.  Part of this consideration includes the additional level of detail provided to the user through the SceneEvent class's properties:
+
 ![](0000-additivescenes-and-networkscenemanager-refactoring/NSM_Reference10.png)
 
 Also worth noting, the loading or unloading asynchronous operation is now passed along within the SceneEvent parameter and there is no longer a public facing SwitchSceneProgress. Additionally, both NetworkSceneManager.Load and NetworkSceneManager.Unload now only return a [SceneEventProgressStatus](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/bac7f416ae29624277984c6d2d1eee07bf4afb77/com.unity.multiplayer.mlapi/Runtime/SceneManagement/SceneEventProgress.cs#L23) to let users know whether the relative SceneEvent has started or failed to start.  The rest of the related SceneEvent messages are delivered via NetworkSceneManager.OnSceneEvent.  
@@ -201,21 +219,6 @@ private void SceneManager_OnSceneEvent(SceneEvent sceneEvent)
 ```
 The goal behind the new scene event notifications approach was to provide a single event notification that provides users with all NetworkSceneManager related events and any pertinent relative data. Additionally, it provides a final notification to all clients when all clients have finished loading or unloading a scene.
 
-
-### **The Client Scene Synchronization Process**
-With the above modifications, we can now consider the same problematic scenario with NetworkObjects that are dependent upon an additively loaded scene (diagram below).  While the server is creating the S2C_Sync SceneEvent, NetworkObjects are first grouped by their associated scene and then ordered such that NetworkObjects with dependencies will be sorted towards the end of the scene group specific serialized data.  This assures the spawn generators (i.e NetworkPrefabHandler)  will be instantiated before the dependent NetworkObjects.  
-
-![](0000-additivescenes-and-networkscenemanager-refactoring/NSM_Reference11.png)
-
-In order to create a scene dependency between the NetworkObject and the spawn generator, the user is only required to set the scene containing the spawn generator as a dependency when creating their pool of NetworkObjects as such:
-```c#
-if (gameObject.scene != SceneManager.GetActiveScene())
-{
-    var networkObject = obj.GetComponent<NetworkObject>();
-    networkObject.SetSceneAsDependency(gameObject.scene.name);
-}
-```
-Setting each pooled NetworkObject's scene dependency lets the NetworkSceneManager know about the dependency so it can take it into account when handling player scene and NetworkObject synchronization.  
 
 
 # Drawbacks
