@@ -214,7 +214,7 @@ private void SceneManager_OnSceneEvent(SceneEvent sceneEvent)
     }
 }
 ```
-The goal behind the new scene event notifications approach was to provide a single event notification that provides users with all NetworkSceneManager related events and any pertinent relative data. Additionally, it provides a final notification to all clients when all clients have finished loading or unloading a scene.
+Scene event notifications provide users with all NetworkSceneManager related scene events (and associated data) through a single event handler.  The one exception would be scene loading or unloading progress which users can handle with a coroutine (upon recieving a S2C_Load or S2C_Unload event) and checking the AsyncOperation.progress value over time.  The user can then stop the progrss checking coroutine upon receiving any of the following event notifications for the scene and event type in question: C2S_LoadComplete, C2S_UnloadComplete, S2C_LoadComplete, and S2C_UnloadComplete.
 
 
 
