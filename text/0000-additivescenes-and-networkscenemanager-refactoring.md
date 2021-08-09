@@ -131,7 +131,7 @@ Clients will generate local notifications that use the server’s client identif
 **When has everyone processed a SceneEvent message?**  
 There are two special scene event types that generate messages for the server and all connected clients:  ***S2C_LoadComplete and S2C_UnloadComplete*** 
 
-Both of these server generated messages will create local notification events that will contain the list of all client identifiers (ClientsThatCompleted) that have finished loading or unloading a scene.  This can be useful to make sure all clients are synchronized with each other before allowing any netcode related game logic to begin.  If a client disconnects or there is a time out, then any client that did not load or unload the scene will be included in a second list of client identifiers (ClientsThatTimedOut).
+Both of these server generated messages will create local notification events (on all clients and the server) that will contain the list of all client identifiers (ClientsThatCompleted) that have finished loading or unloading a scene.  This can be useful to make sure all clients are synchronized with each other before allowing any netcode related game logic to begin.  If a client disconnects or there is a time out, then any client that did not load or unload the scene will be included in a second list of client identifiers (ClientsThatTimedOut).
 
 ### **Tracking Event Notifications:**
 The following pseudo code provides an example usage of NetworkSceneManager.OnSceneEvent with additional comments about each scene event type.
