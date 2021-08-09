@@ -66,9 +66,6 @@ For the most part, scene loading has been decoupled from the client approval pro
 
  The local event notification process has been improved upon by making all scene events available to both the Unity.Netcode domain and user code domain via [NetworkSceneManager.OnSceneEvent](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/bac7f416ae29624277984c6d2d1eee07bf4afb77/com.unity.multiplayer.mlapi/Runtime/SceneManagement/NetworkSceneManager.cs#L101) that provides a [SceneEvent](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/bac7f416ae29624277984c6d2d1eee07bf4afb77/com.unity.multiplayer.mlapi/Runtime/SceneManagement/NetworkSceneManager.cs#L15) class as a parameter to subscriber(s) of this event.
 
-![](0000-additivescenes-and-networkscenemanager-refactoring/NSM_Reference10.png)
-
-Also worth noting, the loading or unloading asynchronous operation is now passed along within the SceneEvent parameter and there is no longer a public facing SwitchSceneProgress. Additionally, both NetworkSceneManager.Load and NetworkSceneManager.Unload now only return a [SceneEventProgressStatus](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/bac7f416ae29624277984c6d2d1eee07bf4afb77/com.unity.multiplayer.mlapi/Runtime/SceneManagement/SceneEventProgress.cs#L23) to let users know whether the relative SceneEvent has started or failed to start.  The rest of the related SceneEvent messages are delivered via NetworkSceneManager.OnSceneEvent.  
 
 ### **Client Synchronization Updates:**
 The SynchronizeNetworkObjects method follows a similar pattern as the previous version of the NetworkSceneManager with some additions to account for the loading of multiple scenes (i.e. additive scenes).
@@ -85,6 +82,127 @@ The SynchronizeNetworkObjects method follows a similar pattern as the previous v
 We can see that the approval process does not include the scene synchronization data and will be processed as a completely separate message.  Then if EnableSceneManagement is true, the SynchronizeNetworkObjects method is invoked which generates the S2C_Sync SceneEvent message.  The client processes all serialized data (i.e. scenes and NetworkObjects) in the S2C_Sync message, and upon finishing informs the server that is is done (complete).
 ![](0000-additivescenes-and-networkscenemanager-refactoring/NSM_Reference7.png)
 
+# Reference-level explanation
+[reference-level-explanation]: #reference-level-explanation
+
+### **Local Event Notifications:**
+![](0000-additivescenes-and-networkscenemanager-refactoring/NSM_Reference10.png)
+
+Also worth noting, the loading or unloading asynchronous operation is now passed along within the SceneEvent parameter and there is no longer a public facing SwitchSceneProgress. Additionally, both NetworkSceneManager.Load and NetworkSceneManager.Unload now only return a [SceneEventProgressStatus](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/bac7f416ae29624277984c6d2d1eee07bf4afb77/com.unity.multiplayer.mlapi/Runtime/SceneManagement/SceneEventProgress.cs#L23) to let users know whether the relative SceneEvent has started or failed to start.  The rest of the related SceneEvent messages are delivered via NetworkSceneManager.OnSceneEvent.  
+
+The SceneEvent class provides various properties specific to the notification type.  The following chart shows all server to client (S2C) event types and which properties are set:
+
+![](0000-additivescenes-and-networkscenemanager-refactoring/NSM_Reference12.png)
+
+The next chart shows all client to server (C2S) event types and the properties that are set:
+
+![](0000-additivescenes-and-networkscenemanager-refactoring/NSM_Reference13.png)
+
+Both the server (or host) and clients will receive event notifications for every scene event that occurs, and if we review back over both the client to server and server to client scene event types, we can see that every notification includes a client identifier (ClientId).  However, while the client identifier is set for every scene event type the value should be considered “relative” to the invoker and the receiver of the scene event type.
+
+**As an example:**
+* The server begins a S2C_Load scene event and sends this message to the clients
+    * The local server SceneEvent notification will contain the server’s client identifier
+    * The server completes the event and generates a local C2S_LoadComplete notification that contains the server’s client identifier
+* The  client(s) receive the S2C_Load scene event and begin processing it.
+    * The local S2C_Load scene event will contain the server’s client identifier
+* The client(s) finish and respond with a C2S_LoadComplete message to the server
+    * The local client SceneEvent notification will contain the client’s identifier
+* The server receives the client(s) C2S_LoadComplete message
+    * The server generates a local C2S_LoadComplete notification with ClientId set to the sending client’s identifier.
+    
+Clients will generate local notifications that use the server’s client identifier (ClientId) value when Server to Client (S2C) messages are received while the server will generate all local notifications relative to the invoker/sender of the message.  This assures the server side user code will always be aware of all local and client generated scene event messages while clients will only be aware of locally generated and server generated scene event messages.
+
+**When has everyone processed a SceneEvent message?**  
+There are two special scene event types that generate messages for the server and all connected clients:  ***S2C_LoadComplete and S2C_UnloadComplete*** 
+
+Both of these server generated messages will create local notification events that will contain the list of all client identifiers (ClientsThatCompleted) that have finished loading or unloading a scene.  This can be useful to make sure all clients are synchronized with each other before allowing any netcode related game logic to begin.  If a client disconnects or there is a time out, then any client that did not load or unload the scene will be included in a second list of client identifiers (ClientsThatTimedOut).
+
+### **Tracking Event Notifications:**
+The following pseudo code provides an example usage of NetworkSceneManager.OnSceneEvent with additional comments about each scene event type.
+
+```C#
+private void Start()
+{
+    NetworkManager.SceneManager.OnSceneEvent += SceneManager_OnSceneEvent;
+}
+
+private void SceneManager_OnSceneEvent(SceneEvent sceneEvent)
+{
+    // Both Client and Server Receive these notifications
+    switch (sceneEvent.SceneEventType)
+    {
+        // Handle Server to Client Load Notifications
+        case SceneEventData.SceneEventTypes.S2C_Load:
+            {
+                // Server and Client will provide the associated AsyncOperation in the event you need to track this
+                // Note: C2S_LoadComplete notifies you of this condition as well
+                sceneEvent.AsyncOperation.completed += AsyncOperation_LoadCompleted;
+                // AsyncOperation.progress can be used to determine scene loading progress
+                break;
+            }
+        // Handle Server to Client UnLoad Notifications
+        case SceneEventData.SceneEventTypes.S2C_Unload:
+            {
+                // Server and Client will provide the associated AsyncOperation in the event you need to track this
+                // Note: C2S_UnloadComplete notifies you of this condition as well
+                sceneEvent.AsyncOperation.completed += AsyncOperation_UnLoadCompleted;
+                // AsyncOperation.progress can be used to determine scene loading progress
+                break;
+            }
+        // Handle Client to Server Load Complete Notification(s)
+        case SceneEventData.SceneEventTypes.C2S_LoadComplete:
+            {
+                // This will let you know when a load is completed
+
+                // Server Side: receives this notification for both itself and all clients
+                // Client Side: receives this notification for itself
+
+                // So you can use sceneEvent.ClientId to also track when clients are finished loading a scene
+                break;
+            }
+        // Handle Client to Server Unload Complete Notification(s)
+        case SceneEventData.SceneEventTypes.C2S_UnloadComplete:
+            {
+                // This will let you know when an unload is completed
+
+                // Server Side: receives this notification for both itself and all clients
+                // Client Side: receives this notification for itself
+
+                // So you can use sceneEvent.ClientId to also track when clients are finished unloading a scene
+                break;
+            }
+        // Handle Server to Client Load Complete (all clients finished loading notification)
+        case SceneEventData.SceneEventTypes.S2C_LoadComplete:
+            {
+                // This will let you know when all clients have finished loading a scene
+                // Received on both server and clients
+                foreach (var clientId in sceneEvent.ClientsThatCompleted)
+                {
+                    // Example of parsing through the clients that completed list
+                }
+
+                break;
+            }
+        // Handle Server to Client unload Complete (all clients finished unloading notification)
+        case SceneEventData.SceneEventTypes.S2C_UnLoadComplete:
+            {
+                // This will let you know when all clients have finished unloading a scene
+                // Received on both server and clients
+                foreach (var clientId in sceneEvent.ClientsThatCompleted)
+                {
+                    // Example of parsing through the clients that completed list
+                }
+
+                break;
+            }
+    }
+}
+```
+The goal behind the new scene event notifications approach was to provide a single event notification that provides users with all NetworkSceneManager related events and any pertinent relative data. Additionally, it provides a final notification to all clients when all clients have finished loading or unloading a scene.
+
+
+### **The Client Scene Synchronization Process**
 With the above modifications, we can now consider the same problematic scenario with NetworkObjects that are dependent upon an additively loaded scene (diagram below).  While the server is creating the S2C_Sync SceneEvent, NetworkObjects are first grouped by their associated scene and then ordered such that NetworkObjects with dependencies will be sorted towards the end of the scene group specific serialized data.  This assures the spawn generators (i.e NetworkPrefabHandler)  will be instantiated before the dependent NetworkObjects.  
 
 ![](0000-additivescenes-and-networkscenemanager-refactoring/NSM_Reference11.png)
@@ -99,31 +217,6 @@ if (gameObject.scene != SceneManager.GetActiveScene())
 ```
 Setting each pooled NetworkObject's scene dependency lets the NetworkSceneManager know about the dependency so it can take it into account when handling player scene and NetworkObject synchronization.  
 
-
-
-# Reference-level explanation
-[reference-level-explanation]: #reference-level-explanation
-
-
-
-
-Explain the proposal as if it was already included in the Unity Multiplayer and you were teaching it to another Unity developer. That generally means:
-
-- Introducing new named concepts.
-- Explaining the feature largely in terms of examples.
-- Explaining how Unity developers should _think_ about the feature, and how it should impact the way they develop multiplayer projects in Unity. It should explain the impact as concretely as possible.
-- If applicable, provide sample error messages, deprecation warnings, or migration guidance.
-- If applicable, describe the differences between teaching this to existing Unity developers and new Unity developers.
-
-For implementation-oriented RFCs (e.g. for framework internals), this section should focus on how Unity Multiplayer contributors should think about the change, and give examples of its concrete impact. For policy RFCs, this section should provide an example-driven introduction to the policy, and explain its impact in concrete terms.
-
-This is the technical portion of the RFC. Explain the design in sufficient detail that:
-
-- Its interaction with other features is clear.
-- It is reasonably clear how the feature would be implemented.
-- Corner cases are dissected by example.
-
-The section should return to the examples given in the previous section, and explain more fully how the detailed proposal makes those examples work.
 
 # Drawbacks
 [drawbacks]: #drawbacks
