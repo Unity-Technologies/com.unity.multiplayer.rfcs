@@ -28,7 +28,7 @@ While this architecture worked with single mode scene loading, additive scene lo
 
 With the existing netcode architecture NetworkObjects are always associated with the currently active scene and are serialized in no specific order nor grouped by any form of scene dependencies.  The above diagram outlines one problematic scenario where  NetworkPrefabHandler spawn generators are additively loaded in **Scene_A-1** and **Scene_B-2**.  On the server or host side, there would be no real issues as the scenes would be loaded in the appropriate order and the NetworkObjects would not need to be synchronized locally.  However, on the client side issues arise when NetworkObjects that were dependent upon either **Scene_A-1** or **Scene_B-2** are instantiated before their dependent additive scenes are loaded.   
 
-By addressing some of the initial NetworkSceneManager dependencies and taking into consideration scenarios like the above, there were several areas identified as needing improvement or being completely refactored in order to provide additive scene loading capabilities. a better foundation for future Unity Netcode features, and improving the user experience with Netcode scene management.
+By addressing some of the initial NetworkSceneManager dependencies and taking into consideration scenarios like the above, there were several areas identified as needing improvement or being completely refactored in order to provide additive scene loading capabilities, a better foundation for future Unity Netcode features, and improving the user experience with Netcode scene management.
 
 
 # Guide-level explanation
