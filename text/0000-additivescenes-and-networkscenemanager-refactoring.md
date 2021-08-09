@@ -221,43 +221,24 @@ Setting each pooled NetworkObject's scene dependency lets the NetworkSceneManage
 # Drawbacks
 [drawbacks]: #drawbacks
 
-Why should we _not_ do this?
+So far, the only drawback to this approach is that it is still purely an event driven process and not state driven (which could be the next evolution for this version of scene management).  Since only one scene event can occur at a time, users cannot specify a set of levels to be loaded as a group.  This means that user level code must drive the scene loading process when a series of levels need to be loaded for a full scene transition.  This implementation also considers any scene being loaded as a single loading mode scene as being the currently active scene and does not allow for the synchronization of changing the currently active scene.
 
 # Rationale and alternatives
 [rationale-and-alternatives]: #rationale-and-alternatives
 
-- Why is this design the best in the space of possible designs?
-- What other designs have been considered and what is the rationale for not choosing them?
-- What is the impact of not doing this?
-
-# Prior art
-[prior-art]: #prior-art
-
-Discuss prior art, both the good and the bad, in relation to this proposal. A few examples of what this can include are:
-
-- For framework, tools, and library proposals: Does this feature exist in other networking stacks and what experience have their community had?
-- For community proposals: Is this done by some other community and what were their experiences with it?
-- For other teams: What lessons can we learn from what other communities have done here?
-- Papers: Are there any published papers or great posts that discuss this? If you have some relevant papers to refer to, this can serve as a more detailed theoretical background.
-
-This section is intended to encourage you as an author to think about the lessons from other projects, provide readers of your RFC with a fuller picture. If there is no prior art, that is fine - your ideas are interesting to us whether they are brand new or if it is an adaptation from other projects.
-
-Note that while precedent set by other projects is some motivation, it does not on its own motivate an RFC. Please also take into consideration that Unity Multiplayer sometimes intentionally diverges from common multiplayer networking features.
+As stated in the drawbacks, this was a first pass scene management improvement sweep that included additive scene loading integration.  This implementation could be further improved upon in the following ways:
+- Allowing for synchronized changing of the currently active scene.
+- Providing a way to specify a group of scenes in one scene event message
+- This could be further improved by deriving NetworkSceneManager from SceneManagerAPI in order to make the entire process transparent to the user.
 
 # Unresolved questions
 [unresolved-questions]: #unresolved-questions
 
-- What parts of the design do you expect to resolve through the RFC process before this gets merged?
-- What parts of the design do you expect to resolve through the implementation of this feature before stabilization?
-- What related issues do you consider out of scope for this RFC that could be addressed in the future independently of the solution that comes out of this RFC?
+Questions are welcome.  For the most part the only real question I have is whether we want to spend more time thinking about scene asset dependencies and potentially better ways to solve for future complications when it comes to instantiating and spawning NetworkObjects before their dependencies are loaded, instantiated, and considered spawned.
 
 # Future possibilities
 [future-possibilities]: #future-possibilities
 
-Think about what the natural extension and evolution of your proposal would be and how it would affect the Unity Multiplayer as a whole in a holistic way. Try to use this section as a tool to more fully consider all possible interactions with the Unity Multiplayer in your proposal. Also consider how the this all fits into the roadmap for the project and the team.
+A MS-1 near future update to this implementation will be the removal of scene registration and to just use the scenes in the build list as the scene registration.
 
-This is also a good place to "dump ideas", if they are out of scope for the RFC you are writing but otherwise related.
-
-If you have tried and cannot think of any future possibilities, you may simply state that you cannot think of anything.
-
-Note that having something written down in the future-possibilities section is not a reason to accept the current or a future RFC; such notes should be in the section on motivation or rationale in this or subsequent RFCs. The section merely provides additional information.
+Deriving from SceneManagerAPi could help improve upon the entire API by removing the need to use NetworkSceneManager.Load and NetworkSceneManager.Unload.  This would allow users to simply use the traditional SceneManager as they normally would for single player games.
