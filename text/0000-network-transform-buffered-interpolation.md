@@ -13,8 +13,9 @@ This RFC proposes upgraded interpolation options from the old NetworkTransform's
 # Motivation
 [motivation]: #motivation
 
-NetworkTransform needs a way to help users smooth movements that can resist to different network conditions and allows users to extend it if needed.
-The previous implementation didn't offer much flexibility on what interpolation algorithm to use. If I wanted to create my custom interpolation that prevents players from going through walls instead of interpolating linearly, I would need to reimplement at least part of my own NetworkTransform. If I wanted my object to change direction instantaneously I could use a different interpolation implementation than if I wanted to have wobble and inertia.
+NetworkTransform needs a way to help users smooth movements that can resist to different network conditions and allows users to extend it if needed. We'll have users creating games at 10 ticks/sec or even lower. linear interpolation isn't great in that case. Gafferongames has a good example gif of this here https://gafferongames.com/post/snapshot_interpolation/#linear-interpolation with the wobbly children cubes. Looking at the prior-art section, you can see there's already quite a few use cases for different interpolation algorithms.
+Gafferongames talks Hermite interpolation. Source engine uses buffered linear interpolation. HLAPI used physics based extrapolation. Unreal interpolates visuals only and teleports colliders. Kalman filtering can be used for a more realistic smooth extrapolation.
+The previous implementation didn't offer much flexibility on what interpolation algorithm to use. If I wanted to create my custom interpolation that prevents players from going through walls instead of interpolating linearly or have interpolation that follows physics forces instead of interpolating linearly, I would need to reimplement at least part of my own NetworkTransform. If I wanted my object to change direction instantaneously I could use a different interpolation implementation than if I wanted to have wobble and inertia.
 
 It also didn't take into account network jitter, which becomes a visible issue on overloaded or unstable networks like you can find with mobile platforms 
 
@@ -45,11 +46,8 @@ A default `BufferedLinearInterpolator` is provided. The buffered linear interpol
 
 This will smooth tranforms on jittery connections, however it'll add more latency to your transform updates. This should be used carefully as to not add more latency than needed to your game. Bigger buffer values could be expected when targeting mobile platforms for example, while keeping interpolation times lower for platforms with typically more stable connections.
 
-You can find the interpolator's configuration in its associated scriptable object factory.
-It is advised to use the same interpolator for the same types of NetworkTransform. This way, you're making sure all your objects will be synchronized and use the same delays. Having an interpolator with 100ms delay and another with 500ms delay could cause visible overlaps and desyncs where an object at time say `t=10s` tries to interact with an object buffered at time `t=9.6s`.
+It is advised to use the same interpolator with the same configuration for the same types of NetworkTransform. This way, you're making sure all your objects will be synchronized and use the same delays. Having an interpolator with 100ms delay and another with 500ms delay could cause visible overlaps and desyncs where an object at time say `t=10s` tries to interact with an object buffered at time `t=9.6s`.
 However, different types of objects might require different interpolator settings. A car would be interpolated differently compared to a character. It'd make sense to use the same interpolator+config for all cars but it wouldn't make sense to share that interpolator+config with a character walking around.
-
-If you have a case where you'd like to use a different configuration, you can create a new instance of the interpolator scriptable object and assign it to your object. If you want a new default value for all your NetworkTransforms, you can assign a scriptable object as default value for a class in the Unity Editor, by selecting the C# script and assigning the default value in the script's inspector (this will add a reference in the C# script's meta file).
 
 If you don't want interpolation, you can use the `NoInterpolation` interpolator which will take in new values and present them directly when asked, without doing anything else.
 
@@ -107,57 +105,17 @@ public class SimpleInterpolator : IInterpolator<Vector3>
 }
 ```
 
-A factory is used to select and configure which interpolator to use for the NetworkTransform.
-
-```c#
-public abstract class InterpolatorFactory<T> : ScriptableObject
-{
-    public const string BaseMenuName = "MLAPI/Interpolator/";
-    public abstract IInterpolator<T> CreateInterpolator();
-}
-
-public abstract class BufferedLinearInterpolatorFactory<T> : InterpolatorFactory<T>
-{
-    [SerializeField]
-    public float InterpolationTime = 0.100f;
-}
-
-[CreateAssetMenu(fileName = "BufferedLinearInterpolatorVector3", menuName = BaseMenuName + "BufferedLinearInterpolatorVector3", order = 1)]
-public class BufferedLinearInterpolatorVector3Factory : BufferedLinearInterpolatorFactory<Vector3>
-{
-    public override IInterpolator<Vector3> CreateInterpolator()
-    {
-        return new BufferedLinearInterpolatorVector3(this);
-    }
-}
-```
-
-Settings for each types of interpolators (like the above `InterpolationTime`) are owned by the interpolator's factory. NetworkTransform allows selecting which interpolator factory to use.
-
-![](0000-network-transform-buffered-interpolation/InterpolatorConfiguration.png)
-
-This setting is shared by all interpolators.
-
-![](0000-network-transform-buffered-interpolation/InterpolatorConfigurationSO.png)
-
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
 
 ## Interpolator integration with NetworkTransform
 
-Users can select their interpolator using a global configuration set in a scriptable object.
-
-```c#
-[SerializeField]
-private InterpolatorFactory<Vector3> m_PositionInterpolator;
-```
-
-On Awake, NetworkTransform will create its own instance to use.
+NetworkTransform has its own interpolator instance.
 
 ```c#
 private void Awake()
 {
-    PositionInterpolator = m_PositionInterpolatorFactory.CreateInterpolator();
+    PositionInterpolator = m_PositionInterpolatorFactory.CreateInterpolator(); // interpolator creation is an implementation detail
 }
 ```
 
@@ -310,7 +268,6 @@ Increasing send rate will help reducing the buffer size needed for clean interpo
 ## Other design
 
 The interpolator could have been hard coded in NetworkTransform without actually being a separate class. This could have made NetworkTransform more self contained, but would also have been more cumbersome to extend interpolation. Users could for example want to prevent interpolated transforms from going through walls instead of interpolating linearly. They could want to interpolate using their navmesh. Any sort of custom interpolation becomes easy with the current design and would hook directly in NetworkTransform, without being too hard to maintain on our side. 
-With .meta file default values, you can set a ScriptableObject as a default for your class, no extra user action should be needed to use NetworkTransform with default scriptable object values.
 
 ## Impact of not doing this
 
