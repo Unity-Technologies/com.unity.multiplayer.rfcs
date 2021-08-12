@@ -20,6 +20,7 @@ The more recent NetworkSceneManager updates allowed for the use of SceneAssets i
 [guide-level-explanation]: #guide-level-explanation
 
 By treating all of the scenes in the build list as registered scenes and providing a scene verification callback handler that was always invoked prior to loading a scene,  users now have one location to register scenes and they can customize the scene verification process.  The new scene verification process provides users, depending upon the user’s custom verification implementation, the ability to associate a specific subset of scenes in the build list based on current game state.  
+
 This approach still required some kind of master registered scenes list in order to provide the very basic scene verification checks of whether the scene name being requested for load (server side) or being commanded to load (client side) was even included in the build.  Since the “scenes in build list” is only available to the editor, a new scriptable object type (ScenesInBuild) was created as a runtime container to hold the list of scenes included in the build.  To further simplify the scene registration process, a ScenesInBuild asset is automatically created for the user if one does not exist.   
   
 ![](0000-remove-sceneregistration/rem-sceneregistration-1.png)
@@ -27,7 +28,6 @@ This approach still required some kind of master registered scenes list in order
 The asset created will always be called “ScenesInBuildList” and is always initially created within the root Asset folder of the user’s project.  The ScenesInBuildList asset will be created or updated upon the assignment of a NetworkManager component to a GameObject, loading a scene (in the editor) that contains a GameObject with the NetworkManager component, or during the build process if any scene(s) included in the “scenes in build list” contains a GameObject with a NetworkManager component.
 
 Once created, the user can choose to move the ScenesInBuildList asset to any sub-folder within their project’s Asset folder.  If a user creates a duplicate copy of the ScenesInBuildList asset and forgets to delete one of the ScenesInBuildList assets, whenever it is synchronized with the user’s project’s “scenes in build list” a console log warning will be generated telling the user that only one copy of the ScenesInBuildList asset should exist and the message will provide a path to the first version of the ScenesInBuildList asset that will be used until the user removes the unwanted duplicate asset.  Once the duplicate asset is removed, the remaining ScenesInBuildList asset will become the default.
-
 
 All NetworkManager instances will point to the same ScenesInBuildList asset, and the NetworkSceneManger has been updated to use the ScenesInBuild.Scenes list exclusively in place of the previous NetworkConfig.m_RegisteredScenesList that was based on the NetworkManager scene registration process.  This means the scene index values are now in alignment with the “scenes in build list” scene indices.
 
@@ -46,55 +46,113 @@ User defined scene verification occurs if the user has assigned a callback handl
 
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
+Other than not having to register scenes with the NetworkManager,  there are a few aspects to this update that we should review:
+* Because UnityEngine.SceneManagement.SceneManager requires all scenes that can be loaded to be registered in the “scenes in build list”, we no longer need the NetworkConfig.AllowRuntimeSceneChanges property.
+* Users need to assign a callback handler to NetworkSceneManager.VerifySceneBeforeLoading in order for pre-loading scene verification to occur.  If nothing is assigned, then all of the “scenes in build list” can be loaded at any time during an active network session.
+* Unit tests that load any scenes that are not registered with the “scenes in build list” are required to set the ScenesInBuild.IsTesting value to true while the unit test is running and false once the unit test is complete.  *It is recommended to do this in UnitySetUp and UnityTearDown attribute decorated methods.*
 
-This is the technical portion of the RFC. Explain the design in sufficient detail that:
+## **Verifying Scenes** 
 
-- Its interaction with other features is clear.
-- It is reasonably clear how the feature would be implemented.
-- Corner cases are dissected by example.
+Implementing the VerifySceneBeforeLoading delegate is a relatively straightforward approach. Consider the following example:
 
-The section should return to the examples given in the previous section, and explain more fully how the detailed proposal makes those examples work.
+```C#
+using System;
+using System.Linq;
+using System.Collections.Generic;
+using UnityEngine.SceneManagement;
+using Unity.Netcode;
+
+[Serializable]
+public class ValidGameLevelScene
+{
+    public string SceneName;
+    public LoadSceneMode LoadMode;
+}
+
+public class GameLevelSceneVerifyComponent : NetworkBehaviour
+{
+    public List<ValidGameLevelScene> ValidSceneNamesForCurrentLevel;
+
+    private bool OnVerifySceneBeforeLoading(int sceneIndex, string sceneName, LoadSceneMode loadSceneMode)
+    {
+        return ValidSceneNamesForCurrentLevel.Select(c => c).Where(c => c.SceneName == sceneName && c.LoadMode == loadSceneMode).Count() > 0;
+    }
+
+    public override void OnNetworkSpawn()
+    {
+        NetworkManager.SceneManager.VerifySceneBeforeLoading = OnVerifySceneBeforeLoading;
+
+        base.OnNetworkSpawn();
+    }
+}
+```
+The example above demonstrates how users can quickly create a customized scene verification component that can be used several times in various different scenes throughout a users project.  Each unique instance of the component dictates which scenes a server and/or client can load from the available scenes in the build list.  Each time a new instance is created, the VerifySceneBeforeLoading is reassigned and a new user defined set of “scene loading rules” are loaded relative to the scene containing the GameLevelSceneVerifyComponent instance.
+
+## **Unit Tests**
+
+We had discussed that when writing unit tests that might load scenes not listed in the “scenes in build list” you must set the ScenesInBuild.IsTesting to true.  Consider the following code snippets from an existing unit test:
+
+```C#
+    [UnitySetUp]
+    public IEnumerator Setup()
+    {
+        ScenesInBuild.IsTesting = true;
+        SceneManager.sceneLoaded += OnSceneLoaded;
+ 
+        var execAssembly = Assembly.GetExecutingAssembly();
+        var packagePath = PackageInfo.FindForAssembly(execAssembly).assetPath;
+        var scenePath = Path.Combine(packagePath, 
+        $"Tests/Runtime/GlobalObjectIdHash/{nameof(NetworkPrefabGlobalObjectIdHashTests)}.unity");
+ 
+        yield return EditorSceneManager.LoadSceneAsyncInPlayMode(scenePath, 
+        new LoadSceneParameters(LoadSceneMode.Additive));
+    }    
+ 
+    [UnityTearDown]
+    public IEnumerator Teardown()
+    {
+        ScenesInBuild.IsTesting = false;
+        SceneManager.sceneLoaded -= OnSceneLoaded;
+ 
+        if (m_TestScene.isLoaded)
+        {
+            yield return SceneManager.UnloadSceneAsync(m_TestScene);
+        }
+    }
+```
+This unit test uses the EditorSceneManager to load its scenes.  All that needs to be taken into account are the two lines of code in the Setup and Teardown methods that set the ScenesInBuild.IsTesting to true (Setup) and then to false (Teardown).
 
 # Drawbacks
 [drawbacks]: #drawbacks
 
-Why should we _not_ do this?
+* If a user decides to have multiple projects and each project contains a different set of scenes in the “scenes in build list”, then this could become problematic.  However, this really depends upon the user’s requirements and rationale behind this type of configuration.  If it is all for platform specific separation, then it could be recommended to use additive scenes in combination with runtime scene verification that is based on platform type.
+* All scene names will be contained within the ScenesInBuildList asset as unencrypted strings in the same “scenes in build list” index order, and this proposal does not take into account any form of additional user-defined serialization and deserialization hook that would allow a user to further secure the scene name list.
+* This implementation does not take into account addressables, but that is beyond the scope for this initial effort.
 
 # Rationale and alternatives
 [rationale-and-alternatives]: #rationale-and-alternatives
 
-- Why is this design the best in the space of possible designs?
-- What other designs have been considered and what is the rationale for not choosing them?
-- What is the impact of not doing this?
+For the short term, this provides the user with additional dynamic/runtime scene verification capabilities while also removing the need to maintain two sets of scene lists.  The alternative would be to not provide this functionality and stick with the update NetworkSceneManager’s SceneAsset registration process.
 
 # Prior art
 [prior-art]: #prior-art
 
-Discuss prior art, both the good and the bad, in relation to this proposal. A few examples of what this can include are:
-
-- For framework, tools, and library proposals: Does this feature exist in other networking stacks and what experience have their community had?
-- For community proposals: Is this done by some other community and what were their experiences with it?
-- For other teams: What lessons can we learn from what other communities have done here?
-- Papers: Are there any published papers or great posts that discuss this? If you have some relevant papers to refer to, this can serve as a more detailed theoretical background.
-
-This section is intended to encourage you as an author to think about the lessons from other projects, provide readers of your RFC with a fuller picture. If there is no prior art, that is fine - your ideas are interesting to us whether they are brand new or if it is an adaptation from other projects.
-
-Note that while precedent set by other projects is some motivation, it does not on its own motivate an RFC. Please also take into consideration that Unity Multiplayer sometimes intentionally diverges from common multiplayer networking features.
+There are some articles that discuss potential ways to use a ScriptableObject as a way to store the “scenes in build list”:
+* [Retrieving the names of your scenes at runtime with Unity](https://davikingcode.com/blog/retrieving-the-names-of-your-scenes-at-runtime-with-unity/)
+  * Closest to the current implementation
+* [Better scene workflows with Scriptable Objects](https://resources.unity.com/developer-tips/sceneworkflows-with-scriptable-objects)
+  * Discusses some of the challenges between “scenes in build list” and runtimeReferences a GithubGist link that references [Unity-Scene-Reference](https://github.com/JohannesMP/unity-scene-reference)
 
 # Unresolved questions
 [unresolved-questions]: #unresolved-questions
 
-- What parts of the design do you expect to resolve through the RFC process before this gets merged?
-- What parts of the design do you expect to resolve through the implementation of this feature before stabilization?
-- What related issues do you consider out of scope for this RFC that could be addressed in the future independently of the solution that comes out of this RFC?
+* How could this implementation be modified to handle addresables?
+* Should this implementation include more than just the list of scene names?
+* Should the scene verification process include the client identifier as part of the verification process?  Is there any other information that might be useful for verification purposes?
+* Should we provide a way for the user to secure the ScenesInBuildList (i.e. encrypt and decrypt)?Should user level code have access to the ScenesInBuildList asset from the current NetworkManager instance?
 
 # Future possibilities
 [future-possibilities]: #future-possibilities
 
-Think about what the natural extension and evolution of your proposal would be and how it would affect the Unity Multiplayer as a whole in a holistic way. Try to use this section as a tool to more fully consider all possible interactions with the Unity Multiplayer in your proposal. Also consider how the this all fits into the roadmap for the project and the team.
+This implementation provides a 1:1 relationship between scene names and “scenes in build list” indices values. If/when we decide to derive NetworkSceneManager from the SceneManagerAPI, this will provide us with the ability to handle the broad stroke scene validation when a user decides to load a scene by index value as opposed to scene name.  Additionally, we could continue to expand upon the ScensInBuild asset that allows a user to include SceneGroup registrations.  SceneGroup registrations would include at least one base scene (loaded in single mode) and any number of additively loaded scenes.  This would allow users to simply specify: “Load this scene group” and all scenes registered within the SceneGroup would be loaded in the same order and mode as they are defined within the SceneGroup.
 
-This is also a good place to "dump ideas", if they are out of scope for the RFC you are writing but otherwise related.
-
-If you have tried and cannot think of any future possibilities, you may simply state that you cannot think of anything.
-
-Note that having something written down in the future-possibilities section is not a reason to accept the current or a future RFC; such notes should be in the section on motivation or rationale in this or subsequent RFCs. The section merely provides additional information.
