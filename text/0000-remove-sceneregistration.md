@@ -2,8 +2,8 @@
 [feature]: #feature
 
 - Start Date: `2021-07-20`
-- RFC PR: [#0000](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/0000)
-- SDK PR: [#0000](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/pull/0000)
+- RFC PR: [#32](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/32)
+- SDK PR: [#967](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/pull/967)
 
 # Summary
 [summary]: #summary
