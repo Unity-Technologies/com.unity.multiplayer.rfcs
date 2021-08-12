@@ -80,7 +80,7 @@ Before this change, `NetworkList`, `NetworkSet` and `NetworkDictionary` supporte
 Before this change a user could simply declare a container and add an arbitrary amount of elements.  This creates at least 2 complications; one, it works against the upcoming goals of having MTU-sized snapshot packets.  Second, having network variables be variable length gets in the way of performance-oriented, allocation-free schemes we have planned.  To support this, a user must specify a maxmimum capacity when instantiating a container.
 
 # Drawbacks
-The old method where clients could simply write to a network variable is simpler, especially when trying to employ a client-authoritative scheme. 
+The old method where clients could simply write to a network variable is simpler, especially when trying to employ a client-authoritative scheme.  One way to think of network programming is that each design is a combination of tradeoffs around ease of use, synchronization consistency and performance.  While we seek to maximize all of them, the pre-RFC design maximizes ease of use at the expense of consistency (different clients & the server can have different values at different times with no way to link them) and performance (network variables rely on being ordered & reliable).  The upcoming snapshot system addresses consistency and performance, but at least at this point, it is intractable to do that with the current (extremely easy) interface on NetworkVariables.
 
 The new "`Value` get operation equates so dirtying" operation will have more overhead, especially if users do many more reads than writes on a network variable.
 
