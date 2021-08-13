@@ -59,7 +59,7 @@ Additionally, each message should have a method associated with it it as follows
 public static void Receive(ref FastBufferReader reader, NetworkContext context);
 ```
 
-This static method is responsible for constructing an instance of the received type and handling it. The `[MessageHandler]` attribute statically registers this handler to be responsible for this type via ILPP code generation, just like `[ServerRpc]` and `[ClientRpc] `. This method does NOT have to be part of the message struct - it can be anywhere, it just has to *exist*; however, making it part of the message struct consolidates all the code related to serializing and deserializing the struct into one location so it's easy to view both ends in the same place, and so by convention, we will make it part of the struct.
+This static method is responsible for constructing an instance of the received type and handling it. The `[MessageHandler]` attribute statically registers this handler to be responsible for this type. This method does NOT have to be part of the message struct - it can be anywhere, it just has to *exist*; however, making it part of the message struct consolidates all the code related to serializing and deserializing the struct into one location so it's easy to view both ends in the same place, and so by convention, we will make it part of the struct.
 
 Handling will be put in its own method so that it's separate from deserialization, which is important in efficient handling of loopback messages.
 
