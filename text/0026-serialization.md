@@ -126,7 +126,7 @@ Of note, FastBufferReader and FastBufferWriter are **fixed size** buffers. They 
 
 ## Bounds Checking
 
-For performance reasons, FastBufferReader and FastBufferWriter **do not do bounds checking** on each write. Rather, they require the use of specific bounds checking functions - `VerifyCanRead(int amount)` and `VerifyCanWrite(int amount)`, respectively. This is to improve performance by allowing you to verify the space exists for the data being read or written in blocks, rather than doing that check on every single operation.
+For performance reasons, FastBufferReader and FastBufferWriter **do not do bounds checking** on each write. Rather, they require the use of specific bounds checking functions - `VerifyCanRead(int amount)` and `VerifyCanWrite(int amount, bool canGrow = false, Allocator growthAllocator)`, respectively. This is to improve performance by allowing you to verify the space exists for the data being read or written in blocks, rather than doing that check on every single operation.
 
 **In editor mode and development builds**, however, calling these functions records a watermark point, and any attempt to read or write past the watermark point will throw an exception. This ensures these functions are used properly, while avoiding the performance cost of per-operation checking in production builds.
 
