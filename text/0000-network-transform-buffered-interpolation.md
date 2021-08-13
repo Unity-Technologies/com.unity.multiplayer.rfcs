@@ -49,6 +49,11 @@ This will smooth tranforms on jittery connections, however it'll add more latenc
 It is advised to use the same interpolator with the same configuration for the same types of NetworkTransform. This way, you're making sure all your objects will be synchronized and use the same delays. Having an interpolator with 100ms delay and another with 500ms delay could cause visible overlaps and desyncs where an object at time say `t=10s` tries to interact with an object buffered at time `t=9.6s`.
 However, different types of objects might require different interpolator settings. A car would be interpolated differently compared to a character. It'd make sense to use the same interpolator+config for all cars but it wouldn't make sense to share that interpolator+config with a character walking around.
 
+Global buffering can be set using
+```c#
+NetworkManager.Singleton.NetworkTimeSystem.ServerBufferSec = 0.2f;
+```
+
 If you don't want interpolation, you can use the `NoInterpolation` interpolator which will take in new values and present them directly when asked, without doing anything else.
 
 - Left: Host with two NetworkTransform: `0.1.0 NetworkTransform` and new `buffered NetworkTransform`
