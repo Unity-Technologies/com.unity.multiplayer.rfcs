@@ -99,7 +99,8 @@ Both the server (or host) and clients will receive event notifications for every
 Clients will generate local notifications that use the server’s client identifier (ClientId) value when Server to Client (S2C) messages are received while the server will generate all local notifications relative to the invoker/sender of the message.  This assures the server side user code will always be aware of all local and client generated scene event messages while clients will only be aware of locally generated and server generated scene event messages.
 
 **When has everyone processed a SceneEvent message?**  
-There are two special scene event types that generate messages for the server and all connected clients:  ***S2C_LoadComplete and S2C_UnloadComplete*** 
+There are two special scene event types that generate messages for the server and all connected clients:  
+***S2C_LoadComplete and S2C_UnloadComplete*** 
 
 Both of these server generated messages will create local notification events (on all clients and the server) that will contain the list of all client identifiers (ClientsThatCompleted) that have finished loading or unloading a scene.  This can be useful to make sure all clients are synchronized with each other before allowing any netcode related game logic to begin.  If a client disconnects or there is a time out, then any client that did not load or unload the scene will be included in a second list of client identifiers (ClientsThatTimedOut).
 
