@@ -12,20 +12,9 @@ Scene loading and transitioning has been one of the problematic “hot-spots” 
 
 # Motivation
 [motivation]: #motivation
-In order to improve upon the NetworkSceneManager while also providing additive scene loading capabilities, there were several areas identified that upon further improvement and/or consolidation would provide a more unified scene messaging, local notification, and synchronization process.  The following are some of the areas identified that played a part in the motivation, with providing additive scene loading being the primary over-all motivation.   
-
-In the existing Unity Netcode source code the approval process (HandleApproval) resides within the NetworkManager class, yet the approval process handles a portion of the scene loading and synchronization process for newly joined players. In order to better unify scene loading and synchronization, this process should be decoupled from NetworkManager and re-implemented in NetworkSceneManager. 
-![](0000-additivescenes-and-networkscenemanager-refactoring/NSM_Reference2.png)
-
-As an example, there are two paths to accomplish the same general scene loading and synchronization process:
-* [OnFirstSceneSwitchSync ](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/6d9d31724f93db0fdac5ad6c76f65fc549746fe6/com.unity.multiplayer.mlapi/Runtime/SceneManagement/NetworkSceneManager.cs#L242)and [OnSceneSwitch ](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/6d9d31724f93db0fdac5ad6c76f65fc549746fe6/com.unity.multiplayer.mlapi/Runtime/SceneManagement/NetworkSceneManager.cs#L215)effectively accomplish the same thing, are handled in different locations, and contain the exact same code with two exceptions:
-    * [OnFirstSceneSwitchSync ](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/6d9d31724f93db0fdac5ad6c76f65fc549746fe6/com.unity.multiplayer.mlapi/Runtime/SceneManagement/NetworkSceneManager.cs#L242)checks to see if the client is already in the same scene and exists early.  If not it loads the scene synchronously (i.e. blocking until complete) and then notifies the client loaded the scene.
-    * [OnSceneSwitch ](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/6d9d31724f93db0fdac5ad6c76f65fc549746fe6/com.unity.multiplayer.mlapi/Runtime/SceneManagement/NetworkSceneManager.cs#L215)does not check to see if the client is in the same scene, it preserves NetworkObjects that don't have DestroyWithScene set to true, and then it loads the scene asynchronously.
-
-While this architecture worked with single mode scene loading, additive scene loading creates a new level of complexity that could become problematic to maintain a unified scene loading and synchronization process.  Consider the following diagram below:
-
-![](0000-additivescenes-and-networkscenemanager-refactoring/NSM_Reference8.png)
-
+Additive scene workflows have become commonplace in Unity projects, yet Netcode for GameObjects does not have any support for it and users only option today is to completely disable scene management in the SDK. Additionally, scene management is currently distributed across several areas of the codebase which causes significant challenges for maintenance and modification of the feature area.
+The proposed solution would allow synchronization not just of scene loads, but their load type (single or additive), and also tracks all in-scene placed NetworkObjects’ association with their corresponding scenes so they can be properly synchronized with their server assigned NetworkObjectId. 
+ 
 With the existing netcode architecture NetworkObjects are always associated with the currently active scene and are serialized in no specific order nor grouped by any form of scene dependencies.  The above diagram outlines one problematic scenario where  NetworkPrefabHandler spawn generators are additively loaded in **Scene_A-1** and **Scene_B-2**.  On the server or host side, there would be no real issues as the scenes would be loaded in the appropriate order and the NetworkObjects would not need to be synchronized locally.  However, on the client side issues arise when NetworkObjects that were dependent upon either **Scene_A-1** or **Scene_B-2** are instantiated before their dependent additive scenes are loaded.   
 
 By addressing some of the initial NetworkSceneManager dependencies and taking into consideration scenarios like the above, there were several areas identified as needing improvement or being completely refactored in order to provide additive scene loading capabilities, a better foundation for future Unity Netcode features, and improving the user experience with Netcode scene management.
@@ -33,10 +22,7 @@ By addressing some of the initial NetworkSceneManager dependencies and taking in
 
 # Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
-In order to better consolidate the soft synchronization process, all “soft synchronization” methods and related properties were migrated into the NetworkSceneManager.
-![](0000-additivescenes-and-networkscenemanager-refactoring/NSM_Reference4.png)
-
-The entire scene loading, transitioning, serialization, and de-serialization process has been greatly simplified down to a single SceneEvent message type that always carries serialized data generated by the SceneEventData class.
+In order to better consolidate the soft synchronization process, all “soft synchronization” methods and related properties were migrated into the NetworkSceneManager. The entire scene loading, transitioning, serialization, and de-serialization process has been greatly simplified down to a single SceneEvent message type that always carries serialized data generated by the SceneEventData class.
 
 ![](0000-additivescenes-and-networkscenemanager-refactoring/NSM_Reference5.png)
 
