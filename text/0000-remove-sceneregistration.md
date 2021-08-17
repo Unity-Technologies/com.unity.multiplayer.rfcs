@@ -97,6 +97,7 @@ We had discussed that when writing unit tests that might load scenes not listed 
     public IEnumerator Setup()
     {
         ScenesInBuild.IsTesting = true;
+        NetworkSceneManager.IsUnitTesting = true;
         SceneManager.sceneLoaded += OnSceneLoaded;
  
         var execAssembly = Assembly.GetExecutingAssembly();
@@ -112,6 +113,7 @@ We had discussed that when writing unit tests that might load scenes not listed 
     public IEnumerator Teardown()
     {
         ScenesInBuild.IsTesting = false;
+        NetworkSceneManager.IsUnitTesting = false;
         SceneManager.sceneLoaded -= OnSceneLoaded;
  
         if (m_TestScene.isLoaded)
@@ -120,7 +122,9 @@ We had discussed that when writing unit tests that might load scenes not listed 
         }
     }
 ```
-This unit test uses the EditorSceneManager to load its scenes.  All that needs to be taken into account are the two lines of code in the Setup and Teardown methods that set the ScenesInBuild.IsTesting to true (Setup) and then to false (Teardown).
+This unit test uses the EditorSceneManager to load its scenes.  All that needs to be taken into account are the four lines of code in the Setup and Teardown methods that set the ScenesInBuild.IsTesting and NetworkSceneManager.IsUnitTesting to true (Setup) and then to false (Teardown).
+*note: If you are doing any unit testing with NetworkSceneManager, you need to always set NetworkSceneManager.IsUnitTesting during the setup and teardown methods*
+
 
 # Drawbacks
 [drawbacks]: #drawbacks
