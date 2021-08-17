@@ -1,4 +1,4 @@
-# NetworkSceneManger Refactoring and Additive Scene Loading
+# NetworkSceneManager Robustness and Additive Scene Loading
 [feature]: #feature
 
 - Start Date: `2021-07-01`
@@ -59,12 +59,14 @@ The SynchronizeNetworkObjects method follows a similar pattern as the previous v
 
 1. Client is approved and then receives the SceneEvent type of S2C_Sync.
 2. [OnClientBeginSync:](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/bac7f416ae29624277984c6d2d1eee07bf4afb77/com.unity.multiplayer.mlapi/Runtime/SceneManagement/NetworkSceneManager.cs#L809) The deserialized SceneEventData class contains all of the information needed to load all scenes for the newly joined/approved client to be fully synchronized.  This method is invoked for each scene that needs to be loaded.
-    * [ClientLoadedSynchronization:](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/bac7f416ae29624277984c6d2d1eee07bf4afb77/com.unity.multiplayer.mlapi/Runtime/SceneManagement/NetworkSceneManager.cs#L864) Upon the completion of a scene being asynchronously loaded, the NetworkObjects associated with the scene are instantiated (“synchronized”).
-        * [SynchronizeSceneNetworkObjects](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/bac7f416ae29624277984c6d2d1eee07bf4afb77/com.unity.multiplayer.mlapi/Runtime/SceneManagement/SceneEventData.cs#L518): A method of SceneEventData that is invoked from within the ClientLoadedSynchronization method.  This  handles the instantiation and synchronization of the associated scene’s NetworkObjects.
+    * [ClientLoadedSynchronization:](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/bac7f416ae29624277984c6d2d1eee07bf4afb77/com.unity.multiplayer.mlapi/Runtime/SceneManagement/NetworkSceneManager.cs#L864) 
+      * This repeats itself until all scenes have been loaded.
+    * Upon the completion of all scenes being loaded, all NetworkObjects are locally instantiated and/or spawned.
+      * [SynchronizeSceneNetworkObjects](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/blob/bac7f416ae29624277984c6d2d1eee07bf4afb77/com.unity.multiplayer.mlapi/Runtime/SceneManagement/SceneEventData.cs#L518):  A method of SceneEventData that is invoked after all scenes have been loaded.
  3. Finally, a check is done to determine if there are still more scenes to be loaded.  If so, then the synchronization process repeats until the client has loaded all scenes and instantiated or soft-synchronized all NetworkObjects.  Once completed, the client responds to the server with a SceneEvent type of S2C_SyncComplete which includes the NetworkObjects instantiated and synchronized for the server to determine if a re-synchronization is required.
 
 ### **The Client Scene Synchronization Process**
-With the above modifications, we can now consider the same problematic scenario with NetworkObjects that are dependent upon an additively loaded scene (diagram below).  While the server is creating the S2C_Sync SceneEvent, NetworkObjects are first grouped by their associated scene and then ordered such that NetworkObjects with dependencies will be sorted towards the end of the scene group specific serialized data.  This assures the spawn generators (i.e NetworkPrefabHandler)  will be instantiated before the dependent NetworkObjects.  
+We can now consider the same scenario with NetworkObjects that are dependent upon an additively loaded scene (diagram below) with a spawn generator that registers an INetworkPrefabInstanceHandler implementation.  While the server is creating the S2C_Sync SceneEvent, NetworkObjects with NetworkPrefabHandler dependencies are sorted towards the end of the spawned NetworkObjects list before they are serialized.  This assures, during the deserialization process,  the spawn generators (i.e NetworkPrefabHandler) will be instantiated first to assure any INetworkPrefabInstanceHandler implementations are registered before the dependent NetworkObjects are spawned on the client side.    
 
 ![](0000-additivescenes-and-networkscenemanager-refactoring/NSM_Reference11.png)
 
