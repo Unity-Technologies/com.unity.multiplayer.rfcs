@@ -80,7 +80,7 @@ The changes in NGO are very minor. The `NetworkEvent` enum is expanded with the 
 
 ## Unity Transport Package
 
-The basic idea behind the implementation of device reconnection is that for each connection, we track its inactivity. When no data is received on a connection for some time (exact figure TBD), we trigger a reconnection. To avoid normal inactivity from triggering reconnections, a heartbeat mechanism is added to each protocol.
+The basic idea behind the implementation of device reconnection is that for each connection, we track its inactivity. When no data is received on a connection for some time (configurable to the user, default figure TBD), we trigger a reconnection. To avoid normal inactivity from triggering reconnections, a heartbeat mechanism is added to each protocol.
 
 Heartbeats are implemented as ping/pong messages (every ping is answered with a pong), and are sent on a connection when no data has been received for a while.
 
@@ -104,7 +104,7 @@ for each connection:
                 trigger reconnection on connection
 ```
 
-If the reconnection fails a set amount of times (exact figure TBD), the connection is considered disconnected, and the `Disconnect` event is generated. This replaces the existing inactivity timeout (`disconnectTimeoutMS`).
+If the reconnection fails, it is retried periodically (period is configurable to the user, default TBD) until either it succeeds or the disconnection timeout (`disconnectTimeoutMS`) is reached. In the latter case, a `Disconnect` event is generated.
 
 ### Extensions to `NetworkProtocol`
 
@@ -154,8 +154,7 @@ Not implementing device reconnection means that users will be inconvenienced (by
 # Unresolved questions
 [unresolved-questions]: #unresolved-questions
 
-- How NGO will react to `Reconnecting` and `Reconnect` events (if it will even react) is left out of scope of this RFC.
-- Whether device reconnection will be made optional (and in general how configurable it should be) is still unknown.
+How NGO will react to `Reconnecting` and `Reconnect` events (if it will even react) is left out of scope of this RFC.
 
 # Future possibilities
 [future-possibilities]: #future-possibilities
