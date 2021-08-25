@@ -2,7 +2,7 @@
 [feature]: #feature
 
 - Start Date: `2021-08-03`
-- RFC PR: TBD
+- RFC PR: [#34](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/34)
 - SDK PR: TBD
 
 # Summary
