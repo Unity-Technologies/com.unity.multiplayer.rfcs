@@ -2,7 +2,7 @@
 [feature]: #feature
 
 - Start Date: `2021-08-27`
-- RFC PR: [#0000](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/0000)
+- RFC PR: [#0035](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/0035)
 - SDK PR: [#0000](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/pull/0000)
 
 # Summary
@@ -39,6 +39,9 @@ Unity has OnTriggerEnter and OnCollisionEnter and Stay and Exit events these can
 NetworkRigidbody does not change the way trigger or collision event does and does not synchronize them over the network. What this means is:
 - On the controller all physics events are triggered correctly.
 - On the other peers which just replicate the position of the Rigidbody events can be lost. A common situation where this happens is when two dynamic bodies bounce of each other.
+
+![Physics Replication](0035-physics/repl.png)
+*Example of an edge case where collision events don't get fired on all peers. Red circles indicate frames where positions are synced to client. On the server the Rigidbody collides with the wall. The interpolated client object does never collide with the wall.*
 
 If a collision or trigger event is crucial for gameplay it is recommended to manually sychronize that event with an RPC. Here is an example for how to do that:
 ```cs
