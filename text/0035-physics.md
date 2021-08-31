@@ -89,6 +89,8 @@ If all Rigidbody NetworkObjects are controlled by the server (Object is owned by
 
 ### Mixed Simulation Player Collision
 
+If two player controlled dynamic rigidbodies collide this will result in two dynamic/kinematic collisions as if both players where running against an immovable object.
+
 ### Mixed Simulation Joints
 
 Joints between two dynamic rigidbodies which are owned by different peers will not resolve properly. This is not a scenario which we can support. The joints will instead act as if all the the Rigidbodies which are not controlled by the controller of the corresponding Rigidbody were kinematic.
