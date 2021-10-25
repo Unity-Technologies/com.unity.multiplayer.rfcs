@@ -35,8 +35,6 @@ Note that both events are only meant as notifications. No action is required upo
 
 A `Reconnecting` event will always be followed by either a `Reconnect` or a `Disconnect` event, depending on whether the connection could be re-established or not. `Reconnecting` events are always tied to loss of traffic. To ensure inactivity doesn't trigger a reconnection, the transport uses heartbeats to monitor the liveness of the connection.
 
-A `Reconnect` event may be generated on its own, without a preceding `Reconnecting` event. This is used to indicate that a reconnection occured, but without any discernible loss of traffic. Such reconnections can occur when running directly over UDP (without DTLS), where connections are not tied to IP addresses.
-
 Both events are generated server-side and client-side, but reconnections are only initiated client-side. That is, active servers (servers who change IP address) are not supported. The only exception is when using Relay, where both client and server are acting as “clients” of the Relay server (in this scenario it is active Relay servers that are not supported).
 
 ## Examples
@@ -119,7 +117,7 @@ When using the basic UDP protocol (`UnityTransportProtocol`) and nothing else (n
 
 Properly supporting seamless reconnections in that scenario involves modifying `NetworkDriver` to update a connection's address upon receiving a valid message from a new IP (currently such messages are ignored).
 
-While reconnections over UDP may be seamless, we still want to notify users that they happened. On the server side we can simply generate a `Reconnect` event when receiving data from a new address. On the client side this is trickier since the reconnection is completely transparent. To be made aware of the event, the server will resend a `ConnectionAccept` message to the client when a reconnection is detected. This can be used by the client to generate the `Reconnect` event.
+Because such reconnections over UDP are seamless, they do not generate a `Reconnect` event since there is nothing the user can act on. Of course, if the IP address change was preceded by a significant loss of traffic that generated a `Reconnecting` event, then a `Reconnect` event will still be generated (because that is something the user could act on).
 
 ### Protection against connection hijacking
 
