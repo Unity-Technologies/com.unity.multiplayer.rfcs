@@ -145,7 +145,7 @@ Not implementing device reconnection means that users will be inconvenienced (by
 # Prior art
 [prior-art]: #prior-art
 
-- The QUIC protocol ([RFC 9600](https://datatracker.ietf.org/doc/html/rfc9000)) is a network protocol built over UDP that automatically handles reconnections the same way we do for the base UDP protocol. (Obviously QUIC is much more complex since it also bundles TLS and congestion control.)
+- The QUIC protocol ([RFC 9000](https://datatracker.ietf.org/doc/html/rfc9000)) is a network protocol built over UDP that automatically handles reconnections the same way we do for the base UDP protocol. (Obviously QUIC is much more complex since it also bundles TLS and congestion control.)
 - There's been some proposals regarding mobile DTLS (latest is [here](https://www.ietf.org/archive/id/draft-ietf-tls-dtls-connection-id-13.txt)), but nothing that made it into an official extension.
 - IP mobility does not appear to be a common feature of game-centric networking libraries. [ENet](http://enet.bespin.org/) doesn’t support it. Valve’s [GameNetworkingSockets](https://github.com/ValveSoftware/GameNetworkingSockets) don’t directly support it either, but one can get something similar working through [Steam Datagram Relay](https://partner.steamgames.com/doc/features/multiplayer/steamdatagramrelay). [Unreal's networking](https://docs.unrealengine.com/4.26/en-US/InteractiveExperiences/Networking/) doesn't either, but they can [integrate with Steam's solution](https://docs.unrealengine.com/4.26/en-US/InteractiveExperiences/Networking/HowTo/SteamSockets/) and thus provide mobility through Steam Datagram Relay.
 
