@@ -124,18 +124,12 @@ private void SceneManager_OnSceneEvent(SceneEvent sceneEvent)
         case SceneEventData.SceneEventTypes.Load:
             {
                 // Server and Client will provide the associated AsyncOperation in the event you need to track this
-                // Note: LoadComplete notifies you of this condition as well
-                sceneEvent.AsyncOperation.completed += AsyncOperation_LoadCompleted;
                 // AsyncOperation.progress can be used to determine scene loading progress
                 break;
             }
         // Handle Server to Client UnLoad Notifications
         case SceneEventData.SceneEventTypes.Unload:
             {
-                // Server and Client will provide the associated AsyncOperation in the event you need to track this
-                // Note: UnloadComplete notifies you of this condition as well
-                sceneEvent.AsyncOperation.completed += AsyncOperation_UnLoadCompleted;
-                // AsyncOperation.progress can be used to determine scene loading progress
                 break;
             }
         // Handle Client to Server Load Complete Notification(s)
