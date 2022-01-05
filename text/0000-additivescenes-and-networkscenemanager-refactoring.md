@@ -110,9 +110,14 @@ Both of these server generated messages will create local notification events (o
 The following pseudo code provides an example usage of NetworkSceneManager.OnSceneEvent with additional comments about each scene event type.
 
 ```C#
-private void Start()
+public override void OnNetworkSpawn()
 {
     NetworkManager.SceneManager.OnSceneEvent += SceneManager_OnSceneEvent;
+}
+
+public override void OnNetworkDespawn()
+{
+   NetworkManager.SceneManager.OnSceneEvent -= SceneManager_OnSceneEvent;
 }
 
 private void SceneManager_OnSceneEvent(SceneEvent sceneEvent)
@@ -121,19 +126,19 @@ private void SceneManager_OnSceneEvent(SceneEvent sceneEvent)
     switch (sceneEvent.SceneEventType)
     {
         // Handle Server to Client Load Notifications
-        case SceneEventData.SceneEventTypes.Load:
+        case SceneEventType.Load:
             {
                 // Server and Client will provide the associated AsyncOperation in the event you need to track this
                 // AsyncOperation.progress can be used to determine scene loading progress
                 break;
             }
         // Handle Server to Client UnLoad Notifications
-        case SceneEventData.SceneEventTypes.Unload:
+        case SceneEventType.Unload:
             {
                 break;
             }
         // Handle Client to Server Load Complete Notification(s)
-        case SceneEventData.SceneEventTypes.LoadComplete:
+        case SceneEventType.LoadComplete:
             {
                 // This will let you know when a load is completed
 
@@ -144,7 +149,7 @@ private void SceneManager_OnSceneEvent(SceneEvent sceneEvent)
                 break;
             }
         // Handle Client to Server Unload Complete Notification(s)
-        case SceneEventData.SceneEventTypes.UnloadComplete:
+        case SceneEventType.UnloadComplete:
             {
                 // This will let you know when an unload is completed
 
@@ -155,7 +160,7 @@ private void SceneManager_OnSceneEvent(SceneEvent sceneEvent)
                 break;
             }
         // Handle Server to Client Load Complete (all clients finished loading notification)
-        case SceneEventData.SceneEventTypes.LoadEventCompleted:
+        case SceneEventType.LoadEventCompleted:
             {
                 // This will let you know when all clients have finished loading a scene
                 // Received on both server and clients
@@ -167,7 +172,7 @@ private void SceneManager_OnSceneEvent(SceneEvent sceneEvent)
                 break;
             }
         // Handle Server to Client unload Complete (all clients finished unloading notification)
-        case SceneEventData.SceneEventTypes.UnloadEventCompleted:
+        case SceneEventType.UnloadEventCompleted:
             {
                 // This will let you know when all clients have finished unloading a scene
                 // Received on both server and clients
