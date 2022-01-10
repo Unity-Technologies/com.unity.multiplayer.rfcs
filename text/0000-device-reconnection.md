@@ -3,16 +3,14 @@
 
 - Start Date: `2021-08-03`
 - RFC PR: [#34](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/34)
-- SDK PR: TBD
+- SDK PR: N/A
 
 # Summary
 [summary]: #summary
 
-Transports that support device reconnection automatically re-establish connections when their underlying medium changes (a typical example is an IP address change). Such changes are detected by monitoring communication loss. The re-establishment of the connection is done transparently to layers above the transport (the event is advertised but can be ignored).
+Transports that support device reconnection automatically re-establish connections when their underlying medium changes (a typical example is an IP address change). Such changes are detected by monitoring communication loss. The re-establishment of the connection is done transparently to layers above the transport.
 
-Because the feature works by detecting traffic losses, and advertises these losses, it can also be useful to ensure proper re-synchronization between hosts after lag spikes.
-
-This RFC discusses the addition of that feature to the Unity Transport Package (UTP) and its adapter in Netcode for GameObjects (NGO). Other transports are out of scope.
+This RFC discusses the addition of that feature to the Unity Transport Package (UTP).
 
 # Motivation
 [motivation]: #motivation
@@ -21,68 +19,37 @@ Mobile devices present several challenges in terms of network programming, one o
 
 Such network switching often causes a local IP address change, typically causing existing connections to stop working. This is disruptive to end users since it prevents them from continuing their online session. The goal of device reconnection is preventing these disruptions by automatically migrating the connections to the new IP address.
 
-Device reconnection can also be leveraged to be notified of short losses in traffic. This may happen when going through a tunnel on mobile. Even if the loss of traffic may not be long enough to cause a full disconnection, users of the transport might want to be notified of such events. Such notifications could then be used to ensure proper re-synchronization between hosts (note that such re-synchronization is out of scope of the device reconnection feature).
-
 # Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
 
-Two new `NetworkEvent`s are added to UTP and NGO:
+A new `reconnectionTimeoutMS` setting will be provided through the `NetworkSettings.WithNetworkConfigSettings` call. This value (in milliseconds) indicates after how long a reconnection should be attempted if no activity is detected.
 
-- The `Reconnecting` event will be generated when loss of traffic is detected by the transport and it is trying to re-establish the connection.
-- The `Reconnect` event will be generated when a connection is re-established.
+That is, if no traffic occurs on a connection for `reconnectionTimeoutMS` milliseconds, UTP will automatically try to re-establish the connection. If reconnection fails, it is re-attempted again `reconnectionTimeoutMS` later until either it succeeds or the normal disconnection timeout is reached (at which point the user is notified of the disconnection).
 
-Note that both events are only meant as notifications. No action is required upon receiving these events. They can be ignored entirely and the device reconnection feature will work fine. All operations (either on the `NetworkTransport` in NGO or the `NetworkDriver` in UTP) can still be performed while a reconnection is ongoing. But messages sent on an unreliable channel will obviously be lost.
+The entire process is transparent to the user, except of course for the small loss of traffic during the reconnection timeout. For this reason, `reconnectionTimeoutMS` should be set to a relatively low value (the default is 2 seconds).
 
-A `Reconnecting` event will always be followed by either a `Reconnect` or a `Disconnect` event, depending on whether the connection could be re-established or not. `Reconnecting` events are always tied to loss of traffic. To ensure inactivity doesn't trigger a reconnection, the transport uses heartbeats to monitor the liveness of the connection.
+Device reconnection can be disabled by setting the timeout to 0.
 
-Both events are generated server-side and client-side, but reconnections are only initiated client-side. That is, active servers (servers who change IP address) are not supported. The only exception is when using Relay, where both client and server are acting as “clients” of the Relay server (in this scenario it is active Relay servers that are not supported).
+## Example
 
-## Examples
+Here's how device reconnection can be configured on a `NetworkDriver`:
 
-For UTP the events will be accessible using `NetworkDriver.PopEvent` and friends:
-
-```cs
-var eventType = driver.PopEvent(out connection, out reader);
-
-switch (eventType)
-{
-    case NetworkEvent.Type.Reconnecting:
-        Debug.Log("Lost connection. Attempting to reconnect...");
-        break;
-    case NetworkEvent.Type.Reconnect:
-        Debug.Log("And we're back!");
-        break;
-}
+```csharp
+var settings = new NetworkSettings();
+settings.WithNetworkConfigSettings(reconnectionTimeout: 2000);
+var driver = NetworkDriver.Create(settings);
 ```
 
-For `UTPTransport` (the UTP adapter for NGO), the events will be generated through the `OnTransportEvent` delegate (`UTPTransport` doesn't support direct polling via `PollEvent`):
-
-```cs
-public void HandleEvent(NetworkEvent eventType, ...)
-{
-    if (eventType == NetworkEvent.Reconnecting || eventType == NetworkEvent.Reconnect)
-        Debug.Log("Received a reconnection-related event.");
-}
-
-...
-
-utpTransport.OnTransportEvent += HandleEvent;
-```
+Note that device reconnection is enabled by default with a 2000 milliseconds timeout, so the above code would have no effect at all.
 
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
 
-Implementation of the feature requires changes both to NGO and UTP.
-
-The changes in NGO are very minor. The `NetworkEvent` enum is expanded with the new `Reconnecting` and `Reconnect` events. The UTP adapter also needs to handle the new events coming from UTP's `NetworkDriver` and map them to the appropriate NGO events.
-
-## Unity Transport Package
-
-The basic idea behind the implementation of device reconnection is that for each connection, we track its inactivity. When no data is received on a connection for some time (configurable to the user, default figure TBD), we trigger a reconnection. To avoid normal inactivity from triggering reconnections, a heartbeat mechanism is added to each protocol.
+The basic idea behind the implementation of device reconnection is that for each connection, we track its inactivity. When no data is received on a connection for some time, we trigger a reconnection. To avoid normal inactivity from triggering reconnections, a heartbeat mechanism is added to each protocol.
 
 Heartbeats are implemented as ping/pong messages (every ping is answered with a pong), and are sent on a connection when no data has been received for a while.
 
-### Modifications to `NetworkDriver`
+## Modifications to `NetworkDriver`
 
 The `CheckTimeouts` function (called as part of the `ScheduleUpdate` job) is also extended with something that looks like the following pseudo-code:
 
@@ -92,34 +59,31 @@ for each connection:
         if time of last heartbeat send > heartbeat threshold:
             send heartbeat on connection
     
-    if reconnection in progress:
+    if connection is reconnecting:
         if connection state is connected:
-            generate reconnect event
+            mark connection as not reconnecting
     else:
         if time from last receive > reconnection threshold:
-            generate reconnecting event
-            if client side:
-                trigger reconnection on connection
+            trigger reconnection on connection
+            mark connection as reconnecting
 ```
 
-If the reconnection fails, it is retried periodically (period is configurable to the user, default TBD) until either it succeeds or the disconnection timeout (`disconnectTimeoutMS`) is reached. In the latter case, a `Disconnect` event is generated.
+If the reconnection fails, it is retried periodically until either it succeeds or the disconnection timeout (`disconnectTimeoutMS`) is reached. In the latter case, a `Disconnect` event is generated.
 
-### Extensions to `NetworkProtocol`
+## Extensions to `NetworkProtocol`
 
 Device reconnection requires `NetworkProtocol` to provide two additional interfaces (both as `TransportFunctionPointer`s):
 
-- `ProcessReconnectDelegate` will re-establish a given connection in a manner suitable for the protocol. For some protocols (like DTLS) this is done by simply creating a whole new connection from scratch. Other protocols might have better ways to do so (like Relay where only a re-binding to the server is required).
+- `Reconnect` will re-establish a given connection in a manner suitable for the protocol. For some protocols (like DTLS) this is done by simply creating a whole new connection from scratch. Other protocols might have better ways to do so (like Relay where only a re-binding to the server is required).
 - `ProcessSendPing` and `ProcessSendPong` will send ping/pong messages on the connection. The actual implementation of the heartbeats will be provided by `UnityTransportProtocol`, on which all other protocols already rely for control messages. Corresponding `ProcessPacketCommands` are raised to the driver when receiving these messages.
 
-### Special handling of UDP connections
+## Special handling of UDP connections
 
 When using the basic UDP protocol (`UnityTransportProtocol`) and nothing else (no DTLS or Relay), reconnections are handled differently. This is because UDP connections are not tied to an IP address. They don't need to be reconnected when the client's IP address changes. (This is assuming that the client driver is not bound to a specific address, which normally won't be the case. In that scenario, the above mechanism with inactivity timeouts would kick in.)
 
 Properly supporting seamless reconnections in that scenario involves modifying `NetworkDriver` to update a connection's address upon receiving a valid message from a new IP (currently such messages are ignored).
 
-Because such reconnections over UDP are seamless, they do not generate a `Reconnect` event since there is nothing the user can act on. Of course, if the IP address change was preceded by a significant loss of traffic that generated a `Reconnecting` event, then a `Reconnect` event will still be generated (because that is something the user could act on).
-
-### Protection against connection hijacking
+## Protection against connection hijacking
 
 With the possibility of connections migrating from one address to another comes the possibility that malicious actors will attempt to hijack existing connections to redirect them elsewhere (e.g. for amplification attacks). UTP will attempt to protect against hijacks from parties that are not privy to existing traffic. If protection against man-in-the-middle attacks is a concern, using DTLS is expected.
 
@@ -152,11 +116,11 @@ Not implementing device reconnection means that users will be inconvenienced (by
 # Unresolved questions
 [unresolved-questions]: #unresolved-questions
 
-How NGO will react to `Reconnecting` and `Reconnect` events (if it will even react) is left out of scope of this RFC.
+None.
 
 # Future possibilities
 [future-possibilities]: #future-possibilities
 
-As mentioned in the section above, the question of whether NGO will handle `Reconnecting` and `Reconnect` events (and if so, how) is left open for future discussions.
+A topic to consider is how future evolutions of UTP might impact the implementation of device reconnection. In particular, protocol stacking opens up the possibility of implementing the feature as a protocol. While this might make the implementation slightly more verbose (due to the boilerplate around implementing a protocol), it would provide the benefit of clearly separating device reconnection from the rest of UTP.
 
-Another topic to consider is how future evolutions of UTP might impact the implementation of device reconnection. In particular, protocol stacking opens up the possibility of implementing the feature as a protocol. While this might make the implementation slightly more verbose (due to the boilerplate around implementing a protocol), it would provide the benefit of clearly separating device reconnection from the rest of UTP.
+Also, originally the feature entailed generating `Reconnecting` and `Reconnected` events when a reconnection respectively starts and completes. This was removed as it was deemed that it could cause confusion with future session reconnection events, and there was no use for these events. But if a use for these events is found (say improved re-synchronization of game state), then these events could be added back.
