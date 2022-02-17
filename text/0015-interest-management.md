@@ -48,6 +48,7 @@ There is one and only one `InterestManager` per `NetworkManager`.  It is defined
 * It maintains a list of `InterestNodes` which implement the 'schemes' described above
 * Via the `QueryFor()` method, it is the entry point for getting the "which objects for this client" answer.  It is designed such that, if a user does not implement any schemes it produces the same result as if there was no interest system (e.g. all clients get all objects)
 * It listens to all NGO object spawns / de-spawns so that it can tell associated the `InterestNodes` (see below) it manages about them.  Logic for this lives in `AddObject()` and `RemoveObject()`, which are linked to via `NetworkSpawnManager's`  `SpawnNetworkObjectLocally()` and `OnDespawnObject()` methods respectively
+* It also has an `UpdateObject` method.  This will trigger the `UpdateObject` method on each associated `InterestNode` (described below)
 
 ### 2. `IInterestNode` (interface)
 
@@ -186,7 +187,7 @@ Here, we have a `Radius` variable. Game code will set this after instantiation.
 
 The `InterestNodeStatic` calls `QueryFor` as the inner function as it iterates over its managed objects.  Then this kernel simply measures the distance between the object and the client.  When `true` is returned, the `InterestNodeStatic` caller will add that object to its results giving it the per-client-custom result of objects that are within a desired radius. 
 
-## Sample 1: Creating a custom storage arrangement
+## Sample 2: Creating a custom storage arrangement
 _Note, this example exists in the `InterestTests.cs` unit test file_
 
 Let's now imagine that we want to have an arrangement where a scheme as simple as in `InterestNodeStatic` isn't sufficient; that is, we want to customize the storage scheme.  Say we break the game playfield into a 100x100 grid (10,000 cells).  We would hope to have these characteristics:
@@ -276,6 +277,57 @@ With this in mind we can think about the analogues in the more realistic graph n
   * make a special `InterestedGraphNodeDormant` or other that has no `UpdateObject` body, and/or
   * in its own code simply know what objects never need to be updated and not call `UpdateObject` on them.
 
+## Sample 3: Using a Subtractive node
+
+Let's say you want to have scenario like this - you want the Interest system to return objects when they are within a certain radius, but not when they are "cloaked".  (this is the `SubtractiveTestBasic` test in the NGO tests)
+
+First, define a simple cloaked behavior.  Add this behaviour to the objects you wish to be cloak-able.
+
+```
+public class CloakedBehaviour : NetworkBehaviour
+{
+    public bool IsCloaked;
+
+    public void Awake()
+    {
+        IsCloaked = false;
+    }
+}
+```    
+
+Now, define a corresponding kernel.  This kernel simply returns true when there is a cloaked behavior and that behavior's cloak property is true
+
+```
+public class CloakedKernel : IInterestKernel<NetworkObject>
+{
+    public bool QueryFor(NetworkObject client, NetworkObject obj)
+    {
+        var cloakedBehaviour = obj.GetComponent<CloakedBehaviour>();
+        return cloakedBehaviour && cloakedBehaviour.IsCloaked;
+
+    }
+}
+```
+
+Now we define the node that will do the radius + cloak behavior.  
+```
+var theNode = new InterestNodeStatic<NetworkObject>();
+var radiusKernel = new RadiusInterestKernel(1.5f);
+theNode.AddAdditiveKernel(radiusKernel);
+var cloakKernel = new CloakedKernel();
+theNode.AddSubtractiveKernel(cloakKernel)
+```
+
+Lastly, just as we do with our other spawned objects, we associate them with this node at spawn time
+
+```
+var closeButCloaked  = // instantiate and network-spawn your game object
+closeButCloaked.gameObject.AddComponent<CloakedBehaviour>();
+closeButCloaked.gameObject.GetComponent<CloakedBehaviour>().IsCloaked = true;
+m_InterestManager.AddInterestNode(ref closeButCloaked, theNode)
+```
+
+Now, the Interest Manager will only return objects if they are within the given distance AND not cloaked.
 
 # FAQ
 
@@ -283,6 +335,9 @@ With this in mind we can think about the analogues in the more realistic graph n
 
 Let's imagine you're setting up your player's prefab.  Say you want players can see other players if they're some distance away using a dispatched / custom storage like the second example.  But let's say we also want to enable players to see other players who are on the same team, regardless of distance.  You could write a special `RadiusOrTeam` combination node that does both.  For better re-use, however, the system allows one to add more than one node; in this case you would have a `GraphInterestNode` *and* a `TeamInterestNode`.  Then, when the query happens on player prefabs the result from both nodes is merged
 
+## Why not allow users to express AND conditions between nodes (not just subtractive kernels within static nodes)?
+
+This is something we've considered and might add later.  One thing we want to be conscious of, however, is a desire to job-ify the (currently) embarrassingly parallel, decoupled node operations.  As soon as we link them together in this way we would need to have a much more complicated DAG traversal scheme to make this work
 
 # Prior art
 
