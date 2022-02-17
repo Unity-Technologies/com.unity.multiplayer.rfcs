@@ -1,7 +1,9 @@
-- Feature Name: `rpc-processing-hook`
-- Start Date: 2021-01-19
-- RFC PR: [RFC#6](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/6) & [RFC#10](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/10)
-- Issue: [MLAPI#477](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/issues/477)
+# RPC Processing Hook
+[feature]: #feature
+
+- Start Date: `2021-01-19`
+- RFC PR: [#6](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/6) & [#10](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/10)
+- SDK PR: [#413](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/pull/413)
 
 # Summary
 [summary]: #summary

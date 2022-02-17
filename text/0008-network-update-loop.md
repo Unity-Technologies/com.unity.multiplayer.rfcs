@@ -1,7 +1,9 @@
-- Feature Name: `network-update-loop`
-- Start Date: 2021-01-31
-- RFC PR: [RFC#8](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/8)
-- Issue: [MLAPI#479](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/issues/479)
+# Network Update Loop
+[feature]: #feature
+
+- Start Date: `2021-01-31`
+- RFC PR: [#8](https://github.com/Unity-Technologies/com.unity.multiplayer.rfcs/pull/8)
+- SDK PR: [#483](https://github.com/Unity-Technologies/com.unity.multiplayer.mlapi/pull/483)
 
 # Summary
 [summary]: #summary
