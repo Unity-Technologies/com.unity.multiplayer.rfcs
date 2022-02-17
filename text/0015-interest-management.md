@@ -5,12 +5,12 @@
 
 # Summary
 [summary]: #summary
-This RFC proposes an interest management system to help MLAPI support greater scale in games.  It is sometimes conceptualized as an 'AOI' (Area of Interest) system, but goes beyond that in also providing support for later elements such as prioritization.
+This RFC proposes an interest management system to help Netcode for Game Objects (NG) support greater scale in games.  It is sometimes conceptualized as an 'AOI' (Area of Interest) system.  For this RFC & the initial release, the Interest System performs user-defined culling of objects.  In later releases we intend to build on this support other replication customizations & support of prioritization.
 
 # Motivation
 [motivation]: #motivation
 
-In the existing MLAPI Interest system, every networked object (i.e. `NetworkedObject`) stores a list of all clients that can see that object (in the variable `observers`).  In the default case, every object stores a list of all connected clients.  This creates some scalability problems
+In the existing NGO Interest system, every networked object (i.e. `NetworkedObject`) stores a list of all clients that can see that object (in the variable `observers`).  In the default case, every object stores a list of all connected clients.  This creates some scalability problems
 
 * Every client has to be checked against every object
 * Storage: every object has to store a list of all clients
@@ -26,7 +26,9 @@ What we instead would like to achieve:
 * We want to minimize the computational per-frame work.  As the library walks through its connected clients, we want a system that will efficiently answer the question 'which objects should this connection see'
 * Therefore, we desire an interface that takes in a connection and returns the objects for that client
 * We want the way this question is answered to be user-extensible to support all kinds of different scenarios.  Domain decomposition / geometric / AOI is very common, but we also want developers to be able to come up with creative, game-specific **schemes** that have nothing to do with spatial relationships
-* We want the aforementioned schemes to be composable.  For instance, a user should be able to have both a AOI scheme and a "always synchronize players who are in the same cohort" scheme and have the results from each efficiently combine
+* A great way to think of each scheme is a combination of **storage** ("how will I manage the objects under my purview") and **computation** ("how will I process those objects to come up with a final result").
+* We want the aforementioned schemes to be composable.  For instance, a user should be able to have both a "distance" scheme and a "always synchronize players who are in the same cohort" scheme and have the results from each efficiently combine, yet in such a way that they don't have to write a specialized "distance + cohort" scheme
+* We want to make it easy for users to do both additive and subtractive computation.  So if a user wants a "show objects if they are close enough but not cloaked" this too should be writeable with 2 modules configured in a simple way, not having to write one "close but not cloaked" scheme 
 * Each scheme should be free to decide how to implement relationships; so long as the scheme can take in a client and return a set of objects it should be free to come up with that answer using whatever storage and computation it wants
 * Each scheme can therefore decide at what cadence it does its work.  A scheme can choose to dynamically come up with an answer every frame.  Or, it could return cached results each time except every 30th frame.
 * We also want a means for code outside the scheme to be able to trigger an update.  That is, there are times when it's best for the scheme itself to know when it's time to do things like the cache/compute decision, but then there are other times when game code outside the Interest System knows better that it's time for the scheme to adjust itself
@@ -45,30 +47,34 @@ There is one and only one `InterestManager` per `NetworkManager`.  It is defined
 
 * It maintains a list of `InterestNodes` which implement the 'schemes' described above
 * Via the `QueryFor()` method, it is the entry point for getting the "which objects for this client" answer.  It is designed such that, if a user does not implement any schemes it produces the same result as if there was no interest system (e.g. all clients get all objects)
-* It listens to all MLAPI object spawns / de-spawns so that it can tell associated the `InterestNodes` (see below) it manages about them.  Logic for this lives in `AddObject()` and `RemoveObject()`, which are linked to via `NetworkSpawnManager's`  `SpawnNetworkObjectLocally()` and `OnDespawnObject()` methods respectively
+* It listens to all NGO object spawns / de-spawns so that it can tell associated the `InterestNodes` (see below) it manages about them.  Logic for this lives in `AddObject()` and `RemoveObject()`, which are linked to via `NetworkSpawnManager's`  `SpawnNetworkObjectLocally()` and `OnDespawnObject()` methods respectively
+* It also has an `UpdateObject` method.  This will trigger the `UpdateObject` method on each associated `InterestNode` (described below)
 
-### 2. `InterestNode` (abstract class, scriptable object)
+### 2. `IInterestNode` (interface)
 
-The core interest scheme functionality happens here in derivations of `InterestNode`  Its jobs are to:
+The core interest scheme functionality happens here in implementations of `IInterestNode`  Its jobs are to:
 
 * return its results in for the per-connection queries that come in from the `InterestManager`
 * respond to `AddObject` / `RemoveObject` from `InterestManager`.  How it responds to this is totally up to the node, as illustrated in examples below
-* respond to `UpdateObject` calls when came code wants to make specific triggers to the node
-* Multiple `InterestNode`s can be instantiated of the same kind with different settings.  For instance, one could define a Radius-based node with a value of 10 for shotgun shell casings (only interesting if you're very close by) but 100 for rockets.
+* respond to `UpdateObject` calls when came code wants to trigger it to re-compute how it stores the given object
+* allow the adding of one or more `IInterestKernels`.  These are simple functions that will be called in succession in the `QueryFor` call.  There are 2 flavors, 
+   * `AddAdditiveKernel` - add a kernel which, when it returns true, adds the object being checked to the results
+   * `AddSubtractiveKernel` - add a kernel which, when it returns true, removes the object being checked from the results
+   
 
-#### 2A. `InterestNodeStatic` (derived from `InterestNode`)
-This is a special verson of `InterestNode` that adds 2 special capabilities
+#### 2A. `InterestNodeStatic` (derived from `IInterestNode`)
+This is a special verson of `IInterestNode`.  It is designed to make getting started easy, but also is likely to be used within custom nodes.  It adds 2 special capabilities:
 
-* It has bulit-in storage for the objects it manages.  That is, implements `AddObject` / `RemoveObject` for you and stores / removes the corresponding object in its own store.  As we will see later, if you want to devise your own storage means (e.g. for a graph-based node) instead override the `InterestNode`
-* It has a framework for adding one or more `InterestKernels`.  These are simple functions that will be called in succession in the `QueryFor` call.  If no `InterestKernels` are implemented, then all the nodes that have been added (and not removed) are returned in the query.
-   * one might wonder "why the separation between `InterestNode`s and `InterestKernels`?"  Consider the classic case where, for a given prefab we want to consider it relevant if it is within a given radius **OR** on the same team as the querying connection's object.  If we implemented this with 2 `InterestNodes` both associated with the prefab, then the storage for both `InterestNodes` would be unnecessarily duplicated - both nodes would be tracking all the same objects that came in via `AddObject` / `RemoveObject`.  By keeping the kernels separate from the storage we can have the same storage shared with any number of kernels
-   * one might wonder, why not also have `InterestKernels` in non-`InterestNodeStatic` nodes?  They too will have some kind of kernel running.  And the answer (currently) is that, in practice, these non-`InterestModeStatic` nodes should work as a dispatch (e.g. a Graph node that dispatches to the correct graph cell - which itself should be a `InterestNodeStatic` node - example shown later).
+* It has bulit-in storage for the objects it manages.  That is, implements `AddObject` / `RemoveObject` for you and stores / removes the corresponding object in its own store.  As we will see later, if you want to devise your own storage means (e.g. for a graph-based node) one would override this part as you implement your own subclass of `InterestNode`
+* It implents the `AddAdditiveKernel` / `AddSubtractiveKernel` interfaces, and then calls them in succession in the `QueryFor` function.  If no `InterestKernels` are implemented, then all the nodes that have been added (and not removed) are returned in the query.
+   * One might wonder "why the separation between `InterestNode`s and `InterestKernels`?"  The easiest way to think of this is, `InterestNode`s implement how the managed objects are **stored**, while `InterestKernel`s allow you to define the **computation**.
+   
+      * Consider the classic case where, for a given prefab we want to consider it relevant if it is within a given radius **OR** on the same team as the querying connection's object.  If we implemented this with 2 `InterestNodes` both associated with the prefab, then the storage for both `InterestNodes` would be unnecessarily duplicated - both nodes would be tracking all the same objects that came in via `AddObject` / `RemoveObject`.  By keeping the kernels separate from the storage we can have the same storage shared with any number of kernels
 
-### 3. `InterestKernel` (scriptable object)
-As described above, this is where the user expresses the computation that happens in a `InterestNodeStatic` node.  It is a class (so that it can be Scriptable Object-instantiated) with one function to override, `QueryFor`, which takes in the `NetworkClient` and object under consideration and returns the answer in the same hashset format as the other queries.
+   * Note that while there is an interface on `IInterestNode` for adding and removing kernels, in practice, these non-`InterestModeStatic` nodes tend to work as a dispatch to other nodes, which themselves seem to want to be `InterestNodeStatic` nodes (e.g. a Graph node that dispatches to the correct graph cell - which itself should be a `InterestNodeStatic` node - example shown later).
 
-### 4. `InterestSettings`
-This is the least-developed component and doesn't have any settings in it as of this writing, but it is a placeholder for per-`InteresNode` settings that are not specific to any particular `InterestNode`.  For later when prioritization is added this is where we can place data that prioritization system uses when considering results from this node.
+### 3. `IInterestKernel`
+As described above, this is where the user expresses the computation that happens in a `InterestNodeStatic` node.  It is an interface with one function to override, `QueryFor`, which takes in one object representing the current player being checked against and another object to check against.  It returns true if it should be added and vice versa.
 
 ## Integration Points
 Apart from the spawn / de-spawn connections mentioned above, the `InterestManager` integrates with the rest of the library in 2 places:
@@ -79,92 +85,107 @@ Apart from the spawn / de-spawn connections mentioned above, the `InterestManage
 
 ## Sample 1: Creating a Radius-based Node 
 
-Let's walk through a sample.  We will establish a node, then a kernel, then associate the kernel with the node and the node with a prefab.  For context while we're here, let's just look at an abbreviated version of the code for `InterestNodeStatic`:
+Let's walk through a sample.  We will establish a node, then a kernel, then associate the kernel with the node and the node with a prefab.  For context while we're here, let's just look at an abbreviated version of the code for the included `InterestNodeStatic`:
+
+(Note, the Interest System uses generic types; it actually does not depend on NGO per se.)
 
 ```
-public class InterestNodeStatic : InterestNode
+public class InterestNodeStatic<TObject> : IInterestNode<TObject>
 {
-    public List<InterestKernel> InterestKernels = new List<InterestKernel>();
+        // these are the objects under my purview
+        private HashSet<TObject> m_ManagedObjects;
 
-    // these are the objects under my purview
-    protected HashSet<NetworkObject> ManagedObjects;
+        // these are the interest kernels that we will 
+        //  run on the objects under my purview
+        private List<Tuple<bool, IInterestKernel<TObject>>> m_InterestKernels;
 
-    public override void AddObject(in NetworkObject obj)
-    {
-        ManagedObjects.Add(obj);
-    }
+        // these are the result sets that correspond to each of the 
+        //  kernels I'll run. they are then reduced
+        private List<HashSet<TObject>> m_ResultSets;
 
-    public override void RemoveObject(in NetworkObject obj)
-    {
-        ManagedObjects.Remove(obj);
-    }
+        public void AddObject(TObject obj) { m_ManagedObjects.Add(obj); }
 
-    public override void QueryFor(in NetworkClient client, HashSet<NetworkObject> results)
-    {
-        if (InterestKernels.Count > 0)
+        public void RemoveObject(TObject obj) { m_ManagedObjects.Remove(obj); }
+
+        public void QueryFor(TObject client, HashSet<TObject> results)
         {
-            foreach (var obj in ManagedObjects)
+            if (m_InterestKernels.Count > 0)
             {
-                foreach (var ik in InterestKernels)
+                // run all the kernels.  We don't care whether they are additive or
+                //  subtractive...yet
+                for (var i = 0; i < m_InterestKernels.Count; i++)
                 {
-                    ik.QueryFor(client, obj, results);
+                    var thisKernel = m_InterestKernels[i].Item2;
+                    var theseResults = m_ResultSets[i];
+                    theseResults.Clear();
+                    foreach (var obj in m_ManagedObjects)
+                    {
+                        if (thisKernel.QueryFor(client, obj))
+                        {
+                            theseResults.Add(obj);
+                        }
+                    }
+                }
+                // reduce.  Note, order is important to support subtractive result
+                for (var i = 0; i < m_InterestKernels.Count; i++)
+                {
+                    // additive
+                    if (m_InterestKernels[i].Item1)
+                    {
+                        results.UnionWith(m_ResultSets[i]);
+                    }
+                    // subtractive
+                    else
+                    {
+                        results.ExceptWith(m_ResultSets[i]);
+                    }
                 }
             }
+            else
+            {
+                results.UnionWith(m_ManagedObjects);
+            }
         }
-        else
+
+        public void AddAdditiveKernel(IInterestKernel<TObject> kernel)
         {
-            results.UnionWith(ManagedObjects);
+            m_ResultSets.Add(new HashSet<TObject>());
+            m_InterestKernels.Add(new Tuple<bool, IInterestKernel<TObject>>(true, kernel));
+        }
+
+        public void AddSubtractiveKernel(IInterestKernel<TObject> kernel)
+        {
+            m_ResultSets.Add(new HashSet<TObject>());
+            m_InterestKernels.Add(new Tuple<bool, IInterestKernel<TObject>>(false, kernel));
+        }
+
+        public void UpdateObject(TObject obj)
+        {
         }
     }
-}
 ```
 
-As we described earlier, this node maintains its own storage for the objects it tracks (`ManagedObjects`).  When it is told one of its associated objects is added, it simply adds it to its storage and vice versa when an object is going to be deleted.  At query time, if we have no kernels we simply merge the results passed in from the other clients with all the objects we manage and do no other computation.  Otherwise we invoke our kernel(s) and merge in those results.
+As we described earlier, this node maintains its own storage for the objects it tracks (`m_ManagedObjects`).  When it is told one of its associated objects is added, it simply adds it to its storage and vice versa when an object is going to be deleted.  At query time, if we have no kernels we simply merge the results passed in from the other clients with all the objects we manage and do no other computation.  Otherwise we invoke our kernel(s) and merge in those results.
 
 A default instance of this node, by the way, is instantiated in the `NetworkingManager` and is where objects go that have no associated `InterestNodes`.
 
 Now let's author the `RadiusInterestKernel`.  Actually, this file is included but let's look at its implementation:
 
 ```
-public class RadiusInterestKernel : InterestKernel
+public class RadiusInterestKernel : IInterestKernel<NetworkObject>
 {
     public float Radius = 0.0f;
-    public override void QueryFor(in NetworkClient client, in NetworkObject obj, HashSet<NetworkObject> results)
+
+    public bool QueryFor(NetworkObject clientNetworkObject, NetworkObject obj)
     {
-        if (Vector3.Distance(obj.transform.position, client.PlayerObject.transform.position) <= Radius)
-        {
-            results.Add(obj.GetComponent<NetworkObject>());
-        }
+        return Vector3.Distance(obj.transform.position, 
+            clientNetworkObject.gameObject.transform.position) <= Radius;
     }
-}
+}    
 ```
-Here, we have a `Radius` variable.  When we instantiate this kernel as a scriptable object we then can enter in the desired radius _for this instance_.  
+Here, we have a `Radius` variable. Game code will set this after instantiation. 
 
-The `InterestNodeStatic` calls `QueryFor` as the inner function as it iterates over its managed objects.  Then this kernel simply measures the distance between the object and the client.  The results then have the per-client-custom result of objects that are within a desired radius. 
-
-**Note**: `InterestKernels` are implemented as `ScriptableObjects`.  This allows the user to create multiple instances of them in the editor but with different parameters (e.g. a different radius for each).  More on that as we go through the example.
-
-## How the `InterestNode`, `InterestManager`, `InterestKernels` and Prefabs relate & connect
-
-Ok, now that we have the node and the kernel, let's see how they associate with objects in the actual game.  
-
-1. As nodes are `ScriptableObjects`, the first step is to create the Nodes in the editor.  In this case, you would do *Assets->Create->Interest->Nodes->Static*.  Now we have a blank node.  Note, other user-defined nodes would appear hear if they are annotated with the corresponding `CreateAssetMenu`.
-
-![](0015-interest-management/createStatic.png)
-
-2. Now let's instantiate a `InterestRadiusKernel`:  *Assets->Create->Interest->Kernels->Radius*.  Then click on this newly created Radius node in the inspector and configure its radius, say, to **3**.
-
-![](0015-interest-management/createRadiusKernel.png)
-
-3. Now we need to associate this node from step 1 with a prefab that has a `NetworkObject` element.  We drag this `InterestNode` into the `InterestNodes` section.  Now, any time this prefab is instantiated it will be associated with this node.  Note, you can associcate a prefab with more than one `InterestNode`.  This may seen unnecessary since a node can have more than one kernel.  On the other hand, you might want to have a combination of one node that is a `InterestNodeStatic` with 1 or more kernels AND a custom `InterestNode` with its own storage.
-
-![](0015-interest-management/prefabInspector.png)
-
-Now that we understand how `InterestNodes` register with prefabs, we can understand how the `InterestManager` can deal with them.  When the `InterestManager's` `AddObject()` method is called, it looks to see which `InterestNodes` are associated with the object being spawned.  If none are associated, then it goes into the default `m_DefaultInterestNode` node mentioned earlier; that is, if you don't register a prefab with an `InterestNode` then it will always be relevant to all connections.  However if there is one or more `InterestNodes`, then:
-
-1. The `InterestNodes` are told about the added object, and
-2. The `InterestManager` adds this new `InterestNode` to its children
-
+The `InterestNodeStatic` calls `QueryFor` as the inner function as it iterates over its managed objects.  Then this kernel simply measures the distance between the object and the client.  When `true` is returned, the `InterestNodeStatic` caller will add that object to its results giving it the per-client-custom result of objects that are within a desired radius. 
 
 ## Sample 2: Creating a custom storage arrangement
 _Note, this example exists in the `InterestTests.cs` unit test file_
@@ -179,35 +200,57 @@ Without building a full on graph system, we'll use a little bit of imagination a
 As before let's start with our node, `OddssEvensNode`, which implements `InterestNode`.  Let's look at the methods gradually
 
 ```
-public class OddsEvensNode : InterestNode
+public class OddsEvensNode : IInterestNode<NetworkObject>
 {
-        private InterestNodeStatic m_Odds;
-        private InterestNodeStatic m_Evens;
-        
-        public override void AddObject(in NetworkObject obj)
-        {
-            if (obj.NetworkObjectId % 2 == 0)    m_Evens.AddObject(obj);
-            else                                 m_Odds.AddObject(obj);
-        }
+    public OddsEvensNode()
+    {
+        m_Odds = new InterestNodeStatic<NetworkObject>();
+        m_Evens = new InterestNodeStatic<NetworkObject>();
+    }
 
-        public override void RemoveObject(in NetworkObject obj)
-        {
-            if (obj.NetworkObjectId % 2 == 0)    m_Evens.RemoveObject(obj);
-            else                                 m_Odds.RemoveObject(obj);
-        }
-        // ...
+    public void AddObject(NetworkObject obj)
+    {
+        if (obj.NetworkObjectId % 2 == 0)
+            m_Evens.AddObject(obj);
+        else
+            m_Odds.AddObject(obj);
+    }
+
+    public void RemoveObject(NetworkObject obj)
+    {
+        if (obj.NetworkObjectId % 2 == 0)
+            m_Evens.RemoveObject(obj);
+        else
+            m_Odds.RemoveObject(obj);
+    }
+
+    public void UpdateObject(NetworkObject obj)
+    {
+        m_Odds.RemoveObject(obj);
+        m_Evens.RemoveObject(obj);
+        AddObject(obj);
+    }
+
+    private InterestNodeStatic<NetworkObject> m_Odds;
+    private InterestNodeStatic<NetworkObject> m_Evens;
+        
 ```
-Here we see that the node implements its two 'buckets' as 2 `InterestStaticNodes`.  The analog in a grid example is where `m_Evens` and `m_Odds` would be cells in the grid.
+Here we see that the node implements its two 'buckets' as 2 `InterestNodeStatic`'s.  The analog in a grid example is where `m_Evens` and `m_Odds` would be cells in the grid.
 
 Remember, in their default form (with no kernels) these nodes simply store and return the objects they manage.  As you can see, we just look at the object to be added / removed and place it into / remove it from the correct bucket; again, the analogy with a grid would be we are placing those objects in the right (initial) grid spot.  Now let's look how this serves to make queries efficient:
 
 ```
-        public override void QueryFor(in NetworkClient client, HashSet<NetworkObject> results)
-        {
-            // if a client with an odd NetworkObjectID queries, we return objects with odd NetworkObjectIDs
-            if (client.PlayerObject.NetworkObjectId % 2 == 0)  m_Evens.QueryFor(client, results);
-            else                                               m_Odds.QueryFor(client, results);
-        }
+public void QueryFor(NetworkObject client, HashSet<NetworkObject> results)
+{
+    // if a client with an odd NetworkObjectID queries, 
+    //  we return objects with odd NetworkObjectIDs
+    var networkObject = client.GetComponent<NetworkObject>();
+
+    if (networkObject.NetworkObjectId % 2 == 0)
+        m_Evens.QueryFor(client, results);
+    else
+        m_Odds.QueryFor(client, results);
+}
 ```
 
 Now at query time, we are - with no calculation - returing the appropriate results - the odd entries are returned when queried by an odd client and vice versa.  Compare this to the radius example where each query we needed to do a per-object radius calculation.  
@@ -217,11 +260,12 @@ One running theme here is to give the users the ability to strategize about how 
 But now let's say the network id of objects *can* change, however it's infrequent.  What's more, the game code knows when this happens to which object.  We can implement that simply with the `UpdateObject` method
 
 ```
-        public override void UpdateObject(in NetworkObject obj)
-        {
-            RemoveObject(obj);
-            AddObject(obj);
-        }
+public void UpdateObject(NetworkObject obj)
+{
+    m_Odds.RemoveObject(obj);
+    m_Evens.RemoveObject(obj);
+    AddObject(obj);
+}
 ```
 
 Here, the game code can call into the node itself and pass in the changed object.  Here we chose to simply remove it from itself and re-add it, letting the standard processing to determine which bucket it goes in take place.
@@ -233,17 +277,67 @@ With this in mind we can think about the analogues in the more realistic graph n
   * make a special `InterestedGraphNodeDormant` or other that has no `UpdateObject` body, and/or
   * in its own code simply know what objects never need to be updated and not call `UpdateObject` on them.
 
+## Sample 3: Using a Subtractive node
+
+Let's say you want to have scenario like this - you want the Interest system to return objects when they are within a certain radius, but not when they are "cloaked".  (this is the `SubtractiveTestBasic` test in the NGO tests)
+
+First, define a simple cloaked behavior.  Add this behaviour to the objects you wish to be cloak-able.
+
+```
+public class CloakedBehaviour : NetworkBehaviour
+{
+    public bool IsCloaked;
+
+    public void Awake()
+    {
+        IsCloaked = false;
+    }
+}
+```    
+
+Now, define a corresponding kernel.  This kernel simply returns true when there is a cloaked behavior and that behavior's cloak property is true
+
+```
+public class CloakedKernel : IInterestKernel<NetworkObject>
+{
+    public bool QueryFor(NetworkObject client, NetworkObject obj)
+    {
+        var cloakedBehaviour = obj.GetComponent<CloakedBehaviour>();
+        return cloakedBehaviour && cloakedBehaviour.IsCloaked;
+
+    }
+}
+```
+
+Now we define the node that will do the radius + cloak behavior.  
+```
+var theNode = new InterestNodeStatic<NetworkObject>();
+var radiusKernel = new RadiusInterestKernel(1.5f);
+theNode.AddAdditiveKernel(radiusKernel);
+var cloakKernel = new CloakedKernel();
+theNode.AddSubtractiveKernel(cloakKernel)
+```
+
+Lastly, just as we do with our other spawned objects, we associate them with this node at spawn time
+
+```
+var closeButCloaked  = // instantiate and network-spawn your game object
+closeButCloaked.gameObject.AddComponent<CloakedBehaviour>();
+closeButCloaked.gameObject.GetComponent<CloakedBehaviour>().IsCloaked = true;
+m_InterestManager.AddInterestNode(ref closeButCloaked, theNode)
+```
+
+Now, the Interest Manager will only return objects if they are within the given distance AND not cloaked.
 
 # FAQ
 
-## Why can one associate more than one `InterestNode` with a prefab?
+## Why can an object have more than one `InterestNode`?
 
 Let's imagine you're setting up your player's prefab.  Say you want players can see other players if they're some distance away using a dispatched / custom storage like the second example.  But let's say we also want to enable players to see other players who are on the same team, regardless of distance.  You could write a special `RadiusOrTeam` combination node that does both.  For better re-use, however, the system allows one to add more than one node; in this case you would have a `GraphInterestNode` *and* a `TeamInterestNode`.  Then, when the query happens on player prefabs the result from both nodes is merged
 
+## Why not allow users to express AND conditions between nodes (not just subtractive kernels within static nodes)?
 
-
-# Drawbacks
-- The U/X is a bit cumbersome in the `InterestNodeStatic` case in that you must create a node, then create the kernel and then associate both to the prefab
+This is something we've considered and might add later.  One thing we want to be conscious of, however, is a desire to job-ify the (currently) embarrassingly parallel, decoupled node operations.  As soon as we link them together in this way we would need to have a much more complicated DAG traversal scheme to make this work
 
 # Prior art
 
